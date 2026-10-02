@@ -1,0 +1,16 @@
+name: sdlc-gate
+on:
+  pull_request:
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Lane evidence check (fail-closed)
+        run: |
+          python3 scripts/evidence_check.py --lane Standard --ci
+# Mark this check required in branch protection before it blocks merges.
+# The check verifies evidence exists, never that it is good.
