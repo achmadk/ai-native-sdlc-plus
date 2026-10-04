@@ -1,24 +1,29 @@
-## Trace block (paste into PR, lane-sized)
+## Trace
+
+<!--
+Paste into the PR description. The heading must stay "## Trace". Fields are sized by lane:
+  Lite: Change, Why, Risk accepted
+  Standard: add Alternatives rejected and Test evidence
+  Critical: same, and Threat note and Rollout plan are their OWN "##" sections in the PR, not fields here
+Compose from work already written: link to the spec and the review, do not retype.
+Never paste secrets, tokens or personal data. Editing this description later does not reliably remove a leaked secret: rotate it.
+-->
 
 ### Change
-<!-- one line: what shipped -->
+<!-- One line: what shipped. -->
 
 ### Why
-<!-- intent link or one sentence; Lite stops here plus Risk below -->
+<!-- Link to the intent or spec, or one sentence. -->
 
 ### Alternatives rejected
-<!-- Standard and Critical only -->
+<!-- Standard and Critical. Each option and the reason it lost. -->
 
 ### Test evidence
-<!-- red-to-green output or link; Standard and Critical -->
-
-### Threat / rollout
-<!-- Critical only: threat note link + staged rollout + rollback plan -->
+<!-- Standard and Critical. Paste the output of redgreen.py, or link the CI run. -->
 
 ### Risk accepted
-<!-- one line -->
+<!-- One line: what could still go wrong, and who accepted it. -->
 
 ### Provenance
-<!-- model, tool, date; mark agent vs human hunks -->
-
-Redact secrets and personal data before merging.
+<!-- - tool: NAME | model: ID | date: YYYY-MM-DD | agent-written: paths or "all" | human-written: paths or "none"
+     Say "unknown" rather than guess. -->

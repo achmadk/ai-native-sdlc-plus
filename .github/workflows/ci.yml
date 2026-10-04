@@ -1,0 +1,42 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: "3.8"}
+          - {os: ubuntu-latest, python: "3.10"}
+          - {os: ubuntu-latest, python: "3.12"}
+          - {os: ubuntu-latest, python: "3.13"}
+          - {os: macos-latest, python: "3.12"}
+    steps:
+      - uses: actions/checkout@v6        # TODO: pin to a full commit SHA
+      - uses: actions/setup-python@v7    # TODO: pin to a full commit SHA
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -v
+
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6        # TODO: pin
+      - uses: actions/setup-python@v7    # TODO: pin
+        with:
+          python-version: "3.12"
+      - run: python tests/mutate.py      # fails if a non-equivalent mutant survives
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6        # TODO: pin
+      - run: shellcheck install.sh hooks/pre-push hooks/pre-push.sh

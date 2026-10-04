@@ -1,37 +1,52 @@
-# Lane rules v1. First match wins. Ambiguous or malformed input escalates, never Lite.
+# Lane rules. Schema version 1. lane.py rejects unknown keys and wrong versions
+# on purpose: a typo here must fail loudly, not silently downgrade a lane.
+#
+# Matching: the HIGHEST lane of any changed path wins. A path that matches no
+# rule is Standard. Lite therefore means "every path matched a Lite rule".
+# Glob: * and ? stay inside one path segment, ** crosses segments.
+#   - no "/" in the pattern  -> matches that name at any depth   (Dockerfile, *.lock)
+#   - a "/" in the pattern   -> anchored at the repo root        (src/**, **/*.md)
+# Critical rules match case-insensitively (fail safe).
+# Always Critical, regardless of this file (see BUILTIN_CRITICAL in lane.py):
+#   scripts/lane.py, scripts/evidence_check.py, scripts/lane-config.yaml,
+#   scripts/doctor.py, .github/workflows/**, CODEOWNERS, hooks/**
 version: 1
-critical:
+
+critical:            # CALIBRATE on your first repo; track how often this fires
   - "auth/**"
-  - "**/auth*/**"
-  - "**/*auth*"
-  - "payments/**"
-  - "**/payment*/**"
-  - "**/billing*/**"
-  - "migrations/**"
-  - "**/migrate*/**"
+  - "**/migrations/**"
   - "infra/**"
-  - "**/terraform*/**"
-  - "**/.github/workflows/**"
-  - "security/**"
-  - "**/secrets*/**"
-  - "**/*secret*"
-  - "**/crypto*/**"
+  - "skills/*/SKILL.md"      # skill instructions are behaviour, not prose
+  - "skills/*/scripts/**"
+
 standard:
   - "src/**"
-  - "lib/**"
-  - "app/**"
   - "skills/**"
-  - "scripts/**"
-  - "**/*.py"
-  - "**/*.ts"
-  - "**/*.js"
-  - "**/*.go"
-  - "**/*.rs"
+  - "adapters/**"
+  - "evals/**"
+
 lite:
   - "docs/**"
-  - "**/*.md"
-  - "**/*.txt"
-  - "**.cfg"
-  - "**.ini"
-  - "**.yaml"
-  - "**.yml"
+  - "README.md"
+  - "CHANGELOG.md"
+  - "**/*.lock"
+
+# Optional. Paths that count as tests for the test_changes evidence.
+tests:
+  - "test"
+  - "tests"
+  - "__tests__"
+  - "*_test.*"
+  - "test_*.*"
+  - "*.test.*"
+  - "*.spec.*"
+  - "evals/**"
+
+# Optional. Changes touching ONLY these paths (Lite/Standard) need no test evidence.
+# Do not add *.md here if Markdown is behaviour in your repo (e.g. SKILL.md).
+non_executable:
+  - "docs/**"
+  - "LICENSE"
+  - "CHANGELOG.md"
+  - "README.md"
+  - ".gitignore"

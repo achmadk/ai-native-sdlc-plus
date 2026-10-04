@@ -1,0 +1,7 @@
+#!/bin/sh
+# sdlc-pre-push (dispatcher)
+# Git runs a hook only if it is named exactly "pre-push", with no extension. This file exists so that
+#   git config core.hooksPath hooks
+# works; it forwards to pre-push.sh next to it. It never blocks a push, even if the target is missing.
+sh "$(dirname "$0")/pre-push.sh" "$@"
+exit 0

@@ -1,16 +1,59 @@
 name: sdlc-gate
+
+# Evidence is read from the PR description, so re-check when it is edited.
+# NOTE: "Re-run jobs" reuses the ORIGINAL event payload (stale PR body).
+# After editing the description, a new run starts automatically; use that one.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdlc-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   evidence:
+    name: evidence
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v7
+      # Gate tooling and lane config come from the BASE branch, so a PR cannot
+      # weaken the gate that is judging it. (Bootstrap: the first PR that adds
+      # the gate has no base copy; commit the tooling to the default branch first.)
+      - name: Checkout trusted tooling (base)
+        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
         with:
-          python-version: "3.12"
-      - name: Lane evidence check (fail-closed)
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+
+      # Full history: the diff needs the merge base. A shallow clone breaks it.
+      - name: Checkout change under review (head)
+        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: change
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check lane evidence (fail-closed)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 scripts/evidence_check.py --lane Standard --ci
-# Mark this check required in branch protection before it blocks merges.
-# The check verifies evidence exists, never that it is good.
+          python3 trusted/scripts/evidence_check.py --ci \
+            --config trusted/scripts/lane-config.yaml \
+            --repo-root change \
+            --base="$BASE_SHA" --head="$HEAD_SHA" \
+            --event-path "$GITHUB_EVENT_PATH"
+
+# Branch protection: mark the status check named "evidence" (this job's name; the PR UI may
+# display it as "sdlc-gate / evidence") as required, pinned to the GitHub Actions app, in branch
+# protection or a ruleset. Prove it: python3 scripts/doctor.py --check-branch-protection
+# Also put .github/workflows/ and scripts/ under CODEOWNERS and require code-owner review: with the
+# pull_request event the workflow file itself comes from the PR, so only owner review (or an org-level
+# required-workflow ruleset, where your plan supports it) protects the workflow from being edited away.
+# The check verifies evidence exists and is structurally real, never that it is good.
