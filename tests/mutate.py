@@ -225,7 +225,8 @@ def try_mutant(number, mutant):
     rel, old, new, is_equiv = mutant
     tree = tempfile.mkdtemp()
     try:
-        shutil.copytree(ROOT, tree, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", ".git"))
+        shutil.copytree(ROOT, tree, dirs_exist_ok=True, symlinks=True, ignore_dangling_symlinks=True,
+                        ignore=shutil.ignore_patterns("__pycache__", ".git", ".codegraph", ".omo", "*.pyc"))
         path = os.path.join(tree, rel)
         with open(path) as handle:
             source = handle.read()

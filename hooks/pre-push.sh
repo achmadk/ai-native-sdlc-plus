@@ -37,6 +37,7 @@ fi
 default_branch=${default_ref#origin/}
 
 # Children get </dev/null: anything that reads stdin inside this loop would eat the remaining refs.
+# shellcheck disable=SC2034
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$local_ref" in refs/heads/*) ;; *) continue ;; esac   # branches only; skip tags and the rest
   zeros "$local_sha" && continue                                # branch deletion

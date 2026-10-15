@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.codegraph
+.omo/
+opencode_session.txt
+prompt.md
