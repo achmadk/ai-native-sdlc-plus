@@ -1,0 +1,28 @@
+# GitLab CI pipeline for AI-native SDLC Evidence Gate
+# Include in your .gitlab-ci.yml or copy as the evidence check stage.
+# Requires: Python >= 3.8, git, POSIX shell. Full history enabled.
+
+stages:
+  - gate
+
+sdlc-evidence-check:
+  stage: gate
+  image: python:3.12-slim
+  variables:
+    GIT_DEPTH: 0  # Full history is required to compute merge-base diff
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git tar
+  script:
+    - |
+      # Write MR description to temporary file
+      PR_BODY=$(mktemp)
+      printf '%s\n' "$CI_MERGE_REQUEST_DESCRIPTION" > "$PR_BODY"
+      
+      export SDLC_BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_MERGE_REQUEST_TARGET_BRANCH_SHA}"
+      export SDLC_HEAD="$CI_COMMIT_SHA"
+      export SDLC_PR_BODY_FILE="$PR_BODY"
+      
+      sh skills/ai-sdlc/assets/ci-generic.sh
+      rm -f "$PR_BODY"

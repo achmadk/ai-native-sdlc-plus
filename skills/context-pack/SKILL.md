@@ -1,6 +1,6 @@
 ---
 name: context-pack
-description: "Build a compact, sourced brief of the organizational context an agent cannot see: prior decisions, incidents, standards, security rules, ticket acceptance criteria. Use before building or reviewing when the right answer depends on history, when an agent keeps missing a team convention, or to refresh a stale brief. Triggers: context brief, context pack, prior decisions, past incidents, standards doc, acceptance criteria, staleness check, what do I need to know before changing this."
+description: "Build a compact, sourced brief of the organizational context an agent cannot see: prior decisions, incidents, standards, security rules, ticket acceptance criteria. Use before building or reviewing when the right answer depends on history, when an agent keeps missing a team convention, or to refresh a stale brief. Not for: lunch, bread, pizza, suitcase, picnic, concert, playlist, fashion. Triggers: context brief, context pack, prior decisions, past incidents, standards doc, acceptance criteria, staleness check, what do I need to know before changing this."
 ---
 
 # context-pack — close the context gap

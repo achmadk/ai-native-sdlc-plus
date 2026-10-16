@@ -1,0 +1,12 @@
+---
+description: "AI-native SDLC lane routing and evidence rules"
+globs: ["*"]
+alwaysApply: true
+---
+
+# AI-native SDLC Rules
+
+- Classify diff before writing code: `python3 scripts/lane.py --paths <files>`
+- Ensure tests fail on base and pass on head: `python3 skills/verify-and-evals/scripts/redgreen.py`
+- Populate PR descriptions with required lane evidence (`## Intent`, `## Trace`, `## Review notes`).
+- Never bypass pre-push checks or commit broken symlinks.

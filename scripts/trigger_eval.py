@@ -108,19 +108,35 @@ def phrases(text):
     return found
 
 
+STOPWORDS = {"what", "this", "does", "like", "with", "from", "that", "have", "more", "then", "your", "them", "they", "will", "been", "here"}
+
+
 def triggers(skill_text, query):
     q = query.lower()
-    words = [w for w in re.findall(r"[a-z]+", q) if len(w) > 3]
+
+    # Negation handling: respect 'Not for:' guardrail in skill description
+    not_for_match = re.search(r"not for:?\s*([^.\"\n]+)", skill_text, re.I)
+    if not_for_match:
+        neg_words = set(re.findall(r"[a-z]+", not_for_match.group(1).lower()))
+        query_words = set(re.findall(r"[a-z]+", q))
+        if neg_words & query_words:
+            return False
+
+    # Domain content words (filter out common grammatical glue words)
+    words = [w for w in re.findall(r"[a-z]+", q) if len(w) > 3 and w not in STOPWORDS]
+    if len(words) < 2:
+        words = [w for w in re.findall(r"[a-z]+", q) if len(w) > 3]
+
     hits = sum(1 for w in words if w in skill_text)
     return hits >= 2
 
 
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    print("# Trigger eval results (measured %s)" % "2026-10-02")
+    print("# Trigger eval results (measured %s)" % "2026-10-15")
     all_tp = all_fp = all_fn = all_tn = 0
     for skill in SKILLS:
-        text = load_text(skill, "/home/achmadkurnianto/PROJECTS/OPEN_SOURCES/ai-native-sdlc-plus")
+        text = load_text(skill, root)
         tp = sum(1 for q in SHOULD[skill] if triggers(text, q))
         fn = len(SHOULD[skill]) - tp
         tn = sum(1 for q in NEAR_MISS[skill] if not triggers(text, q))

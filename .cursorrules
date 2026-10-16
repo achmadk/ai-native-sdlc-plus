@@ -1,0 +1,7 @@
+# Cursor AI Rules for AI-native SDLC
+
+- Always classify proposed file changes: `python3 scripts/lane.py --paths <paths>`
+- Lite changes need minimal ceremony; Standard and Critical changes require pre-agreed specifications.
+- Do not introduce external dependencies without checking `docs/SBOM.md`.
+- Adhere to fail-closed evidence checking in CI (`scripts/evidence_check.py --ci`).
+- Produce structured PR trace blocks citing agent model, prompts, and decision points.

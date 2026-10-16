@@ -1,0 +1,42 @@
+# Azure DevOps Pipeline for AI-native SDLC Evidence Gate
+# Add as a PR validation build policy on protected branches.
+# Pinned pool and full git depth required.
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: SdlcEvidenceGate
+  displayName: 'SDLC Evidence Check'
+  timeoutInMinutes: 5
+  steps:
+  - checkout: self
+    fetchDepth: 0
+    persistCredentials: false
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.12'
+    displayName: 'Set up Python'
+
+  - script: |
+      set -eu
+      PR_BODY=$(mktemp)
+      # Azure DevOps PR description from build variable or API
+      printf '%s\n' "$(System.PullRequest.PullRequestBody)" > "$PR_BODY"
+
+      export SDLC_BASE="$(System.PullRequest.TargetBranchCommitId)"
+      export SDLC_HEAD="$(Build.SourceVersion)"
+      export SDLC_PR_BODY_FILE="$PR_BODY"
+
+      sh skills/ai-sdlc/assets/ci-generic.sh
+      rm -f "$PR_BODY"
+    displayName: 'Run Evidence Gate'

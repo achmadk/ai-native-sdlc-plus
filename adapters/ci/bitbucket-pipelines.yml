@@ -1,0 +1,24 @@
+# Bitbucket Pipelines configuration for AI-native SDLC Evidence Gate
+# Runs on pull requests to enforce lane evidence verification.
+
+clone:
+  depth: full  # Full history is required for merge-base calculation
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: SDLC Evidence Check
+          image: python:3.12-slim
+          script:
+            - apt-get update && apt-get install -y --no-install-recommends git tar
+            - |
+              PR_BODY=$(mktemp)
+              printf '%s\n' "$BITBUCKET_PR_DESCRIPTION" > "$PR_BODY"
+              
+              export SDLC_BASE="$BITBUCKET_PR_DESTINATION_COMMIT"
+              export SDLC_HEAD="$BITBUCKET_COMMIT"
+              export SDLC_PR_BODY_FILE="$PR_BODY"
+              
+              sh skills/ai-sdlc/assets/ci-generic.sh
+              rm -f "$PR_BODY"

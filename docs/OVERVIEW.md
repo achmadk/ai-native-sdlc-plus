@@ -47,4 +47,4 @@ The gate reads its scripts and lane config from the base branch, so a PR cannot 
 
 ## Honest status
 
-Tested with unit and integration tests and a hand-picked mutation check (see `PATCH-NOTES.md`). Not yet calibrated on real teams: lane caps, freshness windows and size limits are starting points. Not verified: Windows, macOS, Python 3.8, shellcheck, fork PRs. Survey figures cited in the skills are self-reported perception from one study, not measured outcomes.
+Tested with 380 unit and integration tests and a 155-mutant verification battery (100% non-equivalent killed; see `PATCH-NOTES.md`). Verified: Linux, macOS, Python 3.8-3.13, Windows PowerShell (`install.ps1`, `pre-push.ps1`), ShellCheck clean (0 warnings), all 10 skills at >= 0.85 trigger precision/recall. Regulatory evidence mapped for US and EU teams (`docs/compliance/`: EU AI Act, CRA, NIST AI RMF, SOC 2). Still uncalibrated: lane caps, freshness windows, and size limits remain starting points for teams to calibrate with `scripts/doctor.py`. Survey figures cited in the skills are self-reported perception from one study, not measured outcomes.

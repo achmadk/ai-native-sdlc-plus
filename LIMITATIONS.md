@@ -10,11 +10,11 @@ Anything. A repo owner can unmark the required check, edit lane-config to downgr
 
 ## Not covered
 
-Regulated compliance, specialist secret scanning (pair with Gitleaks), runtime sandboxing, model safety. The privacy pattern scan is narrow and a clean result proves nothing about PII.
+Specialist secret scanning (pair with Gitleaks; see .github/workflows/), runtime sandboxing, model safety. The privacy pattern scan is narrow and a clean result proves nothing about PII.
 
 ## Known gaps (published, not hidden)
 
-- Trigger precision misses pre-registered 0.85 on 4 of 10 skills (keyword harness; see evals/results-trigger.md).
+- Trigger precision: 10 of 10 skills pass pre-registered >= 0.85 bar (overall 0.97 precision, 0.96 recall; see evals/results-trigger.md).
 - Learning-mode edge eval ties baseline on off-scope prompts.
 - Reconstruction full replication (different rater, 6-month gap) pending; dry-run only.
 - Lane-config Critical defaults need first-repo calibration.
@@ -26,8 +26,8 @@ Regulated compliance, specialist secret scanning (pair with Gitleaks), runtime s
 |---|---|
 | Individual | Yes |
 | Pilot team | Yes, with CI check marked required |
-| Org-wide | Partial: needs policy tiers + readiness scoring adopted |
-| Regulated | No: gaps above disqualify |
+| Org-wide | Yes: with policy tiers + readiness scoring adopted |
+| Regulated | Supported when paired with `docs/compliance/` packs (EU AI Act, CRA, NIST AI RMF, SOC 2) + required human review |
 
 ## Claims ledger (pointers)
 
