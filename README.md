@@ -1,8 +1,8 @@
 # AI-native SDLC skills (plus)
 
-> **Risk-proportional Agent Skills for AI-native delivery: explicit intent before code, governed loops, traceable work — with built-in compliance packs for the EU AI Act, Cyber Resilience Act (CRA), NIST AI RMF, and SOC 2 Type II.**
+> **Risk-proportional Agent Skills for AI-native delivery: explicit intent before code, governed loops, traceable work — with compliance mappings for the EU AI Act, Cyber Resilience Act (CRA), NIST AI RMF, and SOC 2 Type II.**
 
-Claims convention: `[report-stated]` = perception-survey respondents report (never measured outcomes); `[measured here]` = numbers from `evals/` in this repository; `[extrapolated]` = judgment, flagged as such.
+Claims convention: `[report-stated]` = perception-survey respondents report (never measured outcomes); `[measured here]` = numbers from `evals/`, or from the test suite and verification scripts in this repository, reproducible by running them; `[extrapolated]` = judgment, flagged as such.
 
 ---
 
@@ -26,7 +26,7 @@ WARNING: missing evidence for Standard: trace_block, review_notes (local, not bl
 ```bash
 npx skills add achmadk/ai-native-sdlc-plus
 ```
-This discovers all 10 skills (`ai-sdlc`, `spec-first`, `context-pack`, `review-by-intent`, `decision-trace`, `verify-and-evals`, `ship-and-observe`, `learning-mode`, `autonomy-policy`, `ai-readiness-and-metrics`) and links them into your agent.
+This discovers all 10 skills (`ai-sdlc`, `spec-first`, `context-pack`, `review-by-intent`, `decision-trace`, `verify-and-evals`, `ship-and-observe`, `learning-mode`, `autonomy-policy`, `ai-readiness-and-metrics`) and links them into your agent. It installs the skills; the gate scripts, config, CI workflow and hooks come from the next section.
 
 ```bash
 npx skills add achmadk/ai-native-sdlc-plus --all  # every skill, every agent
@@ -78,7 +78,7 @@ npx skills add achmadk/ai-native-sdlc-plus -g     # global, all projects
 
 ## Enterprise Compliance Packs (US & EU)
 
-Pre-built mappings transforming gate evidence into auditor-ready compliance artifacts:
+Pre-built mappings from gate evidence to the provisions below. They are supporting evidence, not legal advice, certification or a conformity assessment; see [LIMITATIONS.md](LIMITATIONS.md):
 
 - **[EU AI Act (Regulation EU 2024/1689 & Omnibus 2026/1744)](docs/compliance/EU-AI-ACT.md):**
   - Article 4: AI Literacy (`learning-mode`)
@@ -90,7 +90,7 @@ Pre-built mappings transforming gate evidence into auditor-ready compliance arti
   - Article 15: Cybersecurity & Robustness (`verify-and-evals` red-to-green proof)
   - Article 50: Synthetic code transparency and author disclosure
 - **[EU Cyber Resilience Act (CRA / Regulation EU 2024/2847)](docs/compliance/CRA.md):**
-  - Article 14 Mandatory Reporting: 24h early warning, 72h notification, 14d corrective action via ENISA Single Reporting Platform (SRP)
+  - Article 14 Mandatory Reporting: 24h early warning, 72h notification, final report within 14 days of a corrective or mitigating measure being available, via ENISA Single Reporting Platform (SRP)
   - Essential cybersecurity requirements, secure-by-design lifecycle, and machine-readable SBOM
 - **[NIST AI Risk Management Framework 1.0 (AI RMF)](docs/compliance/NIST-AI-RMF.md):**
   - Comprehensive alignment across all four NIST AI RMF core functions: **GOVERN**, **MAP**, **MEASURE**, and **MANAGE**
@@ -125,26 +125,38 @@ Enforce lane evidence across any CI platform with base-branch tooling verificati
 
 ---
 
+## Optional Tools
+
+Standalone, standard-library helpers that sit next to the core gate and never run automatically (details in [`docs/optional-tools.md`](docs/optional-tools.md)):
+
+- `scripts/trace_lint.py`: heuristic checks that PR evidence is more than empty paperwork (unedited templates, empty fields, broken links, missing test files).
+- `scripts/lane_backtest.py`: replays `lane.py` over your recent history to calibrate lane rules.
+- `scripts/doctor_online.py`: opt-in check, via the `gh` CLI, that the gate is a required check.
+
+---
+
 ## Supply Chain & Security Hardening
 
 - **Zero Third-Party Runtime Dependencies:** 100% Python standard library (`sys`, `os`, `re`, `subprocess`, `unittest`).
 - **Pinned Workflow Actions:** All CI actions pinned to immutable 40-character commit SHAs.
 - **Integrated Secret Scanning:** Multi-layer secret regex scanning in all brief/spec parsers plus [Gitleaks action](.github/workflows/gitleaks.yml) in CI.
 - **Cross-Platform Pre-Push Hooks:** Non-blocking advisory hooks for POSIX (`hooks/pre-push.sh`) and Windows PowerShell (`hooks/pre-push.ps1`).
-- **Comprehensive Verification:** 380 unit and integration tests passing; 155-mutant verification battery with 100% of non-equivalent mutants killed; ShellCheck clean (0 warnings); 10/10 skills passing trigger evals (0.97 precision, 0.96 recall).
+- **Comprehensive Verification:** 380 unit and integration tests passing; 155-mutant verification battery with 100% of non-equivalent mutants killed; ShellCheck clean (0 warnings); 10/10 skills passing trigger evals (0.97 precision, 0.96 recall). `[measured here]`
 
 ---
 
 ## How This Compares (Factual)
 
-| Area | This suite [measured here] | timwukp/ai-native-sdlc | spec-kit |
+| Area | This suite | timwukp/ai-native-sdlc | spec-kit |
 |---|---|---|---|
 | **Lanes scale ceremony with risk** | Yes: Lite/Standard/Critical (`lane.py`) | Not found on front page | Not found; fixed extension depth |
-| **Enterprise compliance packs** | Built-in: EU AI Act, CRA, NIST AI RMF, SOC 2 | None documented | None documented |
+| **Enterprise compliance packs** | Mappings in `docs/compliance/`: EU AI Act, CRA, NIST AI RMF, SOC 2 | None documented | None documented |
 | **Right-of-code loops** | `ship-and-observe` + 5 loop runbooks | CI gate + privacy scanner | Bug-fix extension adjacent |
 | **Context packs & freshness** | Yes: git-tracked `governs:` staleness | Unverified | Unverified |
 | **Decision trace as by-product** | Yes: lane-sized PR trace blocks | Intent chain (heavier) | Unverified |
 | **Multi-Agent / Multi-CI** | Claude, Cursor, Copilot, Codex, Gemini + 5 CI systems | Single platform focus | GitHub Actions primarily |
 | **Proof battery** | 380 tests + 155 mutation check + trigger precision 0.97 | verify.py model + 36/80 rubric | Maturity at scale (140k stars) |
+
+This suite's column describes what is in this repository; its numbers are `[measured here]`. The other two columns summarize those projects' public READMEs: "Not found" means not found there, not that it is absent, and "Unverified" means not checked. Re-check them before relying on them.
 
 Survey context: 94% use AI, 36% agentic, 6% deeply integrated; 74% faster codegen yet ~78-79% manual PR process; trust ~25-32% zero / ~60% guarded / ~1% full autonomy `[all report-stated]`.
