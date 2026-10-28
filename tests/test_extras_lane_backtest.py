@@ -1,5 +1,6 @@
 import io
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import lane_backtest as lb  # noqa: E402
+
+GIT = shutil.which("git")
 
 FAKE_LANE = """\
 import sys
@@ -62,9 +65,10 @@ class ParseTests(unittest.TestCase):
             lb.build_command("l.py", files, "nope")
 
 
+@unittest.skipUnless(GIT, "git is not installed")
 class BacktestTests(unittest.TestCase):
     def make_repo(self, tmp):
-        git(tmp, "init", "-q", "-b", "main")
+        git(tmp, "init", "-q")
         (Path(tmp) / "scripts").mkdir()
         (Path(tmp) / "scripts" / "lane.py").write_text(FAKE_LANE, encoding="utf-8")
         git(tmp, "add", "-A")
@@ -119,6 +123,7 @@ class BacktestTests(unittest.TestCase):
                 lb.backtest(tmp, "no-such-rev", 3, "x.py")
 
 
+@unittest.skipUnless(GIT, "git is not installed")
 class CliTests(unittest.TestCase):
     def test_report_and_json(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,7 +144,7 @@ class CliTests(unittest.TestCase):
 
     def test_missing_lane_script(self):
         with tempfile.TemporaryDirectory() as tmp:
-            git(tmp, "init", "-q", "-b", "main")
+            git(tmp, "init", "-q")
             old, sys.stderr = sys.stderr, io.StringIO()
             try:
                 rc = lb.main(["--root", tmp])

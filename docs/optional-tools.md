@@ -84,3 +84,7 @@ python3 -m unittest discover -s tests -p "test_extras_*.py" -v
 
 The `extras-tests` workflow runs the same command when `scripts/` or `tests/`
 change.
+
+The scripts use only the standard library and avoid syntax and APIs newer than
+Python 3.8. The tests that build temporary git repositories are skipped when
+`git` is not installed, and they do not depend on a recent git version.
