@@ -1,0 +1,11 @@
+# Default owner for everything.
+*                   @achmadk
+
+# Security-sensitive paths are listed explicitly so that adding more
+# maintainers later only needs edits here.
+/.github/           @achmadk
+/scripts/           @achmadk
+/hooks/             @achmadk
+/adapters/ci/       @achmadk
+/install.sh         @achmadk
+/install.ps1        @achmadk

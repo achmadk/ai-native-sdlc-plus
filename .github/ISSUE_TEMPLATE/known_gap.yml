@@ -1,0 +1,27 @@
+name: Known gap
+description: Track an item from the "Known gaps" list in LIMITATIONS.md.
+labels: ["known-gap"]
+body:
+  - type: input
+    id: gap
+    attributes:
+      label: Gap (as worded in LIMITATIONS.md)
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: A measurable condition, ideally with the eval or script that proves it.
+    validations:
+      required: true
+  - type: dropdown
+    id: claim-tag
+    attributes:
+      label: Evidence tag of the current claim
+      options:
+        - "[measured here]"
+        - "[extrapolated]"
+        - "[report-stated]"
+    validations:
+      required: true
