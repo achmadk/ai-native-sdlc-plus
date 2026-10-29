@@ -24,7 +24,7 @@ jobs:
       # weaken the gate that is judging it. (Bootstrap: the first PR that adds
       # the gate has no base copy; commit the tooling to the default branch first.)
       - name: Checkout trusted tooling (base)
-        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
+        uses: actions/checkout@v7.0.1   # TODO: pin to a full commit SHA
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
@@ -32,7 +32,7 @@ jobs:
 
       # Full history: the diff needs the merge base. A shallow clone breaks it.
       - name: Checkout change under review (head)
-        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
+        uses: actions/checkout@v7.0.1   # TODO: pin to a full commit SHA
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: change
