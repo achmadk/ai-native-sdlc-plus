@@ -32,19 +32,42 @@ MAX_DOUBLE_STAR = 4  # bounds regex backtracking for patterns from config
 
 # Always Critical. Not overridable by config: this is the gate protecting itself.
 BUILTIN_CRITICAL = (
-    "scripts/lane.py",
-    "scripts/evidence_check.py",
-    "scripts/lane-config.yaml",
-    "scripts/doctor.py",
+    "scripts/**",
+    "install.sh",
+    "install.ps1",
+    ".sdlc-install.json",
+    ".gitattributes",
     ".github/workflows/**",
+    ".github/actions/**",
     ".github/CODEOWNERS",
     "CODEOWNERS",
     "docs/CODEOWNERS",
     "hooks/**",
+    "adapters/**",
+    "skills/*/SKILL.md",
+    "skills/*/scripts/**",
+    "skills/*/assets/ci-*.sh",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "kilo.json",
+    ".cursorrules",
+    ".cursor/rules/**",
+    ".claude/**",
+    ".github/copilot-instructions.md",
+    ".github/instructions/**",
+    ".kilo/agent/**",
+    ".kilo/command/**",
+    ".kilo/rules/**",
+    ".kilo/skills/**",
+    ".kilocode/skills/**",
+    ".kilocode/rules/**",
 )
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 _REF_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/@^~{}:-]*$")
+_PROSE_SUFFIXES = (".md", ".rst", ".txt", ".adoc")
+_PROSE_NAMES = ("readme", "license", "copying", "notice", "changelog", "authors", "contributors")
 
 
 class ConfigError(Exception):
@@ -218,25 +241,49 @@ def path_lane(path, compiled):
     for lane in ("Critical", "Standard", "Lite"):
         for pattern, matches in compiled[lane.lower()]:
             if matches(path):
+                if lane == "Lite" and not is_prose(path) and not path.lower().endswith(".lock"):
+                    return "Standard", "non-prose file (built-in floor)"
                 return lane, pattern
     return "Standard", None
 
 
-def classify_detailed(paths, rules):
+def is_prose(path):
+    name = posixpath.basename(path).lower()
+    return name.endswith(_PROSE_SUFFIXES) or name in _PROSE_NAMES
+
+
+def regular_change(change):
+    """Only ordinary, non-executable file changes can justify a prose exemption."""
+    if not isinstance(change, dict) or change.get("status") not in ("A", "M", "D"):
+        return False
+    modes = (change.get("old_mode"), change.get("new_mode"))
+    return "100644" in modes and all(mode in ("000000", "100644") for mode in modes)
+
+
+def classify_detailed(paths, rules, changes=None):
     """Return (lane, reason, per_path list). Never raises on bad paths."""
     if not paths:
         return "Standard", "no paths supplied, escalated", []
     compiled = compile_rules(rules)
+    metadata = {entry["raw_path"]: entry for entry in changes} if changes is not None else None
     per_path = []
     for item in paths:
+        facts = metadata.get(item, {}) if metadata is not None and isinstance(item, str) else {}
+        detail = {"raw_path": item, "metadata_available": bool(facts),
+                  "status": facts.get("status"), "old_mode": facts.get("old_mode"),
+                  "new_mode": facts.get("new_mode")}
         path, problem = clean_path(item)
         if path is None:
-            per_path.append({"path": str(item), "lane": "Standard",
-                             "rule": None, "note": "malformed (%s), escalated" % problem})
+            detail.update({"path": str(item), "lane": "Standard", "rule": None,
+                           "note": "malformed (%s), escalated" % problem})
+            per_path.append(detail)
             continue
         lane, rule = path_lane(path, compiled)
+        if lane == "Lite" and metadata is not None and not regular_change(facts):
+            lane, rule = "Standard", "executable, type-changing, or unavailable metadata (built-in floor)"
         note = "no rule matched, escalated" if rule is None else "matched %s rule %s" % (lane, rule)
-        per_path.append({"path": path, "lane": lane, "rule": rule, "note": note})
+        detail.update({"path": path, "lane": lane, "rule": rule, "note": note})
+        per_path.append(detail)
     top = max(per_path, key=lambda entry: RANK[entry["lane"]])
     lane = top["lane"]
     first = next(entry for entry in per_path if entry["lane"] == lane)
@@ -247,9 +294,9 @@ def classify_detailed(paths, rules):
     return lane, reason, per_path
 
 
-def classify(paths, rules):
+def classify(paths, rules, changes=None):
     """Return (lane, reason). Backward-compatible wrapper."""
-    lane, reason, _ = classify_detailed(paths, rules)
+    lane, reason, _ = classify_detailed(paths, rules, changes)
     return lane, reason
 
 
@@ -266,8 +313,8 @@ def max_lane(*lanes):
 # Git input
 # --------------------------------------------------------------------------
 
-def git_changed_paths(base, head="HEAD", repo_root="."):
-    """Paths changed between merge-base(base, head) and head.
+def git_changed_files(base, head="HEAD", repo_root="."):
+    """Raw paths, status, and modes between merge-base(base, head) and head.
 
     --no-renames lists BOTH sides of a rename, so moving a file out of a
     Critical directory is still seen as touching it. -z keeps odd filenames intact.
@@ -275,7 +322,8 @@ def git_changed_paths(base, head="HEAD", repo_root="."):
     for ref in (base, head):
         if not _REF_OK.match(ref or ""):
             raise GitError("refusing unsafe ref: %r" % ref)
-    cmd = ["git", "-C", repo_root, "diff", "--name-only", "--no-renames", "-z",
+    cmd = ["git", "-C", repo_root, "diff", "--raw", "--no-abbrev", "--no-renames",
+           "--no-ext-diff", "--no-textconv", "-z",
            "%s...%s" % (base, head), "--"]
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
@@ -284,7 +332,29 @@ def git_changed_paths(base, head="HEAD", repo_root="."):
     if proc.returncode != 0:
         tail = proc.stderr.decode("utf-8", "replace").strip().splitlines()[-1:]
         raise GitError("git diff failed (shallow clone? use fetch-depth: 0): %s" % " ".join(tail))
-    return [p.decode("utf-8", "replace") for p in proc.stdout.split(b"\0") if p]
+    if not proc.stdout:
+        return []
+    fields = proc.stdout.split(b"\0")
+    if fields[-1] != b"" or len(fields) % 2 != 1:
+        raise GitError("git diff returned incomplete change metadata")
+    changes = []
+    for index in range(0, len(fields) - 1, 2):
+        match = re.fullmatch(rb":([0-7]{6}) ([0-7]{6}) [0-9a-f]+ [0-9a-f]+ ([AMDTUXB])",
+                             fields[index])
+        if not match or not fields[index + 1]:
+            raise GitError("git diff returned invalid change metadata")
+        try:
+            raw_path = fields[index + 1].decode("utf-8")
+        except UnicodeDecodeError:
+            raise GitError("git diff returned a path that is not valid UTF-8")
+        changes.append({"raw_path": raw_path, "status": match[3].decode("ascii"),
+                        "old_mode": match[1].decode("ascii"), "new_mode": match[2].decode("ascii")})
+    return changes
+
+
+def git_changed_paths(base, head="HEAD", repo_root="."):
+    """Compatibility wrapper: preserve literal paths and both sides of moves."""
+    return [entry["raw_path"] for entry in git_changed_files(base, head, repo_root)]
 
 
 # --------------------------------------------------------------------------
@@ -320,7 +390,8 @@ def main(argv=None):
         return 3 if args.strict else 0
 
     try:
-        paths = git_changed_paths(args.base, args.head, args.repo_root) if args.base else (args.paths or [])
+        changes = git_changed_files(args.base, args.head, args.repo_root) if args.base else None
+        paths = [entry["raw_path"] for entry in changes] if changes is not None else (args.paths or [])
     except GitError as exc:
         sys.stderr.write("lane.py: %s\n" % exc)
         emit("Standard", str(exc), [], str(exc))
@@ -329,7 +400,7 @@ def main(argv=None):
     if args.base and not paths:
         emit("Standard", "no changed files, escalated", [])
         return 0
-    lane, reason, per_path = classify_detailed(paths, rules)
+    lane, reason, per_path = classify_detailed(paths, rules, changes)
     emit(lane, reason, per_path)
     return 0
 

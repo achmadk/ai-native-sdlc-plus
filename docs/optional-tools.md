@@ -5,10 +5,9 @@ Python, they do not change the behaviour of `lane.py`, `evidence_check.py` or
 `doctor.py`, and nothing runs them automatically. Each addresses an item in
 [`LIMITATIONS.md`](../LIMITATIONS.md).
 
-> `install.sh` / `install.ps1` may copy a fixed list of scripts. If these
-> tools are missing after an install, copy `scripts/trace_lint.py`,
-> `scripts/lane_backtest.py` and `scripts/doctor_online.py` manually or add
-> them to the installer.
+The manifest-driven installer includes these three helpers. Missing files indicate
+an incomplete installation; inspect the installer result and resolve conflicts
+instead of silently layering manual copies over managed files.
 
 ## `scripts/trace_lint.py` - is the evidence more than paperwork?
 
@@ -50,7 +49,9 @@ python3 scripts/lane_backtest.py --rev origin/main --limit 200 --json
 Replays `lane.py` over the last N first-parent commits (one merge or squash
 commit is one change) and prints the lane distribution plus the most frequent
 matched rules. If nearly everything lands in Critical, or nothing does, adjust
-`lane-config` before rolling the gate out.
+repository-specific `lane-config` rules before rolling the gate out, without
+weakening built-in control boundaries. Distribution is not classification accuracy:
+also review labeled security and prose examples. Keep config format `version: 1`.
 
 It calls `lane.py --paths <files...>`. If your `lane.py` expects another
 shape use `--paths-style comma` or `--paths-style repeat`. Output it cannot
@@ -75,6 +76,12 @@ Exit codes: `0` required, `1` not required, `2` could not verify.
 It cannot see ruleset bypass actors; review those in Settings. A repository
 owner can still change any of this, as `LIMITATIONS.md` says: the goal is to
 make an accidental gap visible, not to make bypass impossible.
+
+This helper is narrower than core doctor's supported-profile inspection:
+`python3 scripts/doctor.py --check-branch-protection --require-enforcement`.
+Use the latter for exact check/application identities, ownership/freshness and
+bypass visibility. Unknown settings fail strict readiness. Its REST requests use
+GET; the only POST is a fixed read-only GraphQL merge-queue query, never a mutation.
 
 ## Tests
 

@@ -24,7 +24,7 @@ jobs:
       # weaken the gate that is judging it. (Bootstrap: the first PR that adds
       # the gate has no base copy; commit the tooling to the default branch first.)
       - name: Checkout trusted tooling (base)
-        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
@@ -32,7 +32,7 @@ jobs:
 
       # Full history: the diff needs the merge base. A shallow clone breaks it.
       - name: Checkout change under review (head)
-        uses: actions/checkout@v6   # TODO: pin to a full commit SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: change
@@ -44,7 +44,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 trusted/scripts/evidence_check.py --ci \
+          python3 -I trusted/scripts/evidence_check.py --ci \
             --config trusted/scripts/lane-config.yaml \
             --repo-root change \
             --base="$BASE_SHA" --head="$HEAD_SHA" \
@@ -52,7 +52,8 @@ jobs:
 
 # Branch protection: mark the status check named "evidence" (this job's name; the PR UI may
 # display it as "sdlc-gate / evidence") as required, pinned to the GitHub Actions app, in branch
-# protection or a ruleset. Prove it: python3 scripts/doctor.py --check-branch-protection
+# protection or a ruleset. Require the scanner check named "gitleaks" as well.
+# Inspect the supported profile: python3 scripts/doctor.py --check-branch-protection --require-enforcement
 # Also put .github/workflows/ and scripts/ under CODEOWNERS and require code-owner review: with the
 # pull_request event the workflow file itself comes from the PR, so only owner review (or an org-level
 # required-workflow ruleset, where your plan supports it) protects the workflow from being edited away.

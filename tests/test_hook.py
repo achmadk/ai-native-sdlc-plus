@@ -1,12 +1,24 @@
 import os
+import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 ZERO = "0" * 40
-SH = shutil.which("sh") or "/bin/sh"
+SH = shutil.which("sh")
+if SH is None and os.name == "nt" and shutil.which("git"):
+    for directory in Path(shutil.which("git")).parents:
+        for relative in ("bin/sh.exe", "usr/bin/sh.exe"):
+            if (directory / relative).is_file():
+                SH = str(directory / relative)
+                break
+        if SH:
+            break
+SH = SH or "/bin/sh"
 
 
 def slurp(path):
@@ -19,6 +31,7 @@ class HookRepo(unittest.TestCase):
 
     def setUp(self):
         base = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
         self.origin = os.path.join(base, "origin.git")
         self.repo = os.path.join(base, "work")
         self.bin = os.path.join(base, "bin")
@@ -46,7 +59,7 @@ class HookRepo(unittest.TestCase):
     def put(self, rel, text, executable=False):
         full = os.path.join(self.repo, rel)
         os.makedirs(os.path.dirname(full), exist_ok=True)
-        with open(full, "w") as handle:
+        with open(full, "w", newline="\n") as handle:
             handle.write(text)
         if executable:
             os.chmod(full, 0o755)
@@ -174,6 +187,7 @@ class NeverBlocks(HookRepo):
         self.assertEqual(code, 0)
         self.assertIn("gate scripts not found", err)
 
+    @unittest.skipIf(os.name == "nt", "POSIX symlink fixture; native Git fallback tested separately")
     def test_missing_python_is_reported_not_fatal(self):
         sha = self.branch("feat", src__app_dot_py="x = 2\n")
         os.makedirs(self.bin)
@@ -181,7 +195,7 @@ class NeverBlocks(HookRepo):
             os.symlink(shutil.which(tool), os.path.join(self.bin, tool))
         code, _, err = self.hook(self.line(sha, "feat"), path=self.bin)
         self.assertEqual(code, 0)
-        self.assertIn("python3 not found; lane check skipped", err)
+        self.assertIn("Python >= 3.8 not found", err)
 
     def test_no_merge_base_is_reported_not_fatal(self):
         sha = self.branch("feat", src__app_dot_py="x = 2\n")
@@ -210,13 +224,14 @@ class NeverBlocks(HookRepo):
         b = self.branch("b", docs__a_dot_md="b\n")
         os.makedirs(self.bin)
         fake = os.path.join(self.bin, "python3")
-        with open(fake, "w") as handle:
+        with open(fake, "w", newline="\n") as handle:
             handle.write("#!/bin/sh\ncat >/dev/null\necho FAKE-GATE-RAN\n")
         os.chmod(fake, 0o755)
         code, _, err = self.hook(self.line(a, "a") + self.line(b, "b"), path=self.bin + os.pathsep + os.environ["PATH"])
         self.assertEqual(code, 0)
         self.assertEqual(err.count("FAKE-GATE-RAN"), 2)
 
+    @unittest.skipIf(os.name == "nt", "POSIX pseudo-terminal contract")
     def test_interactive_terminal_does_not_hang(self):
         import pty
         master, slave = pty.openpty()
@@ -280,6 +295,49 @@ class RealPushes(HookRepo):
         self.g("config", "core.hooksPath", "hooks")
         self.put("scripts/evidence_check.py", "raise SystemExit(7)\n")
         self.assertEqual(self.push("feat").returncode, 0)
+
+    def test_git_dispatched_hook_with_python_but_no_python3_reports_lane(self):
+        # Git for Windows dispatches the extensionless shell hook, not pre-push.ps1.
+        self.branch("python-only", auth__login_dot_py="x = 2\n")
+        self.g("config", "core.hooksPath", "hooks")
+        os.makedirs(self.bin)
+        python = os.path.join(self.bin, "python")
+        with open(python, "w", newline="\n") as handle:
+            handle.write("#!/bin/sh\nexec %s \"$@\"\n" % shlex.quote(sys.executable.replace("\\", "/")))
+        os.chmod(python, 0o755)
+        if os.name == "nt":
+            git_root = os.path.dirname(os.path.dirname(shutil.which("git")))
+            directories = [self.bin, os.path.dirname(SH), os.path.join(git_root, "cmd"),
+                           os.path.join(git_root, "mingw64", "bin"), os.path.join(git_root, "usr", "bin"),
+                           os.path.join(os.environ["SystemRoot"], "System32")]
+        else:
+            for tool in ("git", "sh", "dirname", "sed"):
+                os.symlink(shutil.which(tool), os.path.join(self.bin, tool))
+            directories = [self.bin]
+        env = dict(self.env, PATH=os.pathsep.join(directories))
+        probe = subprocess.run([SH, "-c", "command -v python3"], env=env, capture_output=True)
+        self.assertNotEqual(probe.returncode, 0, "fixture must not make python3 available")
+        proc = subprocess.run([shutil.which("git"), "-C", self.repo, "push", "origin", "python-only"],
+                              env=env, capture_output=True, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+        self.assertIn("sdlc: note: lane Critical", proc.stderr.decode())
+        self.assertNotIn("lane check skipped", proc.stderr.decode())
+
+    def test_git_dispatched_hook_falls_back_from_unusable_python3(self):
+        self.branch("python-fallback", auth__login_dot_py="x = 2\n")
+        self.g("config", "core.hooksPath", "hooks")
+        os.makedirs(self.bin)
+        for name, body in (("python3", "exit 127"),
+                           ("python", "exec %s \"$@\"" % shlex.quote(sys.executable.replace("\\", "/")))):
+            path = os.path.join(self.bin, name)
+            with open(path, "w", newline="\n") as handle:
+                handle.write("#!/bin/sh\n%s\n" % body)
+            os.chmod(path, 0o755)
+        env = dict(self.env, PATH=self.bin + os.pathsep + os.environ["PATH"])
+        proc = subprocess.run([shutil.which("git"), "-C", self.repo, "push", "origin", "python-fallback"],
+                              env=env, capture_output=True, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+        self.assertIn("sdlc: note: lane Critical", proc.stderr.decode())
 
     def test_works_under_every_posix_shell_available(self):
         sha = self.branch("feat", auth__login_dot_py="x = 2\n")

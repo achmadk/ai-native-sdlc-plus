@@ -1,14 +1,32 @@
-# One-command install for Windows PowerShell. Copies config, templates, CI workflow, hook. Idempotent.
+# Source-relative launcher; the shared installer owns all filesystem changes.
 param([string]$Root = ".")
 
-$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "Stop"
+$pythonCmd = $null
+foreach ($candidate in @("python", "python3")) {
+    $command = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue
+    if (-not $command) { continue }
+    try {
+        & $command.Source -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $pythonCmd = $command.Source
+            break
+        }
+    } catch {
+        # A command name or Windows app-execution alias is not a usable runtime.
+    }
+}
+if (-not $pythonCmd) {
+    [Console]::Error.WriteLine("installation failed: Python >= 3.8 required (tried python and python3); no files changed")
+    exit 1
+}
 
-New-Item -ItemType Directory -Force -Path "$Root\scripts", "$Root\.github\workflows", "$Root\hooks" | Out-Null
-Copy-Item "scripts\lane-config.yaml" "$Root\scripts\" -Force -ErrorAction SilentlyContinue
-Copy-Item "scripts\lane.py", "scripts\evidence_check.py", "scripts\doctor.py" "$Root\scripts\" -Force -ErrorAction SilentlyContinue
-Copy-Item ".github\workflows\sdlc-gate.yml" "$Root\.github\workflows\" -Force -ErrorAction SilentlyContinue
-Copy-Item ".github\pull_request_template.md" "$Root\.github\" -Force -ErrorAction SilentlyContinue
-Copy-Item "hooks\pre-push", "hooks\pre-push.sh", "hooks\pre-push.ps1" "$Root\hooks\" -Force -ErrorAction SilentlyContinue
-
-$py = if (Get-Command python -ErrorAction SilentlyContinue) { "python" } else { "python3" }
-& $py "$Root\scripts\doctor.py" --root "$Root"
+try {
+    # Windows PowerShell must stream every native stderr line, including partial results.
+    $ErrorActionPreference = "Continue"
+    & $pythonCmd -I -B (Join-Path $PSScriptRoot "scripts/install.py") $Root
+    exit $LASTEXITCODE
+} catch {
+    [Console]::Error.WriteLine("installation failed: " + $_.Exception.Message)
+    exit 1
+}

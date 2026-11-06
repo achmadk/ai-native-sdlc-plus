@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -22,6 +23,8 @@ class CiRepo(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
         self.tmp = tempfile.mkdtemp()           # isolated TMPDIR so leftovers are detectable
+        self.addCleanup(shutil.rmtree, self.repo, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.body = os.path.join(self.tmp, "body.md")
         self.g("init", "-q", "-b", "main")
         for rel in ("scripts/lane.py", "scripts/evidence_check.py", "scripts/lane-config.yaml"):
@@ -196,12 +199,39 @@ class SetupErrors(CiRepo):
 
 
 class Hygiene(CiRepo):
+    def test_requested_scratch_directory_is_used_and_removed(self):
+        self.put("docs/a.md", "fixed\n")
+        self.commit()
+        recorder = os.path.join(self.tmp, "allocated.txt")
+        bindir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, bindir, ignore_errors=True)
+        real_mktemp = shutil.which("mktemp")
+        self.assertIsNotNone(real_mktemp)
+        wrapper = os.path.join(bindir, "mktemp")
+        with open(wrapper, "w") as handle:
+            handle.write('#!/bin/sh\ncreated=$(%s "$@") || exit $?\n'
+                         'printf "%%s\\n" "$created" >> %s\nprintf "%%s\\n" "$created"\n'
+                         % (shlex.quote(real_mktemp), shlex.quote(recorder)))
+        os.chmod(wrapper, 0o755)
+        env = {"PATH": bindir + os.pathsep + os.environ.get("PATH", "")}
+        for body, expected in ((GOOD_LITE, 0), ("", 1)):
+            code, out, err = self.run_script(body=body, env=env)
+            self.assertEqual(code, expected, out + err)
+        with open(recorder) as handle:
+            created = handle.read().splitlines()
+        self.assertEqual(len(created), 2)
+        for path in created:
+            self.addCleanup(shutil.rmtree, path, ignore_errors=True)
+        for path in created:
+            self.assertEqual(os.path.realpath(os.path.dirname(path)), os.path.realpath(self.tmp))
+            self.assertFalse(os.path.lexists(path), "runner left its actual scratch directory behind")
+
     def test_it_cleans_up_after_itself_and_never_writes_into_the_repo(self):
         self.put("docs/a.md", "fixed\n")
         self.commit()
         before = self.g("status", "--porcelain")
-        self.run_script()
-        self.run_script(body="")                      # failing runs clean up too
+        self.assertEqual(self.run_script()[0], 0)
+        self.assertEqual(self.run_script(body="")[0], 1)  # failing runs clean up too
         self.assertEqual(os.listdir(self.tmp), ["body.md"])
         self.assertEqual(self.g("status", "--porcelain"), before)
 

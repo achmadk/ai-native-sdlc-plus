@@ -1,0 +1,5 @@
+/.gitattributes text eol=lf
+/install.sh text eol=lf
+/hooks/pre-push text eol=lf
+/hooks/pre-push.sh text eol=lf
+/skills/ai-sdlc/assets/ci-generic.sh text eol=lf

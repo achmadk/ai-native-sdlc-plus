@@ -1,6 +1,6 @@
 # Enterprise CI Adapters
 
-Ready-to-use pipeline templates for teams not using GitHub Actions.
+Pipeline templates for teams not using GitHub Actions. The foundation installer includes these files and their generic runner; selecting and activating a provider pipeline remains an explicit operator action, not proof of hosted compatibility.
 
 ## Supported Platforms
 
@@ -16,3 +16,7 @@ Ready-to-use pipeline templates for teams not using GitHub Actions.
 1. **Bootstrap First:** Commit `scripts/` and `skills/` to your default branch before opening your first PR. The gate script checks out tooling from the base commit to prevent PR authors from weakening the gate.
 2. **Require the Check:** Mark the gate job as a required status check in your branch policy / merge request approval rules.
 3. **Full Clone Depth:** Ensure your pipeline runner is configured with full depth (`GIT_DEPTH: 0`, `fetchDepth: 0`, `clone: { depth: full }`) so `git merge-base` can resolve the starting diff.
+
+4. **Use complete change facts:** the generic runner invokes base-revision tooling with isolated Python and explicit base/head SHAs. Do not replace this with a manually supplied filename list or execute candidate checker code.
+5. **Preserve failure and freshness:** missing evidence, malformed Git metadata, or tooling/setup errors must fail the job. Retrieve a complete current description, and rerun on description edits using the new event rather than an old snapshot.
+6. **Verify the real provider:** local runner and template tests do not prove authentication, branch policy, description extraction, or event behavior on GitLab, Azure, or Bitbucket. Record actual run identifiers and unsupported cases. GitHub doctor's strict profile does not attest other providers.

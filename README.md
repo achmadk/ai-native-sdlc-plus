@@ -34,28 +34,47 @@ npx skills add achmadk/ai-native-sdlc-plus -g     # global, all projects
 ```
 
 ### Deterministic Scripts & CI Gate (No Node.js required)
-- **Linux / macOS:**
-  ```bash
-  sh install.sh
-  ```
-- **Windows (PowerShell):**
-  ```powershell
-  .\install.ps1
-  ```
-- **Verify installation health:**
-  ```bash
-  python3 scripts/doctor.py --root .
-  ```
+
+Run the installer from a toolkit checkout, supplying the target repository. Source paths are relative to the installer, not your working directory.
+
+```bash
+sh /path/to/ai-native-sdlc-plus/install.sh /path/to/repo
+```
+
+```powershell
+& "C:\path\to\ai-native-sdlc-plus\install.ps1" -Root "C:\path\to\repo"
+```
+
+The shared standard-library installer copies the explicit payload in `scripts/install-manifest.json`: core and optional tools, canonical helper entry points, skill resources, CI templates and their runner, both GitHub enforcement workflows, hooks, and narrow LF attributes. It does not register skills, activate hooks, change GitHub settings, or install dependencies. Python 3.8+ and Git are prerequisites for the toolkit; PowerShell can use a working `python` when `python3` is unavailable.
+
+Ownership is recorded in `.sdlc-install.json`. Identical reruns preserve file/state bytes and modification times. An unchanged managed file can be upgraded; a differing unowned or locally modified file causes a reported conflict before payload writes. This includes existing lane configs, templates, workflows, and `.gitattributes`. Reconcile conflicts explicitly and rerun; do not delete ownership state to force an overwrite. A later I/O failure reports a partial result and returns nonzero rather than claiming success.
+
+From the installed repository:
+
+```bash
+python3 scripts/doctor.py --root .             # offline installation health
+python3 scripts/check_spec.py --help
+python3 scripts/check_brief.py --help
+python3 scripts/redgreen.py --help
+```
+
+Copying files is not merge enforcement. After separately authorized setup, inspect the supported GitHub protection profile:
+
+```bash
+python3 scripts/doctor.py --root . --check-branch-protection --require-enforcement
+```
+
+This requires authenticated `gh` access to protection, ownership, and bypass settings. It uses read-only REST requests plus a fixed read-only GraphQL POST query for merge-queue state; no mutations are issued. Missing, inaccessible, or unsupported prerequisites fail strict readiness. Follow the [activation checklist](skills/ai-sdlc/references/init.md), not a generic doctor exit code.
 
 ---
 
 ## 10-Minute First Win
 
-1. Run `sh install.sh` (or `.\install.ps1` on Windows) to copy gate scripts, config, CI workflow, and hooks (2 min).
-2. Verify with `python3 scripts/doctor.py --root .` (1 min).
+1. Run the source-relative installer against your target and resolve any reported conflicts (2 min for a clean target).
+2. Verify local health with `python3 scripts/doctor.py --root .`; hosted enforcement remains unverified without the explicit remote check (1 min).
 3. Classify your next change: `python3 scripts/lane.py --paths <files>` (1 min).
 4. Draft intent using `skills/spec-first/assets/intent-template.md` (Lite: 5 min).
-5. Open PR with trace block from `skills/decision-trace/assets/trace-block.md`; CI verifies evidence with `evidence_check.py --ci`.
+5. After authorized bootstrap and required-check setup, open a PR with the trace template. CI uses base-revision tooling and explicit `--base`/`--head` revisions. Local spec/intent links must be nonempty regular tracked blobs at the evaluated head, not untracked files or Git metadata.
 
 ---
 
@@ -101,7 +120,7 @@ Pre-built mappings from gate evidence to the provisions below. They are supporti
 
 ## Universal Agent Compatibility
 
-Verified, turnkey configurations for popular AI coding assistants:
+Instruction adapters are provided for popular AI coding assistants. Installation and instruction availability are not proof of agent behavior or runtime permission enforcement; agent registration remains separate.
 
 | Agent / Tool | Config File | Integration Method |
 |---|---|---|
@@ -117,7 +136,7 @@ Verified, turnkey configurations for popular AI coding assistants:
 
 Enforce lane evidence across any CI platform with base-branch tooling verification:
 
-- **GitHub Actions:** `.github/workflows/sdlc-gate.yml` (trusted tooling checkout, unforgeable merge-base)
+- **GitHub Actions:** `.github/workflows/sdlc-gate.yml` (trusted base tooling and isolated Python execution)
 - **GitLab CI:** [`adapters/ci/gitlab-ci.yml`](adapters/ci/gitlab-ci.yml)
 - **Azure DevOps:** [`adapters/ci/azure-pipelines.yml`](adapters/ci/azure-pipelines.yml)
 - **Bitbucket Pipelines:** [`adapters/ci/bitbucket-pipelines.yml`](adapters/ci/bitbucket-pipelines.yml)
@@ -131,7 +150,7 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 
 - `scripts/trace_lint.py`: heuristic checks that PR evidence is more than empty paperwork (unedited templates, empty fields, broken links, missing test files).
 - `scripts/lane_backtest.py`: replays `lane.py` over your recent history to calibrate lane rules.
-- `scripts/doctor_online.py`: opt-in check, via the `gh` CLI, that the gate is a required check.
+- `scripts/doctor_online.py`: narrower legacy opt-in check that a named context is required. Use core doctor's `--require-enforcement` profile for the broader protection checks.
 
 ---
 
@@ -140,8 +159,10 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 - **Zero Third-Party Runtime Dependencies:** 100% Python standard library (`sys`, `os`, `re`, `subprocess`, `unittest`).
 - **Pinned Workflow Actions:** All CI actions pinned to immutable 40-character commit SHAs.
 - **Integrated Secret Scanning:** Multi-layer secret regex scanning in all brief/spec parsers plus [Gitleaks action](.github/workflows/gitleaks.yml) in CI.
-- **Cross-Platform Pre-Push Hooks:** Non-blocking advisory hooks for POSIX (`hooks/pre-push.sh`) and Windows PowerShell (`hooks/pre-push.ps1`).
-- **Comprehensive Verification:** 380 unit and integration tests passing; 155-mutant verification battery with 100% of non-equivalent mutants killed; ShellCheck clean (0 warnings); 10/10 skills passing trigger evals (0.97 precision, 0.96 recall). `[measured here]`
+- **Cross-Platform Pre-Push Hooks:** Advisory dispatch with supported interpreter discovery and managed LF rules that survive Git checkout. Native PowerShell/Windows tests are configured in CI; skipped tests or POSIX emulation are not native-platform proof.
+- **Reproducible Verification:** Run `python3 -m unittest discover -s tests -v`, `python3 tests/mutate.py`, and the ShellCheck command in `.github/workflows/ci.yml` against the revision being evaluated. Historical counts in `evals/` and `PATCH-NOTES.md` do not attest a newer revision. Trigger scores measure lexical matching, not actual agent skill selection.
+
+Gitleaks receives the generated read-only `GITHUB_TOKEN` explicitly and has PR commenting disabled. Organization repositories additionally require `GITLEAKS_LICENSE`; fork-event secret availability can prevent scanning. Missing credentials, licensing, or API access must fail as setup errors, not be bypassed or reported as a clean scan. Hosted scanner verification is separate from local workflow-contract tests.
 
 ---
 
@@ -155,7 +176,7 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 | **Context packs & freshness** | Yes: git-tracked `governs:` staleness | Unverified | Unverified |
 | **Decision trace as by-product** | Yes: lane-sized PR trace blocks | Intent chain (heavier) | Unverified |
 | **Multi-Agent / Multi-CI** | Claude, Cursor, Copilot, Codex, Gemini + 5 CI systems | Single platform focus | GitHub Actions primarily |
-| **Proof battery** | 380 tests + 155 mutation check + trigger precision 0.97 | verify.py model + 36/80 rubric | Maturity at scale (140k stars) |
+| **Proof battery** | Unit/integration suite, mutation fixtures, lexical trigger checks; run against the candidate revision | verify.py model + 36/80 rubric | Maturity at scale (140k stars) |
 
 This suite's column describes what is in this repository; its numbers are `[measured here]`. The other two columns summarize those projects' public READMEs: "Not found" means not found there, not that it is absent, and "Unverified" means not checked. Re-check them before relying on them.
 

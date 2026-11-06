@@ -15,7 +15,7 @@ trap 'exit 0' EXIT   # whatever goes wrong below, never block the push
 
 say() { printf 'sdlc: %s\n' "$1" >&2; }
 zeros() { case "$1" in *[!0]*) return 1 ;; *) return 0 ;; esac; }
-run_gate() { if command -v timeout >/dev/null 2>&1; then timeout 20 python3 "$@"; else python3 "$@"; fi; }
+run_gate() { if command -v timeout >/dev/null 2>&1; then timeout 20 "$python_cmd" -B "$@"; else "$python_cmd" -B "$@"; fi; }
 
 [ "${SDLC_HOOK:-}" = "off" ] && exit 0
 command -v git >/dev/null 2>&1 || exit 0
@@ -23,7 +23,15 @@ command -v git >/dev/null 2>&1 || exit 0
 if [ -t 0 ]; then say "run this through 'git push'; it reads the ref list from stdin"; exit 0; fi
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-if ! command -v python3 >/dev/null 2>&1; then say "python3 not found; lane check skipped"; exit 0; fi
+python_cmd=""
+for candidate in python3 python; do
+  if command -v "$candidate" >/dev/null 2>&1 &&
+     "$candidate" -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' </dev/null >/dev/null 2>&1; then
+    python_cmd=$candidate
+    break
+  fi
+done
+if [ -z "$python_cmd" ]; then say "Python >= 3.8 not found (tried python3 and python); lane check skipped"; exit 0; fi
 tool="$root/scripts/evidence_check.py"
 cfg="$root/scripts/lane-config.yaml"
 if [ ! -f "$tool" ] || [ ! -f "$cfg" ]; then say "gate scripts not found under scripts/; lane check skipped"; exit 0; fi

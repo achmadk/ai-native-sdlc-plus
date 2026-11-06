@@ -27,14 +27,14 @@ done
 command -v python3 >/dev/null 2>&1 || die 2 "python3 not found (need >= 3.8)"
 git rev-parse -q --verify "$SDLC_BASE^{commit}" >/dev/null 2>&1 || die 2 "base commit not in this checkout (shallow clone? fetch full history)"
 
-tmp=$(mktemp -d) || die 3 "cannot create a temp directory"
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/sdlc-ci-gate.XXXXXXXXXX") || die 3 "cannot create a temp directory"
 trap 'rm -rf "$tmp"' EXIT
 
 git archive "$SDLC_BASE" scripts 2>/dev/null | tar -x -C "$tmp" 2>/dev/null
 [ -f "$tmp/scripts/evidence_check.py" ] && [ -f "$tmp/scripts/lane.py" ] && [ -f "$tmp/scripts/lane-config.yaml" ] ||
   die 3 "the base commit has no usable scripts/ (commit the gate tooling to the default branch first)"
 
-python3 "$tmp/scripts/evidence_check.py" --ci \
+python3 -I "$tmp/scripts/evidence_check.py" --ci \
   --config "$tmp/scripts/lane-config.yaml" \
   --repo-root . \
   --base="$SDLC_BASE" --head="$SDLC_HEAD" \
