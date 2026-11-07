@@ -8,6 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+if __package__:
+    from . import support
+else:
+    import support
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import lane  # noqa: E402
 
@@ -109,6 +114,26 @@ class ShippedPolicy(unittest.TestCase):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.rules, error = lane.load_rules(os.path.join(root, "scripts", "lane-config.yaml"))
         self.assertEqual(error, "")
+
+    def test_platform_bound_names_are_classified_without_creating_files(self):
+        for raw, expected in (("docs/source\n.py", "Standard"), ("docs/ literal[1]*.md", "Lite"),
+                              ("docs/::error::x.md", "Lite")):
+            with self.subTest(raw=raw):
+                got, _, details = lane.classify_detailed([raw], self.rules)
+                self.assertEqual(got, expected)
+                self.assertEqual(details[0]["raw_path"], raw)
+                self.assertFalse(details[0]["metadata_available"])
+
+    def test_nul_delimited_git_records_preserve_platform_bound_names(self):
+        raw_paths = ["docs/source\n.py", "docs/ literal[1]*.md", "docs/::error::x.md"]
+        data = b"".join(b":000000 100644 0000000 abcdef0 A\0" + path.encode() + b"\0" for path in raw_paths)
+        with patch.object(lane.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, data, b"")):
+            changes = lane.git_changed_files("main")
+        self.assertEqual([entry["raw_path"] for entry in changes], raw_paths)
+        got, _, details = lane.classify_detailed(raw_paths, self.rules, changes)
+        self.assertEqual(got, "Standard")
+        self.assertIn("malformed", details[0]["note"])
+        self.assertTrue(all(entry["metadata_available"] for entry in details))
 
     def test_nested_security_directories_are_critical(self):
         for path in ("src/auth/login.py", "src/authentication/token.py",
@@ -236,6 +261,7 @@ class Config(unittest.TestCase):
 class Cli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.tmp)
         self.good = os.path.join(self.tmp, "good.yaml")
         self.badcfg = os.path.join(self.tmp, "bad.yaml")
         with open(self.good, "w") as handle:
@@ -268,6 +294,7 @@ class Cli(unittest.TestCase):
 class GitInput(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.repo)
         self.g("init", "-q", "-b", "main")
         self.write("auth/login.py", "x = 1\n")
         self.write("docs/a.md", "hello\n")
@@ -347,6 +374,7 @@ class GitInput(unittest.TestCase):
 
     def test_change_facts_preserve_malformed_raw_path(self):
         raw = "docs/source\n.py"
+        support.require_filename(os.path.basename(raw))
         self.write(raw, "print('source')\n")
         self.commit()
         code, report = self.change_details()
@@ -363,6 +391,7 @@ class GitInput(unittest.TestCase):
 
     def test_change_facts_raw_paths_are_not_normalized_for_git(self):
         raw = "docs/ literal[1]*.md"
+        support.require_filename(os.path.basename(raw))
         self.write(raw, "text\n")
         self.commit()
         code, report = self.change_details()

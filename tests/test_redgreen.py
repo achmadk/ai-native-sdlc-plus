@@ -3,19 +3,22 @@ import glob
 import io
 import json
 import os
-import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(ROOT, "skills", "verify-and-evals", "scripts"))
 import redgreen as rg  # noqa: E402
 
-PY = shlex.quote(sys.executable)
-CMD = "%s -m unittest discover -s tests -t ." % sys.executable
+CMD = support.command_text([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."])
 BUGGY = "def add(a, b):\n    return a - b\n"
 FIXED = "def add(a, b):\n    return a + b\n"
 TEST_ADD = ("import unittest\nfrom src.calc import add\n\n\nclass T(unittest.TestCase):\n"
@@ -33,7 +36,10 @@ class Repo(unittest.TestCase):
     """main = buggy add(); branch 'fix' = the fix plus a test, ready for variations."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        self.workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.workspace)
+        self.repo = os.path.join(self.workspace, "repo")
+        os.mkdir(self.repo)
         self.g("init", "-q", "-b", "main")
         self.put("src/__init__.py", "")
         self.put("tests/__init__.py", "")
@@ -41,6 +47,10 @@ class Repo(unittest.TestCase):
         self.g("add", "-A")
         self.g("commit", "-q", "-m", "base")
         self.g("checkout", "-q", "-b", "fix")
+        scratch = tempfile.mkdtemp(dir=self.workspace)
+        patcher = mock.patch.object(tempfile, "tempdir", scratch)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.before_dirs = set(glob.glob(os.path.join(tempfile.gettempdir(), "redgreen-*")))
 
     def g(self, *args):
@@ -166,7 +176,29 @@ class Verdicts(Repo):
         self.assertIn("change started at %s" % start, out)
 
 
+class CommandParsing(Repo):
+    @unittest.skipUnless(os.name == "nt", "Windows command-line parsing")
+    def test_absolute_windows_executable_path_is_not_mangled(self):
+        self.fix_with_test()
+        code, out, _ = self.prove(cmd=CMD)
+        self.assertEqual(code, 0, out)
+        self.assertIn("verdict: PASS", out)
+
+    @unittest.skipUnless(os.name == "nt", "Windows command-line parsing")
+    def test_quoted_argument_with_spaces_stays_one_argument(self):
+        self.fix_with_test()
+        probe = ("import sys; sys.path.insert(0, '.'); from src.calc import add; "
+                 "sys.exit(0 if add(2, 3) == 5 and sys.argv[1:2] == ['two words'] else 1)")
+        code, out, _ = self.prove(cmd=support.command_text([sys.executable, "-c", probe, "two words"]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("verdict: PASS", out)
+
+
 class Hygiene(Repo):
+    def test_other_runs_do_not_pollute_cleanup_evidence(self):
+        with support.TemporaryDirectory(prefix="redgreen-", dir=os.path.dirname(self.workspace)):
+            self.assertCleanedUp()
+
     def test_the_working_copy_is_never_touched(self):
         self.fix_with_test()
         self.put("src/calc.py", FIXED + "# uncommitted edit\n")
@@ -220,13 +252,14 @@ class Pathspecs(Repo):
         self.commit()
         probe = ("import os, sys; ok = os.path.exists('tests/test_[1].py') and 'a + b' in open('src/calc.py').read(); "
                  "sys.exit(0 if ok else 1)")
-        code, out, _ = self.prove(cmd="%s -c \"%s\"" % (sys.executable, probe))
+        code, out, _ = self.prove(cmd=support.command_text([sys.executable, "-c", probe]))
         self.assertEqual(code, 0, out)
         self.assertIn("tests/test_[1].py", out)
 
 
 class Magic(Repo):
     def test_a_filename_that_looks_like_pathspec_magic_is_taken_literally(self):
+        support.require_filename(":(exclude)tests")
         # Interpreted as magic, ":(exclude)tests/x_test.py" would overlay head's WHOLE tree onto the base and
         # turn the red run green. Taken literally it overlays one file.
         self.put("src/calc.py", FIXED)
@@ -234,9 +267,19 @@ class Magic(Repo):
         self.commit()
         probe = ("import os, sys; ok = os.path.exists(':(exclude)tests/x_test.py') and 'a + b' in open('src/calc.py').read(); "
                  "sys.exit(0 if ok else 1)")
-        code, out, _ = self.prove(cmd="%s -c \"%s\"" % (sys.executable, probe))
+        code, out, _ = self.prove(cmd=support.command_text([sys.executable, "-c", probe]))
         self.assertEqual(code, 0, out)
         self.assertIn("verdict: PASS", out)
+
+
+class PortablePaths(unittest.TestCase):
+    def test_pathspec_magic_reaches_git_as_a_literal_argument(self):
+        raw = ":(exclude)tests/x_test.py"
+        result = subprocess.CompletedProcess([], 0, b"", b"")
+        with mock.patch.object(rg.subprocess, "run", return_value=result) as run:
+            rg.git("fixture", "checkout", "HEAD", "--", raw)
+        self.assertEqual(run.call_args[0][0],
+                         ["git", "--literal-pathspecs", "-C", "fixture", "checkout", "HEAD", "--", raw])
 
 
 class Failures(Repo):
@@ -262,7 +305,7 @@ class Failures(Repo):
         self.assertFalse(os.path.exists("/tmp/redgreen-pwned"))
 
     def test_not_a_git_repo(self):
-        code, out, _ = run_main(["--repo-root", tempfile.mkdtemp(), "--base", "main", "--cmd", CMD])
+        code, out, _ = run_main(["--repo-root", self.workspace, "--base", "main", "--cmd", CMD])
         self.assertEqual(code, 3)
 
     def test_usage_errors(self):
@@ -282,11 +325,11 @@ class Failures(Repo):
         code, out, _ = self.prove()
         self.assertEqual(code, 1)          # no marker: red AND green fail, so NOT_GREEN
         self.assertIn("NOT_GREEN", out)
-        setup = "%s -c \"open('marker', 'w').write('x')\"" % sys.executable
+        setup = support.command_text([sys.executable, "-c", "open('marker', 'w').write('x')"])
         # with the marker only the missing fix keeps the base red
         code, out, _ = self.prove("--setup", setup)
         self.assertEqual(code, 0, out)
-        code, out, _ = self.prove("--setup", "%s -c \"raise SystemExit(5)\"" % sys.executable)
+        code, out, _ = self.prove("--setup", support.command_text([sys.executable, "-c", "raise SystemExit(5)"]))
         self.assertEqual(code, 3)
         self.assertIn("--setup failed", out)
 
@@ -307,7 +350,8 @@ class Options(Repo):
         self.put("checks/__init__.py", "")
         self.put("checks/check_calc.py", TEST_ADD)
         self.commit()
-        code, out, _ = self.prove("--test-glob", "checks", cmd="%s -m unittest discover -s checks -t . -p 'check_*.py'" % sys.executable)
+        command = support.command_text([sys.executable, "-m", "unittest", "discover", "-s", "checks", "-t", ".", "-p", "check_*.py"])
+        code, out, _ = self.prove("--test-glob", "checks", cmd=command)
         self.assertEqual(code, 0, out)
         code, out, _ = self.prove()            # default globs do not know about "checks"
         self.assertEqual(code, 1)

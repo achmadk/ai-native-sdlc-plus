@@ -8,6 +8,11 @@ import sys
 import tempfile
 import unittest
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(ROOT, "skills", "context-pack", "scripts"))
 import check_brief as cb  # noqa: E402
@@ -32,7 +37,9 @@ def brief(decisions=ITEM, criteria=QUOTE, extra="", gaps="- searched the wiki fo
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        self.workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.workspace)
+        self.repo = os.path.join(self.workspace, "repo")
         for rel in ("docs/adr/12.md", "docs/rules.md", "docs/incident-7.md", "docs/sec.md"):
             full = os.path.join(self.repo, rel)
             os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -140,6 +147,7 @@ class Links(Base):
         self.assertTrue(self.errors(brief(decisions=ITEM.replace("docs/adr/12.md", "javascript:alert(1)"))))
 
     def test_symlink_escape(self):
+        support.require_symlinks()
         outside = os.path.join(self.repo, "..", "outside-%d.md" % os.getpid())
         with open(outside, "w") as handle:
             handle.write("x")
@@ -221,7 +229,7 @@ class GovernedPaths(Base):
         self.assertError(brief(decisions=item), "needs a 'governs:")
 
     def test_not_a_git_repo_is_a_warning_not_a_pass(self):
-        plain = tempfile.mkdtemp()
+        plain = tempfile.mkdtemp(dir=self.workspace)
         os.makedirs(os.path.join(plain, "docs"))
         with open(os.path.join(plain, "docs", "incident-7.md"), "w") as handle:
             handle.write("x")

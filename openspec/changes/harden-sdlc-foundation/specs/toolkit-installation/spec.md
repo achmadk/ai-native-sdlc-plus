@@ -67,7 +67,7 @@ Installation SHALL distinguish files installed, hook activation, and hosted merg
 
 ### Requirement: Consistent supported-platform behavior
 
-POSIX and PowerShell entry points SHALL use the same install plan and failure contract. Interpreter discovery SHALL validate a usable interpreter against the supported Python floor rather than only its command name. The installed Git hook dispatcher SHALL use a supported implementation on Windows as well as POSIX and retain its advisory exit behavior.
+POSIX and PowerShell entry points SHALL use the same install plan and failure contract. Interpreter discovery SHALL validate a usable interpreter against the supported Python floor rather than only its command name, and SHALL continue past unusable candidates when one command name resolves to multiple platform matches. The installed Git hook dispatcher SHALL use a supported implementation on Windows as well as POSIX and retain its advisory exit behavior.
 
 Managed `.gitattributes` rules SHALL keep shell entry points in LF form across Git checkout. The attributes file SHALL obey the same non-destructive manifest/ownership contract as other installed files and SHALL be part of the Critical control boundary.
 
@@ -78,6 +78,11 @@ Managed `.gitattributes` rules SHALL keep shell entry points in LF form across G
 #### Scenario: Windows has python but not python3
 - **WHEN** a supported Windows environment has a working `python` command and no working `python3`
 - **THEN** installation and an explicitly activated Git-dispatched hook both locate the supported interpreter rather than silently skipping the advisory check
+
+#### Scenario: A working interpreter is not hidden by another match
+- **WHEN** a supported Windows environment exposes more than one match for `python` and an earlier match cannot run
+- **THEN** installation and the advisory hook use the first match that satisfies the supported Python floor
+- **AND** they do not report the runtime as missing while a usable candidate exists
 
 #### Scenario: Installation fails under PowerShell
 - **WHEN** preflight, copying, or installation verification fails through the PowerShell entry point

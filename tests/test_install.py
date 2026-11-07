@@ -17,17 +17,13 @@ import tempfile
 import unittest
 from unittest import mock
 
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = Path(__file__).resolve().parents[1]
-SH = shutil.which("sh")
-if SH is None and os.name == "nt" and shutil.which("git"):
-    for directory in Path(shutil.which("git")).parents:
-        for relative in ("bin/sh.exe", "usr/bin/sh.exe"):
-            if (directory / relative).is_file():
-                SH = str(directory / relative)
-                break
-        if SH:
-            break
+SH = support.find_shell()
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
@@ -72,15 +68,13 @@ HELPERS = {
 
 def clean_env(**extra):
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    if os.name == "nt" and SH:
+        env["PATH"] = os.path.dirname(SH) + os.pathsep + env.get("PATH", "")
     env.update(PYTHONDONTWRITEBYTECODE="1", **extra)
     return env
 
 
-def remove_tree(path):
-    def writable_then_retry(function, name, exc):
-        os.chmod(name, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
-        function(name)
-    shutil.rmtree(str(path), onerror=writable_then_retry)
+remove_tree = support.remove_tree
 
 
 class InstallFixture(unittest.TestCase):
@@ -366,28 +360,27 @@ class InvocationCases:
         self.assertIn(b"autocrlf = true", before)
 
 
-@unittest.skipUnless(SH, "POSIX shell unavailable")
+@unittest.skipUnless(SH, support.SHELL_REQUIRED)
 class POSIXInstallation(InvocationCases, InstallFixture):
     def test_missing_interpreter_fails_before_creating_payload(self):
-        if os.name == "nt":
-            self.skipTest("isolated POSIX executable links; Windows discovery covered by native entry point")
         bindir = self.temp / "no python"
         bindir.mkdir()
         for tool in ("sh", "dirname", "mkdir", "cp", "chmod"):
-            (bindir / tool).symlink_to(shutil.which(tool))
+            support.shell_wrapper(bindir / tool, "exec %s \"$@\"" %
+                                  shlex.quote(support.shell_path(support.shell_tool(tool))))
         before = self.snapshot()
         result = self.invoke(cwd=self.source, env=clean_env(PATH=str(bindir)))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Python >= 3.8", result.stdout + result.stderr)
         self.assertEqual(self.snapshot(), before)
 
-    @unittest.skipIf(os.name == "nt", "POSIX shim discovery")
     def test_unusable_python3_falls_back_to_usable_python(self):
         bindir = self.temp / "interpreter shims"
         bindir.mkdir()
         self.put(bindir / "python3", "#!/bin/sh\nexit 127\n", 0o755)
-        self.put(bindir / "python", "#!/bin/sh\nexec %s \"$@\"\n" % shlex.quote(sys.executable), 0o755)
-        result = self.invoke(env=clean_env(PATH=str(bindir) + os.pathsep + os.environ["PATH"]))
+        self.put(bindir / "python", "#!/bin/sh\nexec %s \"$@\"\n" %
+                 shlex.quote(support.shell_path(sys.executable)), 0o755)
+        result = self.invoke(env=clean_env(PATH=str(bindir) + os.pathsep + clean_env()["PATH"]))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.target / STATE).exists())
 
@@ -421,8 +414,28 @@ class PowerShellInstallation(InvocationCases, InstallFixture):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.target / STATE).is_file())
 
+    @unittest.skipUnless(os.name == "nt", "Windows command-discovery fixture")
+    def test_two_python_matches_use_the_first_usable_one(self):
+        broken = self.temp / "broken interpreter"
+        broken.mkdir()
+        self.put(broken / "python.cmd", "@echo off\r\nexit /b 1\r\n")
+        working = self.temp / "working interpreter"
+        working.mkdir()
+        self.put(working / "python.cmd",
+                 '@echo off\r\n"' + sys.executable + '" %*\r\nexit /b %ERRORLEVEL%\r\n')
+        env = clean_env(PATH=os.pathsep.join((str(broken), str(working))))
+        probe = subprocess.run(
+            [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command",
+             "@(Get-Command python -CommandType Application -ErrorAction SilentlyContinue).Count"],
+            env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(probe.stdout.strip(), "2",
+                         "fixture must expose two python matches: " + probe.stderr)
+        result = self.invoke(env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.target / STATE).is_file())
 
-@unittest.skipUnless(SH, "POSIX shell unavailable")
+
+@unittest.skipUnless(SH, support.SHELL_REQUIRED)
 class FilesystemSafety(InstallFixture):
     def test_source_manifest_is_an_exact_allowlist_not_a_recursive_copy(self):
         manifest = self.manifest()
@@ -439,12 +452,10 @@ class FilesystemSafety(InstallFixture):
             self.assertFalse((self.target / rel).exists(), rel)
 
     def test_symlink_directory_escape_is_rejected_without_external_writes(self):
+        support.require_symlinks(directory=True)
         outside = self.temp / "outside"
         outside.mkdir()
-        try:
-            (self.target / "scripts").symlink_to(outside, target_is_directory=True)
-        except OSError:
-            self.skipTest("symlink creation not permitted on this host")
+        (self.target / "scripts").symlink_to(outside, target_is_directory=True)
         before = self.snapshot()
         result = self.invoke(cwd=self.source)
         self.assertNotEqual(result.returncode, 0)
@@ -457,23 +468,20 @@ class FilesystemSafety(InstallFixture):
         outside = self.temp / "outside"
         outside.mkdir()
         link = self.target / "scripts"
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], check=True, capture_output=True)
-        self.addCleanup(os.rmdir, str(link))
+        support.make_junction(link, outside)
         result = self.invoke()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertFalse((self.target / STATE).exists())
 
     def test_symlink_file_and_state_are_rejected_even_when_bytes_match(self):
+        support.require_symlinks()
         for rel in ("scripts/lane.py", STATE):
             with self.subTest(path=rel):
                 outside = self.put(self.temp / "outside-file", (self.source / "scripts/lane.py").read_bytes())
                 link = self.target / rel
                 link.parent.mkdir(exist_ok=True)
-                try:
-                    link.symlink_to(outside)
-                except OSError:
-                    self.skipTest("symlink creation not permitted on this host")
+                link.symlink_to(outside)
                 before = outside.read_bytes()
                 result = self.invoke()
                 self.assertNotEqual(result.returncode, 0)
@@ -503,8 +511,8 @@ class FilesystemSafety(InstallFixture):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.snapshot(), before)
 
-    @unittest.skipIf(os.name == "nt", "POSIX mode ownership")
     def test_locally_changed_mode_is_a_conflict_even_when_content_is_identical(self):
+        support.require_executable_bits()
         self.successful_install()
         (self.target / "scripts/lane.py").chmod(0o600)
         before = self.snapshot()
@@ -692,6 +700,20 @@ class FilesystemSafety(InstallFixture):
         self.assertEqual(self.snapshot(), before)
 
 
+class FingerprintContract(InstallFixture):
+    def test_path_and_handle_fingerprints_agree_for_the_same_file(self):
+        module = self.installer()
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        for index in range(8):
+            sample = self.put(self.temp / ("fingerprint-%d.txt" % index), "content %d\n" % index)
+            descriptor = os.open(sample, flags)
+            try:
+                self.assertEqual(module.stamp(os.lstat(sample)), module.stamp(os.fstat(descriptor)),
+                                 sample.name)
+            finally:
+                os.close(descriptor)
+
+
 class HelperEntryPoints(InstallFixture):
     def test_root_helpers_delegate_imports_without_shadowing_authoritative_modules(self):
         probe = ("import importlib, sys; sys.path.insert(0, sys.argv[1]); "
@@ -727,7 +749,7 @@ class HelperEntryPoints(InstallFixture):
     def test_source_root_helpers_preserve_arguments_output_and_exit_status(self):
         self.parity(ROOT)
 
-    @unittest.skipUnless(SH, "POSIX shell unavailable")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_installed_commands_and_generic_runner_work_without_source_checkout(self):
         self.successful_install()
         remove_tree(self.source)
@@ -741,9 +763,10 @@ class HelperEntryPoints(InstallFixture):
         head = self.git("rev-parse", "HEAD")
         body = self.put(self.temp / "pr-body.md", "## Intent\nClarify the documentation without changing behavior.\n"
                         "## Trace\nUsed the installed toolkit to verify the documentation-only fixture.\n")
+        env = support.shell_environment(self.temp / "shell-bin", clean_env(
+            SDLC_BASE=base, SDLC_HEAD=head, SDLC_PR_BODY_FILE=support.shell_path(body)))
         result = subprocess.run([SH, str(self.target / "skills/ai-sdlc/assets/ci-generic.sh")],
-                                cwd=str(self.target), env=clean_env(SDLC_BASE=base, SDLC_HEAD=head,
-                                                                  SDLC_PR_BODY_FILE=str(body)),
+                                cwd=str(self.target), env=env,
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Lite", result.stdout + result.stderr)

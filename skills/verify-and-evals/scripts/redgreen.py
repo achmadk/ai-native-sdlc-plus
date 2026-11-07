@@ -101,6 +101,39 @@ def sanitize(text):
     return "\n".join(kept[-TAIL_LINES:])
 
 
+def split_command(text):
+    """Split a command line with the host shell's quoting rules.
+
+    Windows paths contain backslashes, so POSIX shlex would eat them; there quotes
+    only group whitespace and everything else is literal.
+    """
+    return shlex.split(text) if os.name != "nt" else _split_windows(text)
+
+
+def _split_windows(text):
+    tokens, current, quote, started = [], [], None, False
+    for char in text:
+        if quote:
+            if char == quote:
+                quote = None
+            else:
+                current.append(char)
+        elif char in "\"'":
+            quote, started = char, True
+        elif char.isspace():
+            if started:
+                tokens.append("".join(current))
+                current, started = [], False
+        else:
+            current.append(char)
+            started = True
+    if quote:
+        raise ValueError("No closing quotation")
+    if started:
+        tokens.append("".join(current))
+    return tokens
+
+
 def run_command(argv, cwd, timeout):
     """Return {"rc", "tail", "error"}; error is set when the command could not be run to completion."""
     try:
@@ -212,8 +245,8 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        command = shlex.split(args.cmd)
-        setup = shlex.split(args.setup) if args.setup else None
+        command = split_command(args.cmd)
+        setup = split_command(args.setup) if args.setup else None
     except ValueError as exc:
         sys.stderr.write("redgreen.py: cannot parse the command: %s\n" % exc)
         return 2

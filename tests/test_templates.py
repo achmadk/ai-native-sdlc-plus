@@ -9,6 +9,11 @@ import sys
 import tempfile
 import unittest
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 for sub in ("scripts", "skills/spec-first/scripts", "skills/context-pack/scripts", "skills/verify-and-evals/scripts"):
     sys.path.insert(0, os.path.join(ROOT, sub))
@@ -82,7 +87,7 @@ class EndToEnd(unittest.TestCase):
     """A PR assembled from the shipped templates must pass the gate, lane by lane."""
 
     def setUp(self):
-        directory = tempfile.TemporaryDirectory()
+        directory = support.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.repo = directory.name
         for rel in ("docs/spec.md", "docs/intent.md"):

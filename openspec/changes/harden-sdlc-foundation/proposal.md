@@ -1,6 +1,6 @@
 ## Why
 
-The toolkit's foundation currently permits destructive installer reruns, incomplete installations, structurally invalid evidence, and under-classified security paths; its PR secret scanner is missing a required token, and the audited repository does not require its evidence check at merge. Fix these concrete gaps before expanding adoption, while keeping the distinction between evidence presence, human review, and verified merge protection explicit.
+The toolkit's foundation currently permits destructive installer reruns, incomplete installations, structurally invalid evidence, and under-classified security paths; its PR secret scanner is missing a required token, and the audited repository does not require its evidence check at merge. Fix these concrete gaps before expanding adoption, while keeping the distinction between evidence presence, human review, and verified merge protection explicit. A native Windows audit of the committed implementation adds two concrete gaps: the PowerShell entry points and the installer's file-identity check fail on ordinary Windows hosts, and the verification suite reports environment errors rather than verdicts, so the claimed Windows support is not yet a tested contract.
 
 ## What Changes
 
@@ -14,6 +14,9 @@ The toolkit's foundation currently permits destructive installer reruns, incompl
 - Define an explicit merge-protection readiness profile, improve read-only doctor diagnostics, and document separately authorized activation. A local installation or green evidence job must not be described as proof that merges are protected.
 - Use GET for REST inspection and a fixed read-only GraphQL query via POST solely to establish merge-queue state; never issue provider mutations. Distribute managed `.gitattributes` LF rules for shell entry points so Windows checkout preserves executable hook scripts.
 - Add regression and clean-target integration tests for the shipped policy, installer, helper paths, security workflows, and readiness failure cases; update only documentation affected by these contracts.
+- Make Windows a verified platform rather than a documented aspiration: select a usable interpreter across duplicate command matches, make installer file-identity checks stable on Windows, and parse absolute Windows command paths in the red-to-green helper.
+- Make the shipped verification suite portable: one shared shell-discovery and cleanup layer, capability-probed skips with stated reasons, and portable assertions for behavior whose original fixture cannot exist on Windows. Do not drop POSIX coverage to achieve this.
+- Run the full verification suite on Windows in addition to the focused native install and hook job, record platform-bound skips, and document the tested matrix.
 
 ## Capabilities
 
@@ -21,6 +24,7 @@ The toolkit's foundation currently permits destructive installer reruns, incompl
 
 - `toolkit-installation`: A complete, non-destructive, manifest-driven toolkit installation with canonical helper paths, safe updates, and actionable failure reporting.
 - `ci-security`: Immutable and least-privilege security workflows, functioning PR secret scans, and isolated trusted gate execution.
+- `toolchain-portability`: Native Windows entry points, a verification suite that reaches real verdicts on Windows with explicit platform-bound skips, and a tested CI matrix.
 
 ### Modified Capabilities
 
@@ -29,7 +33,8 @@ The toolkit's foundation currently permits destructive installer reruns, incompl
 
 ## Impact
 
-- Implementation targets: `install.sh`, `install.ps1`, `scripts/`, `hooks/`, `.github/workflows/`, `skills/ai-sdlc/assets/ci-generic.sh`, relevant skill guidance/assets, installer payload metadata, and nearby tests and onboarding documentation.
+- Implementation targets: `install.sh`, `install.ps1`, `scripts/`, `hooks/`, `.github/workflows/`, `skills/ai-sdlc/assets/ci-generic.sh`, relevant skill guidance/assets, installer payload metadata, the full `tests/` tree including a shared support layer, and nearby onboarding and compatibility documentation.
+- Platform verification: the full test suite plus native PowerShell installation and Git-dispatched hook behavior run on Windows at the supported Python floor and a current version. Platform-bound skips are recorded with their reason and are not counted as coverage.
 - Implementation lane: **Critical**, because the change modifies CI, hooks, and the gate itself. Implementation requires approved planning, failing-first regression evidence, a threat note, two independent human reviews, and a staged rollout/rollback record. These artifacts are a proposal, not evidence that those reviews occurred.
 - Keep the Python standard-library runtime and existing CLI invocation forms. No Node.js runtime, hosted service, new agent framework, or new OpenSpec schema is required.
 - Non-goals: authenticating approvals or waivers, a revision-bound evidence platform, stronger red-to-green verdict semantics, real-agent evaluation infrastructure, runtime agent permission enforcement, regulatory certification, general release/uninstall tooling, and unrelated documentation cleanup.

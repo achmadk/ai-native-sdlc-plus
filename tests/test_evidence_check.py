@@ -8,6 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+if __package__:
+    from . import support
+else:
+    import support
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import evidence_check as ec  # noqa: E402
 
@@ -74,7 +79,10 @@ class Repo(unittest.TestCase):
     """A tiny repo with a base commit; tests add a change commit on top."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, workspace)
+        self.repo = os.path.join(workspace, "repo")
+        os.mkdir(self.repo)
         self.g("init", "-q", "-b", "main")
         self.write("docs/spec.md", "# Spec\nsomething real\n")
         self.write("docs/intent.md", "# Intent\nsomething real\n")
@@ -292,6 +300,7 @@ class SpecLinks(Repo):
             self.assertEqual(self.run_standard(line)[0], 1, line)
 
     def test_symlink_escape(self):
+        support.require_symlinks()
         outside = os.path.join(self.repo, "..", "outside-%d.md" % id(self))
         with open(outside, "w") as handle:
             handle.write("secret\n")
@@ -324,6 +333,7 @@ class SpecLinks(Repo):
 
 class RevisionEvidence(Repo):
     def test_malformed_path_cannot_grant_docs_exemption(self):
+        support.require_filename("source\n.py")
         self.write("docs/source\n.py", "print('not prose')\n")
         self.change(docs__guide_dot_md="text\n")
         code, out, _ = self.ci(GOOD_STANDARD)
@@ -378,11 +388,20 @@ class RevisionEvidence(Repo):
         self.assertEqual(code, 0, out)
 
     def test_git_lookup_uses_literal_reference_paths(self):
+        support.require_filename("[literal]*.md")
         self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
         self.write("docs/[literal]*.md", "real committed spec\n")
         self.g("add", "--", "docs/[literal]*.md")
         self.g("commit", "-q", "-m", "literal path")
         code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/[literal]*.md"))
+        self.assertEqual(code, 0, out)
+
+    def test_git_lookup_preserves_windows_legal_glob_characters(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/[literal].md", "real committed spec\n")
+        self.g("add", "--", "docs/[literal].md")
+        self.g("commit", "-q", "-m", "literal bracket path")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/[literal].md"))
         self.assertEqual(code, 0, out)
 
     def test_ci_paths_without_change_metadata_fail_closed(self):
@@ -403,6 +422,21 @@ class RevisionEvidence(Repo):
         with patch.object(ec.lanelib.subprocess, "run", side_effect=broken_lookup):
             code, out, _ = self.ci(GOOD_STANDARD)
         self.assertEqual(code, 3, out)
+
+
+class PortablePaths(unittest.TestCase):
+    def test_malformed_path_input_cannot_disappear_from_exemption_checks(self):
+        paths = ["docs/guide.md", "docs/source\n.py"]
+        changes = [{"raw_path": path, "old_mode": "000000", "new_mode": "100644", "status": "A"}
+                   for path in paths]
+        with self.assertRaisesRegex(ec.ToolError, "malformed changed path"):
+            ec.detect("", paths, ".", ec.lanelib.parse_config(CONFIG), "Standard", changes)
+
+    def test_filename_diagnostics_cannot_form_workflow_commands(self):
+        for raw in ("docs/::error::x.md", "docs/source\n.py"):
+            text = ec.safe(raw)
+            self.assertNotIn("::error::", text)
+            self.assertNotIn("\n", text)
 
 
 class Sections(unittest.TestCase):
@@ -558,6 +592,7 @@ class Safety(Repo):
         self.assertNotIn("pwned ::", out)
 
     def test_filename_cannot_inject_workflow_commands(self):
+        support.require_filename("::error::x.md")
         self.change(**{"docs__::error::x_dot_md": "x\n"})
         code, out, _ = self.ci("", env={"GITHUB_ACTIONS": "true"})
         self.assertNotIn("::error::x", out)

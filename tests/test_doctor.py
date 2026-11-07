@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import shutil
 import stat
 import subprocess
@@ -13,6 +14,11 @@ import tempfile
 import unittest
 from unittest import mock
 from urllib.parse import quote
+
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
@@ -42,10 +48,11 @@ class Install(unittest.TestCase):
     """A committed, correct install in a temp git repo."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.repo)
+        self.workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.workspace)
+        self.repo = os.path.join(self.workspace, "repo")
         for rel in COPIED:
-            self.put(rel, slurp(os.path.join(ROOT, rel)))
+            self.put(rel, Path(ROOT, rel).read_bytes())
         self.put("hooks/pre-push.sh", slurp(os.path.join(ROOT, "hooks/pre-push.sh")), executable=True)
         self.put("hooks/pre-push", slurp(os.path.join(ROOT, "hooks/pre-push")), executable=True)
         self.put("src/app.py", "x = 1\n")
@@ -62,8 +69,8 @@ class Install(unittest.TestCase):
     def put(self, rel, text, executable=False):
         full = os.path.join(self.repo, rel)
         os.makedirs(os.path.dirname(full), exist_ok=True)
-        with open(full, "w") as handle:
-            handle.write(text)
+        with open(full, "wb") as handle:
+            handle.write(text.encode("utf-8") if isinstance(text, str) else text)
         if executable:
             os.chmod(full, os.stat(full).st_mode | stat.S_IXUSR)
 
@@ -166,7 +173,7 @@ class Basics(Install):
         self.assertIn("lane.py", detail)
 
     def test_not_a_git_repo_is_unverified_not_a_crash(self):
-        plain = tempfile.mkdtemp()
+        plain = tempfile.mkdtemp(dir=self.workspace)
         for rel in COPIED:
             dest = os.path.join(plain, rel)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
@@ -306,7 +313,7 @@ class HookChecks(Install):
         self.g("config", "core.hooksPath", "hooks")
         status, detail = self.get("hook-active")
         self.assertEqual(status, doctor.OK)
-        self.assertIn("hooks/pre-push", detail)
+        self.assertIn(os.path.join("hooks", "pre-push"), detail)
 
     def test_hookspath_with_only_the_dot_sh_file_is_NOT_active(self):
         # Regression: doctor once said "verified" here. Git only runs a file named exactly "pre-push".
@@ -317,6 +324,7 @@ class HookChecks(Install):
         self.assertIn("exactly 'pre-push'", detail)
 
     def test_non_executable_hook_warns(self):
+        support.require_executable_bits()
         self.g("config", "core.hooksPath", "hooks")
         os.chmod(os.path.join(self.repo, "hooks/pre-push"), 0o644)
         status, detail = self.get("hook-active")
@@ -376,13 +384,13 @@ class CodeownersChecks(Install):
 
 class GitState(Install):
     def add_origin(self, files=None):
-        bare = tempfile.mkdtemp()
+        bare = tempfile.mkdtemp(dir=self.workspace)
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", bare], check=True)
         if files is None:
             self.g("remote", "add", "origin", bare)
             self.g("push", "-q", "origin", "main")
         else:
-            seed = tempfile.mkdtemp()
+            seed = tempfile.mkdtemp(dir=self.workspace)
             subprocess.run(["git", "init", "-q", "-b", "main", seed], check=True)
             for name in files:
                 with open(os.path.join(seed, name), "w") as handle:
@@ -416,16 +424,15 @@ class GitState(Install):
         self.assertEqual(self.status("gate-files-committed"), doctor.WARN)
 
     def test_shallow_clone_warns(self):
-        clone = tempfile.mkdtemp()
-        subprocess.run(["git", "clone", "-q", "--depth", "1", "file://" + self.repo, clone + "/c"], check=True,
+        clone = tempfile.mkdtemp(dir=self.workspace)
+        subprocess.run(["git", "clone", "-q", "--depth", "1", Path(self.repo).resolve().as_uri(), clone + "/c"], check=True,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         results = doctor.check_repo(clone + "/c")
         self.assertIn(doctor.WARN, [s for n, s, _ in results if n == "shallow-clone"])
         self.assertEqual(self.statuses("shallow-clone"), [])
 
 
-FAKE_GH = """#!/usr/bin/env python3
-import os, sys
+FAKE_GH = """import os, sys
 from urllib.parse import quote
 args = sys.argv[1:]
 d = os.environ["FAKE_GH_DIR"]
@@ -446,12 +453,8 @@ class RemoteChecks(Install):
     def setUp(self):
         super(RemoteChecks, self).setUp()
         self.g("remote", "add", "origin", "https://github.com/acme/widgets.git")
-        self.bin = tempfile.mkdtemp()
-        self.data = tempfile.mkdtemp()
-        gh = os.path.join(self.bin, "gh")
-        with open(gh, "w") as handle:
-            handle.write(FAKE_GH)
-        os.chmod(gh, 0o755)
+        self.bin = tempfile.mkdtemp(dir=self.workspace)
+        self.data = tempfile.mkdtemp(dir=self.workspace)
         self.api("repos/acme/widgets", {"default_branch": "main"})
         self.api("apps/github-actions", {"id": 15368, "slug": "github-actions", "owner": {"login": "github"}})
         env = {"PATH": self.bin + os.pathsep + os.environ["PATH"], "FAKE_GH_DIR": self.data}
@@ -470,7 +473,9 @@ class RemoteChecks(Install):
     def protection(self, payload):
         self.api("repos/acme/widgets/branches/main/protection", payload)
 
-    def remote(self):
+    def remote(self, with_cli=True):
+        if with_cli:
+            support.fake_command(self.bin, "gh", FAKE_GH)
         return {n: (s, d) for n, s, d in doctor.check_repo(self.repo, check_remote=True)}
 
     def test_ruleset_requires_the_check_pinned_to_an_app(self):
@@ -561,6 +566,7 @@ class RemoteChecks(Install):
         self.rules([{"type": "required_status_checks",
                      "parameters": {"required_status_checks": [{"context": "gate", "integration_id": 15368}]}}])
         self.protection("ERR:gh: Branch not protected (HTTP 404)")
+        support.fake_command(self.bin, "gh", FAKE_GH)
         got = {n: s for n, s, _ in doctor.check_repo(self.repo, check_remote=True, check_name="gate")}
         self.assertEqual(got["required-check"], doctor.OK)
 
@@ -570,15 +576,15 @@ class RemoteChecks(Install):
         self.assertEqual(self.remote()["required-check"][0], doctor.UNVERIFIED)
 
     def test_gh_missing_is_unverified(self):
-        os.remove(os.path.join(self.bin, "gh"))
+        self.assertEqual(os.listdir(self.bin), [])
         with mock.patch.object(doctor.shutil, "which", return_value=None):
-            status, detail = self.remote()["required-check"]
+            status, detail = self.remote(with_cli=False)["required-check"]
         self.assertEqual(status, doctor.UNVERIFIED)
         self.assertIn("gh CLI", detail)
 
     def test_non_github_remote_is_unverified(self):
         self.g("remote", "set-url", "origin", "https://gitlab.com/acme/widgets.git")
-        self.assertEqual(self.remote()["required-check"][0], doctor.UNVERIFIED)
+        self.assertEqual(self.remote(with_cli=False)["required-check"][0], doctor.UNVERIFIED)
 
     def test_remote_url_forms(self):
         for url in ("https://github.com/acme/widgets", "https://github.com/acme/widgets.git",
@@ -716,7 +722,7 @@ class EnforcementChecks(Install):
         paths += list(extra or [])
         tree = []
         for path in paths:
-            body = slurp(os.path.join(self.repo, path)).encode("utf-8")
+            body = Path(self.repo, path).read_bytes()
             sha = hashlib.sha1(b"blob " + str(len(body)).encode("ascii") + b"\0" + body).hexdigest()
             tree.append({"path": path, "mode": "100644", "type": "blob", "sha": sha})
             self.api_data[self.PREFIX + "/git/blobs/" + sha] = {

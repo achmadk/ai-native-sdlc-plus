@@ -11,6 +11,11 @@ import subprocess
 import sys
 import tempfile
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
@@ -220,8 +225,11 @@ MUTANTS = [
 
 def run_tests(tree, modules=None):
     cmd = [sys.executable, "-B", "-m", "unittest"] + (
-        ["--failfast"] + modules if modules else ["discover", "-s", "tests"])
+        ["--failfast"] + modules if modules else ["discover", "-s", "tests", "-v"])
     proc = subprocess.run(cmd, cwd=tree, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not modules or proc.returncode:
+        sys.stdout.write(proc.stdout.decode("utf-8", "replace"))
+        sys.stderr.write(proc.stderr.decode("utf-8", "replace"))
     return proc.returncode == 0
 
 
@@ -243,7 +251,7 @@ def try_mutant(number, mutant):
                 return number, mutant, "killed"
         return number, mutant, "survived"
     finally:
-        shutil.rmtree(tree, ignore_errors=True)
+        support.remove_tree(tree)
 
 
 def main():

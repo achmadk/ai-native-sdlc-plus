@@ -6,11 +6,15 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = Path(__file__).resolve().parents[1]
+SH = support.find_shell()
 RUNNER = ROOT / "skills/ai-sdlc/assets/ci-generic.sh"
 GATE_WORKFLOW = ROOT / ".github/workflows/sdlc-gate.yml"
 SCAN_WORKFLOW = ROOT / ".github/workflows/gitleaks.yml"
@@ -18,7 +22,7 @@ SCAN_WORKFLOW = ROOT / ".github/workflows/gitleaks.yml"
 
 class TrustedExecution(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        self.directory = support.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.repo = self.root / "candidate"
@@ -77,9 +81,10 @@ class TrustedExecution(unittest.TestCase):
             packages.mkdir(parents=True, exist_ok=True)
             (packages / "injection.pth").write_text("import os; os._exit(0)\n", encoding="utf-8")
         if generic:
+            env = support.shell_environment(self.root / "shell-bin", env)
             env.update(SDLC_BASE=self.base, SDLC_HEAD=self.head, SDLC_REPO_ROOT=str(self.repo),
-                       SDLC_PR_BODY_FILE=str(self.body))
-            command = ["sh", str(RUNNER)]
+                       SDLC_PR_BODY_FILE=support.shell_path(self.body))
+            command = [SH, support.shell_path(RUNNER)]
         else:
             command = [sys.executable, "-B"]
             if not unisolated and "python3 -I trusted/scripts/evidence_check.py" in GATE_WORKFLOW.read_text(encoding="utf-8"):
@@ -115,22 +120,22 @@ class TrustedExecution(unittest.TestCase):
             self.skipTest("user site is disabled in this interpreter; injection control unavailable")
         self.assert_gate_rejected(self.execute(user_site=True))
 
-    @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for generic runner")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_adjacent_stdlib_module_cannot_short_circuit(self):
         self.prepare(module="json")
         self.assert_gate_rejected(self.execute(generic=True))
 
-    @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for generic runner")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_late_import_cannot_short_circuit(self):
         self.prepare(module="unicodedata")
         self.assert_gate_rejected(self.execute(generic=True))
 
-    @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for generic runner")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_ambient_python_path_is_ignored(self):
         self.prepare()
         self.assert_gate_rejected(self.execute(generic=True, ambient=True))
 
-    @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for generic runner")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_user_site_startup_code_is_ignored(self):
         self.prepare()
         control = self.execute(user_site=True, unisolated=True)
@@ -142,7 +147,7 @@ class TrustedExecution(unittest.TestCase):
         self.prepare(weaken_head=True)
         self.assert_gate_rejected(self.execute(), "Critical")
 
-    @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for generic runner")
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_candidate_cannot_replace_base_checker_or_policy(self):
         self.prepare(weaken_head=True)
         self.assert_gate_rejected(self.execute(generic=True), "Critical")
@@ -151,10 +156,26 @@ class TrustedExecution(unittest.TestCase):
 class WorkflowContract(unittest.TestCase):
     def test_windows_job_executes_native_install_and_dispatch_contracts(self):
         text = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        self.assertIn("runs-on: windows-latest", text)
-        self.assertIn('python: ["3.8", "3.13"]', text)
-        self.assertIn("shell: pwsh", text)
-        self.assertIn("python -B tests/test_install.py PowerShellInstallation FilesystemSafety -v", text)
+        job = re.search(r"(?ms)^  windows-install:\n(.*?)(?=^  [\w-]+:|\Z)", text)
+        self.assertIsNotNone(job, "focused Windows installation job must remain")
+        for expected in ("runs-on: windows-latest", 'python: ["3.8", "3.13"]', "shell: pwsh",
+                         "python -B tests/test_install.py PowerShellInstallation FilesystemSafety -v",
+                         "exit $LASTEXITCODE"):
+            self.assertIn(expected, job.group(1))
+
+    def test_windows_full_suite_retains_verbose_verdicts_and_python_floor(self):
+        text = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  windows-test:\n(.*?)(?=^  [\w-]+:|\Z)", text)
+        self.assertIsNotNone(job, "full Windows suite must run separately from the focused job")
+        for expected in ("runs-on: windows-latest", 'python: ["3.8", "3.13"]', "shell: pwsh",
+                         "python -B -m unittest discover -s tests -v", "exit $LASTEXITCODE",
+                         'PYTHONDONTWRITEBYTECODE: "1"', "fail-fast: false"):
+            self.assertIn(expected, job.group(1))
+        self.assertRegex(job.group(1), r"timeout-minutes:\s*45\b")
+        self.assertNotRegex(job.group(1), r"(?m)^\s*(?:if|continue-on-error):")
+        for entry in ('{os: ubuntu-latest, python: "3.10"}', '{os: ubuntu-latest, python: "3.12"}',
+                      '{os: ubuntu-latest, python: "3.13"}', '{os: macos-latest, python: "3.12"}'):
+            self.assertIn(entry, text)
 
     def test_all_enforcement_actions_have_full_immutable_pins(self):
         for path in (GATE_WORKFLOW, SCAN_WORKFLOW):

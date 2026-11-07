@@ -81,8 +81,13 @@ def record(data, mode):
 
 
 def stamp(info):
-    return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns,
-            info.st_ctime_ns, getattr(info, "st_file_attributes", 0))
+    # Windows reports a different creation time for a path query than for a handle
+    # query on the same file, so creation time only joins fingerprints where those agree.
+    fields = [info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns]
+    if os.name != "nt":
+        fields.append(info.st_ctime_ns)
+    fields.append(getattr(info, "st_file_attributes", 0))
+    return tuple(fields)
 
 
 def snapshot(root, relative):

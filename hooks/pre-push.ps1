@@ -18,17 +18,19 @@ try {
     # Validate the runtime, not just its command name (Windows aliases may be unusable).
     $pythonCmd = $null
     foreach ($candidate in @("python", "python3")) {
-        $command = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue
-        if (-not $command) { continue }
-        try {
-            & $command.Source -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) {
-                $pythonCmd = $command.Source
-                break
+        # One command name can resolve to several PATH matches; validate each before deciding.
+        foreach ($command in @(Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue)) {
+            try {
+                & $command.Source -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    $pythonCmd = $command.Source
+                    break
+                }
+            } catch {
+                # Keep trying; an unavailable interpreter must never block a push.
             }
-        } catch {
-            # Keep trying; an unavailable interpreter must never block a push.
         }
+        if ($pythonCmd) { break }
     }
     if (-not $pythonCmd) {
         Say "Python >= 3.8 not found (tried python and python3); lane check skipped"

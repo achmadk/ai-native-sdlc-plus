@@ -5,20 +5,15 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 ZERO = "0" * 40
-SH = shutil.which("sh")
-if SH is None and os.name == "nt" and shutil.which("git"):
-    for directory in Path(shutil.which("git")).parents:
-        for relative in ("bin/sh.exe", "usr/bin/sh.exe"):
-            if (directory / relative).is_file():
-                SH = str(directory / relative)
-                break
-        if SH:
-            break
-SH = SH or "/bin/sh"
+SH = support.find_shell()
 
 
 def slurp(path):
@@ -26,12 +21,13 @@ def slurp(path):
         return handle.read()
 
 
+@unittest.skipUnless(SH, support.SHELL_REQUIRED)
 class HookRepo(unittest.TestCase):
     """A work repo with an origin, the gate scripts, and both hook files, on a default branch 'main'."""
 
     def setUp(self):
         base = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
+        self.addCleanup(support.remove_tree, base)
         self.origin = os.path.join(base, "origin.git")
         self.repo = os.path.join(base, "work")
         self.bin = os.path.join(base, "bin")
@@ -49,7 +45,8 @@ class HookRepo(unittest.TestCase):
         self.g("remote", "add", "origin", self.origin)
         self.g("push", "-q", "origin", "main")
         self.g("remote", "set-head", "origin", "main")
-        self.env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        self.env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1",
+                        PATH=os.path.dirname(SH) + os.pathsep + os.environ.get("PATH", ""))
 
     def g(self, *args, **kw):
         proc = subprocess.run(["git", "-C", self.repo, "-c", "user.email=t@t", "-c", "user.name=t"] + list(args),
@@ -187,12 +184,12 @@ class NeverBlocks(HookRepo):
         self.assertEqual(code, 0)
         self.assertIn("gate scripts not found", err)
 
-    @unittest.skipIf(os.name == "nt", "POSIX symlink fixture; native Git fallback tested separately")
     def test_missing_python_is_reported_not_fatal(self):
         sha = self.branch("feat", src__app_dot_py="x = 2\n")
         os.makedirs(self.bin)
         for tool in ("git", "sed"):
-            os.symlink(shutil.which(tool), os.path.join(self.bin, tool))
+            support.shell_wrapper(os.path.join(self.bin, tool), "exec %s \"$@\"" %
+                                  shlex.quote(support.shell_path(support.shell_tool(tool))))
         code, _, err = self.hook(self.line(sha, "feat"), path=self.bin)
         self.assertEqual(code, 0)
         self.assertIn("Python >= 3.8 not found", err)
@@ -227,14 +224,17 @@ class NeverBlocks(HookRepo):
         with open(fake, "w", newline="\n") as handle:
             handle.write("#!/bin/sh\ncat >/dev/null\necho FAKE-GATE-RAN\n")
         os.chmod(fake, 0o755)
-        code, _, err = self.hook(self.line(a, "a") + self.line(b, "b"), path=self.bin + os.pathsep + os.environ["PATH"])
+        code, _, err = self.hook(self.line(a, "a") + self.line(b, "b"), path=self.bin + os.pathsep + self.env["PATH"])
         self.assertEqual(code, 0)
         self.assertEqual(err.count("FAKE-GATE-RAN"), 2)
 
-    @unittest.skipIf(os.name == "nt", "POSIX pseudo-terminal contract")
     def test_interactive_terminal_does_not_hang(self):
-        import pty
-        master, slave = pty.openpty()
+        if not hasattr(os, "openpty"):
+            self.skipTest("POSIX pseudo-terminal unavailable")
+        try:
+            master, slave = os.openpty()
+        except OSError:
+            self.skipTest("POSIX pseudo-terminal allocation unavailable")
         try:
             proc = subprocess.run([SH, os.path.join(self.repo, "hooks/pre-push.sh")], cwd=self.repo, stdin=slave,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, env=self.env)
@@ -333,7 +333,7 @@ class RealPushes(HookRepo):
             with open(path, "w", newline="\n") as handle:
                 handle.write("#!/bin/sh\n%s\n" % body)
             os.chmod(path, 0o755)
-        env = dict(self.env, PATH=self.bin + os.pathsep + os.environ["PATH"])
+        env = dict(self.env, PATH=self.bin + os.pathsep + self.env["PATH"])
         proc = subprocess.run([shutil.which("git"), "-C", self.repo, "push", "origin", "python-fallback"],
                               env=env, capture_output=True, timeout=60)
         self.assertEqual(proc.returncode, 0, proc.stderr.decode())
@@ -343,7 +343,7 @@ class RealPushes(HookRepo):
         sha = self.branch("feat", auth__login_dot_py="x = 2\n")
         tried = 0
         for shell in ("dash", "bash", "sh", "ash"):
-            path = shutil.which(shell)
+            path = support.find_shell(shell)
             if not path:
                 continue
             tried += 1

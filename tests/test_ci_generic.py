@@ -1,13 +1,17 @@
 import os
 import shlex
-import shutil
 import subprocess
 import tempfile
 import unittest
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "ai-sdlc", "assets", "ci-generic.sh")
-SH = shutil.which("sh") or "/bin/sh"
+SH = support.find_shell()
 GOOD_LITE = ("## Intent\nFix a typo in the install guide so the command can be copied.\n\n"
              "## Trace\nUsed an agent to find the typo; kept the change minimal on purpose.\n")
 
@@ -17,14 +21,17 @@ def slurp(path):
         return handle.read()
 
 
+@unittest.skipUnless(SH, support.SHELL_REQUIRED)
 class CiRepo(unittest.TestCase):
     """A repo whose base commit carries the gate tooling, with a PR branch on top."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
-        self.tmp = tempfile.mkdtemp()           # isolated TMPDIR so leftovers are detectable
-        self.addCleanup(shutil.rmtree, self.repo, ignore_errors=True)
-        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.workspace)
+        self.repo = os.path.join(self.workspace, "repo")
+        os.mkdir(self.repo)
+        self.tmp = tempfile.mkdtemp(dir=self.workspace)  # scratch leftovers remain detectable
+        self.env = support.shell_environment(os.path.join(self.workspace, "bin"))
         self.body = os.path.join(self.tmp, "body.md")
         self.g("init", "-q", "-b", "main")
         for rel in ("scripts/lane.py", "scripts/evidence_check.py", "scripts/lane-config.yaml"):
@@ -56,12 +63,13 @@ class CiRepo(unittest.TestCase):
         if body is not None:
             with open(self.body, "w") as handle:
                 handle.write(body)
-        run_env = dict(os.environ, TMPDIR=self.tmp, PYTHONDONTWRITEBYTECODE="1")
+        run_env = dict(self.env, TMPDIR=support.shell_path(self.tmp))
         for key, value in (("SDLC_BASE", base or self.base), ("SDLC_HEAD", head or self.g("rev-parse", "HEAD").strip()),
-                           ("SDLC_PR_BODY_FILE", self.body)):
+                           ("SDLC_PR_BODY_FILE", support.shell_path(self.body))):
             run_env[key] = value
         run_env.update(env or {})
-        proc = subprocess.run([shell, SCRIPT], cwd=self.repo, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+        proc = subprocess.run([shell, support.shell_path(SCRIPT)], cwd=self.repo, env=run_env,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
         return proc.returncode, proc.stdout.decode(), proc.stderr.decode()
 
 
@@ -142,7 +150,8 @@ class SetupErrors(CiRepo):
 
     def test_unset_variables_are_handled_under_set_u(self):
         env = {k: v for k, v in os.environ.items() if not k.startswith("SDLC_")}
-        proc = subprocess.run([SH, SCRIPT], cwd=self.repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.run([SH, support.shell_path(SCRIPT)], cwd=self.repo, env=env,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.assertEqual(proc.returncode, 2)
         self.assertIn("set SDLC_BASE", proc.stderr.decode())
 
@@ -174,7 +183,7 @@ class SetupErrors(CiRepo):
         self.g("rm", "-rq", "--cached", ".")
         for rel in ("scripts", "auth", ".gitignore"):
             path = os.path.join(self.repo, rel)
-            shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+            support.remove_tree(path) if os.path.isdir(path) else os.remove(path)
         self.put("README.md", "no tooling here\n")
         self.g("add", "-A")
         self.g("commit", "-q", "-m", "no tooling")
@@ -188,11 +197,10 @@ class SetupErrors(CiRepo):
     def test_python_missing(self):
         self.put("docs/a.md", "x\n")
         self.commit()
-        bindir = tempfile.mkdtemp()
+        bindir = tempfile.mkdtemp(dir=self.workspace)
         for tool in ("git", "tar", "mktemp", "rm", "dirname", "cat"):
-            found = shutil.which(tool)
-            if found:
-                os.symlink(found, os.path.join(bindir, tool))
+            support.shell_wrapper(os.path.join(bindir, tool), "exec %s \"$@\"" %
+                                  shlex.quote(support.shell_path(support.shell_tool(tool))))
         code, _, err = self.run_script(env={"PATH": bindir})
         self.assertEqual(code, 2)
         self.assertIn("python3 not found", err)
@@ -203,26 +211,23 @@ class Hygiene(CiRepo):
         self.put("docs/a.md", "fixed\n")
         self.commit()
         recorder = os.path.join(self.tmp, "allocated.txt")
-        bindir = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, bindir, ignore_errors=True)
-        real_mktemp = shutil.which("mktemp")
-        self.assertIsNotNone(real_mktemp)
+        bindir = tempfile.mkdtemp(dir=self.workspace)
+        real_mktemp = support.shell_tool("mktemp")
         wrapper = os.path.join(bindir, "mktemp")
-        with open(wrapper, "w") as handle:
-            handle.write('#!/bin/sh\ncreated=$(%s "$@") || exit $?\n'
-                         'printf "%%s\\n" "$created" >> %s\nprintf "%%s\\n" "$created"\n'
-                         % (shlex.quote(real_mktemp), shlex.quote(recorder)))
-        os.chmod(wrapper, 0o755)
-        env = {"PATH": bindir + os.pathsep + os.environ.get("PATH", "")}
+        support.shell_wrapper(wrapper, 'created=$(%s "$@") || exit $?\n'
+                              'printf "%%s\\n" "$created" >> %s\nprintf "%%s\\n" "$created"' %
+                              (shlex.quote(support.shell_path(real_mktemp)),
+                               shlex.quote(support.shell_path(recorder))))
+        env = {"PATH": bindir + os.pathsep + self.env["PATH"]}
         for body, expected in ((GOOD_LITE, 0), ("", 1)):
             code, out, err = self.run_script(body=body, env=env)
             self.assertEqual(code, expected, out + err)
+        self.assertTrue(os.path.isfile(recorder), "mktemp wrapper did not record allocations: " + out + err)
         with open(recorder) as handle:
             created = handle.read().splitlines()
         self.assertEqual(len(created), 2)
         for path in created:
-            self.addCleanup(shutil.rmtree, path, ignore_errors=True)
-        for path in created:
+            path = support.native_path(path)
             self.assertEqual(os.path.realpath(os.path.dirname(path)), os.path.realpath(self.tmp))
             self.assertFalse(os.path.lexists(path), "runner left its actual scratch directory behind")
 
@@ -240,7 +245,7 @@ class Hygiene(CiRepo):
         self.commit()
         tried = 0
         for name in ("dash", "bash", "sh", "ash"):
-            shell = shutil.which(name)
+            shell = support.find_shell(name)
             if shell:
                 tried += 1
                 code, out, err = self.run_script(shell=shell)
@@ -248,10 +253,14 @@ class Hygiene(CiRepo):
         self.assertGreater(tried, 0)
 
     def test_the_script_is_syntactically_valid_for_dash_and_bash(self):
+        tried = 0
         for name in ("dash", "bash"):
-            shell = shutil.which(name)
+            shell = support.find_shell(name)
             if shell:
-                self.assertEqual(subprocess.run([shell, "-n", SCRIPT]).returncode, 0, name)
+                tried += 1
+                self.assertEqual(subprocess.run([shell, "-n", support.shell_path(SCRIPT)]).returncode, 0, name)
+        if not tried:
+            self.skipTest("dash and bash syntax-check capabilities unavailable")
 
 
 if __name__ == "__main__":
