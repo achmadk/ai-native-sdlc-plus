@@ -1,6 +1,5 @@
 """Host capabilities and owned temporary resources for the test suite."""
 
-import atexit
 import errno
 from functools import lru_cache
 import os
@@ -201,76 +200,14 @@ def command_text(arguments):
     return subprocess.list2cmdline(arguments) if os.name == "nt" else " ".join(shlex.quote(arg) for arg in arguments)
 
 
-@lru_cache(maxsize=1)
-def _windows_launcher():
-    root = Path(os.environ.get("SystemRoot", "C:/Windows")) / "Microsoft.NET"
-    compiler = next((root / framework / "v4.0.30319/csc.exe" for framework in ("Framework64", "Framework")
-                     if (root / framework / "v4.0.30319/csc.exe").is_file()), None)
-    if compiler is None:
-        raise unittest.SkipTest("native fake commands require the Windows .NET Framework C# compiler")
-    directory = TemporaryDirectory(prefix="sdlc-native-launcher-")
-    atexit.register(directory.cleanup)
-    source = Path(directory.name, "launcher.cs")
-    source.write_text(r'''
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Text;
-
-class Launcher {
-    static string Quote(string value) {
-        var text = new StringBuilder("\"");
-        int slashes = 0;
-        foreach (char c in value) {
-            if (c == '\\') { slashes++; continue; }
-            text.Append('\\', c == '"' ? slashes * 2 + 1 : slashes);
-            text.Append(c);
-            slashes = 0;
-        }
-        text.Append('\\', slashes * 2);
-        return text.Append('"').ToString();
-    }
-    static int Main(string[] args) {
-        string script = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".py");
-        var command = new StringBuilder("-B " + Quote(script));
-        foreach (string arg in args) command.Append(" " + Quote(arg));
-        var info = new ProcessStartInfo(PYTHON, command.ToString());
-        info.UseShellExecute = false;
-        using (var child = Process.Start(info)) {
-            child.WaitForExit();
-            return child.ExitCode;
-        }
-    }
-}
-'''.replace("PYTHON", '@"' + sys.executable.replace('"', '""') + '"'), encoding="utf-8")
-    executable = Path(directory.name, "launcher.exe")
-    result = subprocess.run([str(compiler), "/nologo", "/target:exe", "/out:" + str(executable), str(source)],
-                            capture_output=True, text=True, timeout=30)
-    if result.returncode:
-        raise RuntimeError("native fixture launcher compilation failed: " + result.stdout + result.stderr)
-    return executable
-
-
 def fake_command(directory, name, source):
+    """Return an argv prefix without generating a new Windows executable."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     script = directory / (name + ".py")
     script.write_text(source, encoding="utf-8")
     if os.name == "nt":
-        command = directory / (name + ".exe")
-        shutil.copy2(_windows_launcher(), command)
-        script.write_text("raise SystemExit(0)\n", encoding="utf-8")
-        try:
-            result = subprocess.run([str(command)], capture_output=True, text=True, timeout=30)
-        except OSError as exc:
-            if getattr(exc, "winerror", None) in (1260, 4551):
-                raise unittest.SkipTest("native fake executable blocked by Windows Application Control (WinError %s)" % exc.winerror)
-            raise
-        finally:
-            script.write_text(source, encoding="utf-8")
-        if result.returncode:
-            raise RuntimeError("native fixture launcher probe failed: " + result.stdout + result.stderr)
-        return command
-    return shell_wrapper(directory / name, "exec %s -B %s \"$@\"" %
-                         (shlex.quote(sys.executable), shlex.quote(str(script))))
+        return [sys.executable, "-B", str(script)]
+    command = shell_wrapper(directory / name, "exec %s -B %s \"$@\"" %
+                            (shlex.quote(sys.executable), shlex.quote(str(script))))
+    return [str(command)]

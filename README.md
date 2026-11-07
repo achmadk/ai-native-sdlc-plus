@@ -164,7 +164,7 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 
 Gitleaks receives the generated read-only `GITHUB_TOKEN` explicitly and has PR commenting disabled. Organization repositories additionally require `GITLEAKS_LICENSE`; fork-event secret availability can prevent scanning. Missing credentials, licensing, or API access must fail as setup errors, not be bypassed or reported as a clean scan. Hosted scanner verification is separate from local workflow-contract tests.
 
-For self-tests in a Windows toolkit checkout, use `python -B -m unittest discover -s tests -v`. Shared fixtures select Git for Windows' shell, handle read-only Git objects, and report unavailable symlink, filename, permission, terminal, or native-executable capabilities as explicit skips. Portable classification and Git-metadata checks still run. See [compatibility and test coverage](docs/COMPATIBILITY.md) for the configured matrix, locally exercised versions, and skip boundaries; local results do not attest unrun CI jobs or hosted scanner behavior.
+For self-tests in a Windows toolkit checkout, use `python -B -m unittest discover -s tests -v`. Shared fixtures select Git for Windows' shell, handle read-only Git objects, and report unavailable symlink, filename, permission, or terminal capabilities as explicit skips. Windows command doubles run through the existing Python interpreter without compiling temporary executables. Portable classification and Git-metadata checks still run. See [compatibility and test coverage](docs/COMPATIBILITY.md) for the configured matrix, locally exercised versions, and skip boundaries; local results do not attest unrun CI jobs or hosted scanner behavior.
 
 ---
 

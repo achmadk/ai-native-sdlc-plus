@@ -473,10 +473,24 @@ class RemoteChecks(Install):
     def protection(self, payload):
         self.api("repos/acme/widgets/branches/main/protection", payload)
 
-    def remote(self, with_cli=True):
-        if with_cli:
-            support.fake_command(self.bin, "gh", FAKE_GH)
-        return {n: (s, d) for n, s, d in doctor.check_repo(self.repo, check_remote=True)}
+    def remote(self, with_cli=True, check_name="evidence"):
+        with contextlib.ExitStack() as stack:
+            if with_cli:
+                command = support.fake_command(self.bin, "gh", FAKE_GH)
+                if os.name == "nt":
+                    original_run, original_which = doctor.run, doctor.shutil.which
+
+                    def run_fixture(argv, *args, **kwargs):
+                        if argv and argv[0] == "gh":
+                            argv = command + list(argv[1:])
+                        return original_run(argv, *args, **kwargs)
+
+                    def which_fixture(name, *args, **kwargs):
+                        return command[0] if name == "gh" else original_which(name, *args, **kwargs)
+
+                    stack.enter_context(mock.patch.object(doctor, "run", side_effect=run_fixture))
+                    stack.enter_context(mock.patch.object(doctor.shutil, "which", side_effect=which_fixture))
+            return {n: (s, d) for n, s, d in doctor.check_repo(self.repo, check_remote=True, check_name=check_name)}
 
     def test_ruleset_requires_the_check_pinned_to_an_app(self):
         self.rules([{"type": "required_status_checks",
@@ -566,9 +580,7 @@ class RemoteChecks(Install):
         self.rules([{"type": "required_status_checks",
                      "parameters": {"required_status_checks": [{"context": "gate", "integration_id": 15368}]}}])
         self.protection("ERR:gh: Branch not protected (HTTP 404)")
-        support.fake_command(self.bin, "gh", FAKE_GH)
-        got = {n: s for n, s, _ in doctor.check_repo(self.repo, check_remote=True, check_name="gate")}
-        self.assertEqual(got["required-check"], doctor.OK)
+        self.assertEqual(self.remote(check_name="gate")["required-check"][0], doctor.OK)
 
     def test_garbage_responses_are_unverified(self):
         self.rules("<html>not json</html>")
@@ -597,6 +609,28 @@ class RemoteChecks(Install):
     def test_default_run_never_calls_gh(self):
         with mock.patch.object(doctor, "_gh", side_effect=AssertionError("network call")):
             doctor.check_repo(self.repo)
+
+    def test_fake_cli_keeps_real_process_io_and_environment(self):
+        self.rules([{"type": "required_status_checks",
+                     "parameters": {"required_status_checks": [{"context": "evidence", "integration_id": 15368}]}}])
+        self.protection("ERR:gh: Branch not protected (HTTP 404)")
+        with mock.patch.object(doctor.subprocess, "run", wraps=doctor.subprocess.run) as spawn:
+            self.assertEqual(self.remote()["required-check"][0], doctor.OK)
+        prefix = [sys.executable, "-B", str(Path(self.bin, "gh.py"))] if os.name == "nt" else ["gh"]
+        calls = [call for call in spawn.call_args_list if call[0][0][:len(prefix)] == prefix]
+        self.assertTrue(calls, "API replies must come from a real subprocess")
+        self.assertTrue(any(call[0][0][0] == "git" for call in spawn.call_args_list))
+        for call in calls:
+            command = call[0][0][len(prefix):]
+            self.assertEqual(command[0], "api")
+            self.assertEqual(command[command.index("--method") + 1], "GET")
+            self.assertEqual(command[command.index("--hostname") + 1], "github.com")
+            self.assertEqual(call[1]["stdout"], subprocess.PIPE)
+            self.assertEqual(call[1]["stderr"], subprocess.PIPE)
+            self.assertEqual(call[1]["env"]["FAKE_GH_DIR"], self.data)
+            self.assertEqual(call[1]["env"]["GH_HOST"], "github.com")
+            self.assertEqual(call[1]["env"]["GH_PROMPT_DISABLED"], "1")
+            self.assertEqual(call[1]["env"]["GH_NO_UPDATE_NOTIFIER"], "1")
 
 
 EVIDENCE_PROFILE = """name: sdlc-gate

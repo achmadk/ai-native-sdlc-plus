@@ -151,33 +151,38 @@ class SupportContract(unittest.TestCase):
         self.assertIsNone(self.support.find_shell("sdlc-no-such-shell"))
 
     def test_native_fake_command_preserves_arguments_stdin_and_exit_status(self):
+        directory = self.root / "command fixture"
         command = self.support.fake_command(
-            self.root, "fixture-command",
+            directory, "fixture-command",
             "import json, sys\n"
             "print(json.dumps([sys.argv[1:], sys.stdin.read()]))\n"
+            "sys.stderr.write('fixture stderr')\n"
             "sys.exit(7)\n")
         arguments = ["two words", "C:\\path\\with spaces\\", 'quoted"value', ""]
-        env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ.get("PATH", ""))
+        env = dict(os.environ, PATH=str(directory) + os.pathsep + os.environ.get("PATH", ""))
+        invocation = command if os.name == "nt" else ["fixture-command"]
         with mock.patch.dict(os.environ, env):
-            result = subprocess.run(["fixture-command"] + arguments, env=env, input="input text",
+            result = subprocess.run(invocation + arguments, env=env, input="input text",
                                     capture_output=True, text=True)
         self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
         import json
         self.assertEqual(json.loads(result.stdout), [arguments, "input text"])
-        self.assertTrue(Path(command).is_file())
+        self.assertEqual(result.stderr, "fixture stderr")
+        self.assertTrue(Path(command[0]).is_file())
         if os.name == "nt":
-            self.assertEqual(Path(command).suffix, ".exe")
+            self.assertEqual(command, [sys.executable, "-B", str(directory / "fixture-command.py")])
+        else:
+            self.assertEqual(command, [str(directory / "fixture-command")])
 
-    @unittest.skipUnless(os.name == "nt", "Windows application-control capability")
-    def test_blocked_native_fixture_is_an_explicit_capability_skip(self):
-        executable = self.root / "launcher.exe"
-        executable.write_bytes(b"fixture")
-        blocked = OSError("An Application Control policy has blocked this file")
-        blocked.winerror = 4551
-        with mock.patch.object(self.support, "_windows_launcher", return_value=executable), \
-                mock.patch.object(self.support.subprocess, "run", side_effect=blocked):
-            with self.assertRaisesRegex(unittest.SkipTest, "Application Control.*4551"):
-                self.support.fake_command(self.root, "blocked", "raise SystemExit(0)\n")
+    @unittest.skipUnless(os.name == "nt", "Windows command fixture")
+    def test_windows_fake_command_needs_no_compiler_or_generated_executable(self):
+        with mock.patch.object(self.support.subprocess, "run",
+                               side_effect=AssertionError("fixture construction must not launch processes")), \
+                mock.patch.object(self.support.shutil, "copy2",
+                                  side_effect=AssertionError("fixtures must not copy executables")):
+            command = self.support.fake_command(self.root, "fixture", "raise SystemExit(0)\n")
+        self.assertEqual(command, [sys.executable, "-B", str(self.root / "fixture.py")])
+        self.assertEqual(list(self.root.iterdir()), [self.root / "fixture.py"])
 
     def test_shell_environment_uses_the_test_interpreter(self):
         shell = self.support.find_shell()

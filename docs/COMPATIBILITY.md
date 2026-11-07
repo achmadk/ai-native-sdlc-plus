@@ -25,11 +25,13 @@ Completed foreground runs on 2026-11-07:
 
 | Check | Result |
 |---|---|
-| Native Windows full suite | 601 tests, zero failures/errors, 16 capability skips |
-| WSL Ubuntu full suite | 601 tests, zero failures/errors, 24 Windows-only skips |
+| Native Windows full suite | 602 tests, zero failures/errors, 16 capability skips |
+| WSL Ubuntu full suite | 602 tests, zero failures/errors, 24 Windows-only skips |
 | POSIX mutation battery | 176/176 non-equivalent mutants killed; two documented equivalent survivors |
 
 All 18 native PowerShell installer cases and the Git-dispatched Windows hook cases passed. Skips remain coverage limits, not passing executions of those platform-specific cases.
+
+The command-fixture correction removes all 14 Application Control skips seen with generated executables. Those tests now execute through the existing Python interpreter, without a policy change; the remaining Windows skips concern unrelated filesystem and POSIX capabilities.
 
 ## Test capabilities
 
@@ -39,7 +41,7 @@ From a Windows toolkit checkout, run `python -B -m unittest discover -s tests -v
 - Symlink tests probe file or directory link creation. Missing privilege or filesystem support produces a named skip. Windows junction cases run natively without requiring symlink privilege.
 - Tests that need POSIX executable permissions, pseudo-terminals, or fd-based directory removal probe those capabilities. Git-index executable/symlink metadata tests still run on Windows.
 - NTFS cannot represent some control-character, wildcard, and colon filenames. Physical fixtures skip only after a filename probe; filesystem-free path/classification and raw Git-record tests retain the assertions, including literal pathspec and diagnostic-sanitization coverage.
-- Native command doubles use the Windows .NET Framework C# compiler already on the host. A missing compiler or an Application Control denial produces an explicit capability skip, not a clean remote-check result. Tests do not install a compiler or change security policy. Missing-CLI, offline, and non-GitHub cases run without creating a command double.
+- Windows command doubles are Python fixtures launched by the interpreter running the tests. They do not generate native binaries, require a compiler, or change Application Control policy. Doctor tests substitute only fake `gh` discovery and its command prefix; the production process wrapper still executes a real child and captures its output and exit status. POSIX retains PATH-resolved executable fixtures. Missing-CLI, offline, and non-GitHub cases run without a command double.
 - PowerShell absence skips only its invocation cases. Windows command-line and junction cases are explicitly Windows-only. POSIX results cannot stand in for those native branches.
 
 Temporary fixtures remove read-only Git objects and unlink junctions without traversing their targets. Red/green cleanup checks use per-test scratch directories so concurrent mutation runs cannot create false cleanup failures.
