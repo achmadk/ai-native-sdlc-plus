@@ -182,8 +182,9 @@ class WorkflowContract(unittest.TestCase):
             with self.subTest(path=path.name):
                 uses = re.findall(r"(?m)^\s*(?:- )?uses:\s*([^\s#]+)", path.read_text(encoding="utf-8"))
                 self.assertTrue(uses)
-                for action in uses:
-                    self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
+                for occurrence, action in enumerate(uses, 1):
+                    with self.subTest(occurrence=occurrence, action=action):
+                        self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
 
     def test_every_checkout_disables_persisted_credentials(self):
         for path in (GATE_WORKFLOW, SCAN_WORKFLOW):

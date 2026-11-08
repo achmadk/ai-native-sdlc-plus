@@ -1,0 +1,16 @@
+## 1. Establish Failing-First Evidence
+
+- [x] 1.1 After explicit apply authorization, record the current unfixed revision, rerun `python -B scripts/lane.py --paths .github/workflows/sdlc-gate.yml tests/test_ci_security.py`, and reconfirm the upstream v7.0.1 tag with `git ls-remote https://github.com/actions/checkout.git "refs/tags/v7.0.1" "refs/tags/v7.0.1^{}"`. Verify the lane is Critical and the result is `3d3c42e5aac5ba805825da76410c181273ba90b1`; stop for review if the mapping or repair scope differs from the design.
+- [x] 1.2 Add per-action occurrence diagnostics to `test_all_enforcement_actions_have_full_immutable_pins` in `tests/test_ci_security.py`, preserving the full-SHA regex, nonempty-action assertion, and both workflow inputs. Before editing the workflow, run `python -B -m unittest discover -s tests -p test_ci_security.py -k test_all_enforcement_actions_have_full_immutable_pins -v` and record assertion failures for both mutable checkout references, not collection or environment failures.
+
+## 2. Restore the Workflow Pins
+
+- [x] 2.1 Replace both `actions/checkout@v7.0.1` references in `.github/workflows/sdlc-gate.yml` with `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` and replace their TODO comments with the v7.0.1 version comment. Verify the focused pin contract from task 1.2 passes and the workflow diff contains only these two reference/comment changes.
+- [x] 2.2 Verify the design's invariant table against the final workflow and run `python -B -m unittest discover -s tests -p test_ci_security.py -v`. Require passing credential, event, isolation, fail-closed, and pinning contracts; confirm `gitleaks.yml`, other workflows, production Python, and repository settings are unchanged.
+
+## 3. Verify and Hand Off
+
+- [x] 3.1 Run the reported CI command `python -m unittest discover -s tests -v` with bytecode writing disabled in the process environment. Record the actual interpreter/platform, counts, skips, and result in this change's verification notes; resolve failures and distinguish unavailable hosted/platform coverage from passing execution.
+- [ ] 3.2 When an explicitly authorized committed fix revision is available, use `scripts/redgreen.py` with the recorded unfixed baseline and committed candidate to run the focused pin contract. Preserve deterministic proof of the invalid-pin assertion on base and a passing candidate. If only uncommitted work exists, leave this task pending and do not create a commit or claim canonical proof without authorization.
+- [x] 3.3 Prepare the Critical handoff evidence using this proposal, the unchanged CI-security requirement, the design's threat/rollback notes, and the actual test trace. Record the two review tracks with supplied reviewer findings or explicit pending status; verify that no human approval, hosted run, or merge readiness is fabricated.
+- [x] 3.4 Run `openspec validate restore-immutable-checkout-pins --strict --no-interactive`, `git diff --check`, and the applicable local evidence-section check using collected evidence. Verify the diff is restricted to the two implementation files and this change's artifacts, preserve `skip_specs: true`, and stop before unauthorized commits, pushes, hosted execution, or protection changes.
