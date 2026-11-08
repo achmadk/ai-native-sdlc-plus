@@ -24,6 +24,7 @@ else:
 
 ROOT = Path(__file__).resolve().parents[1]
 SH = support.find_shell()
+SHELLCHECK = shutil.which("shellcheck")
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
@@ -75,6 +76,14 @@ def clean_env(**extra):
 
 
 remove_tree = support.remove_tree
+
+
+class ShellLint(unittest.TestCase):
+    @unittest.skipUnless(SHELLCHECK, "ShellCheck unavailable on this host")
+    def test_shell_entrypoints_pass_shellcheck(self):
+        result = subprocess.run([SHELLCHECK, "install.sh", "hooks/pre-push", "hooks/pre-push.sh"],
+                                cwd=str(ROOT), env=clean_env(), capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 class InstallFixture(unittest.TestCase):
@@ -362,6 +371,36 @@ class InvocationCases:
 
 @unittest.skipUnless(SH, support.SHELL_REQUIRED)
 class POSIXInstallation(InvocationCases, InstallFixture):
+    def test_relative_launcher_ignores_inherited_cdpath(self):
+        shadow = self.temp / "shadow" / self.source.name
+        marker = self.temp / "SHADOW_INSTALLER_RAN"
+        self.put(shadow / "scripts/install.py",
+                 "from pathlib import Path\nPath(%r).write_text('executed')\nraise SystemExit(23)\n" % str(marker))
+        shadow_before = self.snapshot(shadow)
+        git_before = self.snapshot(self.target / ".git")
+        env = clean_env(CDPATH="shadow")
+        control = subprocess.run([SH, "-c", 'cd -- "$1" >/dev/null && pwd -P', "cdpath-control", self.source.name],
+                                 cwd=str(self.temp), env=env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(control.returncode, 0, control.stdout + control.stderr)
+        self.assertEqual(Path(support.native_path(control.stdout.strip())).resolve(), shadow.resolve())
+
+        launcher = (self.source / "install.sh").relative_to(self.temp).as_posix()
+        result = subprocess.run([SH, launcher, str(self.target)], cwd=str(self.temp), env=env,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(marker.exists(), "source lookup must not execute the CDPATH shadow installer")
+        installed = {path.relative_to(self.target).as_posix() for path in self.target.rglob("*")
+                     if path.is_file() and ".git" not in path.relative_to(self.target).parts}
+        self.assertEqual(installed, EXPECTED_FILES | {STATE})
+        state = json.loads((self.target / STATE).read_text())
+        self.assertEqual(set(state["files"]), EXPECTED_FILES)
+        for entry in self.manifest()["files"]:
+            with self.subTest(path=entry["destination"]):
+                self.assertEqual((self.target / entry["destination"]).read_bytes(),
+                                 (self.source / entry["source"]).read_bytes())
+        self.assertEqual(self.snapshot(shadow), shadow_before)
+        self.assertEqual(self.snapshot(self.target / ".git"), git_before)
+
     def test_missing_interpreter_fails_before_creating_payload(self):
         bindir = self.temp / "no python"
         bindir.mkdir()
