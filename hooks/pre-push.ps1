@@ -15,14 +15,25 @@ try {
     $cfgHook = git config --get sdlc.hook 2>$null
     if ($cfgHook -eq "off") { exit 0 }
 
-    # Check for python
+    # Validate the runtime, not just its command name (Windows aliases may be unusable).
     $pythonCmd = $null
-    if (Get-Command python -ErrorAction SilentlyContinue) {
-        $pythonCmd = "python"
-    } elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
-        $pythonCmd = "python3"
-    } else {
-        Say "python not found; lane check skipped"
+    foreach ($candidate in @("python", "python3")) {
+        # One command name can resolve to several PATH matches; validate each before deciding.
+        foreach ($command in @(Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue)) {
+            try {
+                & $command.Source -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    $pythonCmd = $command.Source
+                    break
+                }
+            } catch {
+                # Keep trying; an unavailable interpreter must never block a push.
+            }
+        }
+        if ($pythonCmd) { break }
+    }
+    if (-not $pythonCmd) {
+        Say "Python >= 3.8 not found (tried python and python3); lane check skipped"
         exit 0
     }
 
@@ -78,7 +89,7 @@ try {
             continue
         }
 
-        $out = & $pythonCmd "$tool" --diff-only "--base=$base" "--head=$localSha" "--repo-root=$root" "--config=$cfg" 2>&1
+        $out = & $pythonCmd -B "$tool" --diff-only "--base=$base" "--head=$localSha" "--repo-root=$root" "--config=$cfg" 2>&1
         foreach ($outLine in $out) {
             [Console]::Error.WriteLine("sdlc: $outLine")
         }

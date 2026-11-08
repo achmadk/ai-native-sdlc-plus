@@ -1,6 +1,6 @@
 # doctor reference
 
-`python3 scripts/doctor.py [--root DIR] [--strict] [--json] [--check-branch-protection] [--check-name NAME]`
+`python3 scripts/doctor.py [--root DIR] [--strict] [--json] [--check-branch-protection] [--require-enforcement] [--check-name NAME]`
 
 Verifies the installation and says exactly how sure it is. Each line is `name: status - detail`.
 
@@ -8,10 +8,10 @@ Verifies the installation and says exactly how sure it is. Each line is `name: s
 - `verified`: checked here and true.
 - `FAIL`: checked here and wrong. The gate will not work or is unsafe.
 - `WARN`: it works, but there is a risk or drift to look at. With `--strict` a WARN fails the run.
-- `unverified`: cannot be known from here, and the detail says why. Never a pass and never a failure.
+- `unverified`: a fact cannot be established here. It is never positive evidence; a required unverified fact prevents strict enforcement readiness.
 - `info`: context only.
 
-Exit codes: 0 no FAIL (and no WARN with `--strict`), 1 any FAIL, 2 usage error.
+Exit codes: 0 no FAIL (and no WARN with `--strict`), 1 any FAIL, 2 usage error. `--require-enforcement` adds a failing overall result when any required profile fact is false, missing, unsupported, or unverified. It requires explicit `--check-branch-protection`; a generic exit 0 is not an enforcement verdict.
 
 ## What it checks
 - **Environment and files:** Python >= 3.8; the gate scripts, lane config, workflow, PR template, and hook files exist.
@@ -22,8 +22,15 @@ Exit codes: 0 no FAIL (and no WARN with `--strict`), 1 any FAIL, 2 usage error.
 - **Repository state:** CODEOWNERS covers the gate files; gate files are committed; the tooling exists on the default branch (as of the last fetch); the clone is not shallow.
 - **`script-drift`:** the repo's scripts compared with the copies next to doctor. The repo's own scripts are hashed, never executed.
 
-## `required-check`
-Unverified by default: nothing local can show that merges are actually blocked. With `--check-branch-protection` doctor makes read-only `gh api` requests and reports whether the check named `evidence` is required, whether it is pinned to the GitHub Actions app, whether code-owner review is required, and whether admins are bound. Positive evidence wins. A source it cannot read (permissions, no `gh`, an odd response) gives `unverified`, not a false pass or fail. The branch-protection code was tested against a fake `gh`, not live GitHub.
+## Hosted inspection
+
+Unverified by default: local files cannot establish hosted protection. `--check-branch-protection` preserves the narrower legacy check, including custom `--check-name`. For the supported profile use both `--check-branch-protection --require-enforcement`; custom check names are not accepted in that profile.
+
+The strict profile observes exact `evidence` and `gitleaks` identities and the expected GitHub Actions application, applicable protection sources, PR/owner/fresh-review and branch-freshness controls, and bypass visibility. It checks a constrained hosted workflow/tooling/ownership snapshot, not merely regex strings in the current checkout. Unsupported conditions, unavailable source data, mismatched tooling, or uncertain ownership coverage remain unverified. Root anchoring and case-sensitive owner patterns cannot be treated as covering every future case-insensitive Critical path.
+
+Requests target GitHub.com through authenticated `gh`. REST inspection uses GET. The only POST is a constant read-only GraphQL query with variables to inspect merge-queue state; mutations and arbitrary query text are not accepted. Errors or missing data are not proof of no queue. Merge queues are not supported by the PR-only enforcement profile.
+
+Provider mocks test inspector behavior, not a live target's protections. An actual public query can establish the transport contract without proving any user's repository ready. Follow `references/init.md` for separately authorized activation and hosted scanner smoke checks.
 
 ## What doctor never does
-Write into the repo, execute the repo's scripts, or use the network unless you pass `--check-branch-protection`.
+Change GitHub settings, activate hooks, execute inspected candidate scripts, or use the network without `--check-branch-protection`. It cannot prove semantic code correctness, authenticated spec approval, or runtime agent isolation.

@@ -6,6 +6,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+if __package__:
+    from . import support
+else:
+    import support
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import lane  # noqa: E402
@@ -103,6 +109,76 @@ class Classification(unittest.TestCase):
         self.assertNotIn("::", reason)
 
 
+class ShippedPolicy(unittest.TestCase):
+    def setUp(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.rules, error = lane.load_rules(os.path.join(root, "scripts", "lane-config.yaml"))
+        self.assertEqual(error, "")
+
+    def test_platform_bound_names_are_classified_without_creating_files(self):
+        for raw, expected in (("docs/source\n.py", "Standard"), ("docs/ literal[1]*.md", "Lite"),
+                              ("docs/::error::x.md", "Lite")):
+            with self.subTest(raw=raw):
+                got, _, details = lane.classify_detailed([raw], self.rules)
+                self.assertEqual(got, expected)
+                self.assertEqual(details[0]["raw_path"], raw)
+                self.assertFalse(details[0]["metadata_available"])
+
+    def test_nul_delimited_git_records_preserve_platform_bound_names(self):
+        raw_paths = ["docs/source\n.py", "docs/ literal[1]*.md", "docs/::error::x.md"]
+        data = b"".join(b":000000 100644 0000000 abcdef0 A\0" + path.encode() + b"\0" for path in raw_paths)
+        with patch.object(lane.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, data, b"")):
+            changes = lane.git_changed_files("main")
+        self.assertEqual([entry["raw_path"] for entry in changes], raw_paths)
+        got, _, details = lane.classify_detailed(raw_paths, self.rules, changes)
+        self.assertEqual(got, "Standard")
+        self.assertIn("malformed", details[0]["note"])
+        self.assertTrue(all(entry["metadata_available"] for entry in details))
+
+    def test_nested_security_directories_are_critical(self):
+        for path in ("src/auth/login.py", "src/authentication/token.py",
+                     "src/payments/charge.py", "services/payment/refund.py",
+                     "services/api/migrations/001.sql", "services/infra/main.tf",
+                     "src/infrastructure/network.tf", "src/security/policy.py"):
+            with self.subTest(path=path):
+                self.assertEqual(lane.classify([path], self.rules)[0], "Critical")
+
+    def test_entire_execution_boundary_overrides_permissive_config(self):
+        permissive = lane.parse_config('version: 1\nlite:\n  - "**"\n')
+        for path in ("scripts/json.py", "scripts/new/dependency.py", "install.sh",
+                     "install.ps1", "scripts/install-manifest.json", ".sdlc-install.json",
+                     ".gitattributes", "hooks/.gitattributes",
+                     "skills/spec-first/scripts/check_spec.py", "skills/ai-sdlc/SKILL.md",
+                     "skills/ai-sdlc/assets/ci-generic.sh", "adapters/ci/gitlab-ci.yml",
+                     "AGENTS.md", "src/AGENTS.md", "CLAUDE.md", "GEMINI.md",
+                     ".github/copilot-instructions.md", ".cursor/rules/security.mdc",
+                     ".kilo/agent/reviewer.md", ".kilo/command/deploy.md", "kilo.json"):
+            with self.subTest(path=path):
+                self.assertEqual(lane.classify([path], permissive)[0], "Critical")
+
+    def test_non_prose_documentation_is_not_lite(self):
+        for path in ("docs/deploy.sh", "docs/example.py", "docs/widget.js",
+                     "docs/page.mdx", "docs/notebook.ipynb", "docs/unknown.data"):
+            with self.subTest(path=path):
+                self.assertEqual(lane.classify([path], self.rules)[0], "Standard")
+
+    def test_shipped_lockfile_rules_are_at_least_standard(self):
+        for path in ("yarn.lock", "services/api/poetry.lock", "package-lock.json"):
+            with self.subTest(path=path):
+                self.assertEqual(lane.classify([path], self.rules)[0], "Standard")
+
+    def test_recognized_prose_remains_lite(self):
+        for path in ("README.md", "docs/guide.md", "docs/notes.txt"):
+            with self.subTest(path=path):
+                self.assertEqual(lane.classify([path], self.rules)[0], "Lite")
+
+    def test_absolute_prose_paths_are_rejected_not_classified_lite(self):
+        for path in ("/tmp/readme.md", "//server/share/readme.md", "C:/notes.md"):
+            with self.subTest(path=path):
+                self.assertIsNone(lane.clean_path(path)[0])
+                self.assertEqual(lane.classify([path], self.rules)[0], "Standard")
+
+
 class Glob(unittest.TestCase):
     CASES = [
         # pattern, path, expected
@@ -185,6 +261,7 @@ class Config(unittest.TestCase):
 class Cli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.tmp)
         self.good = os.path.join(self.tmp, "good.yaml")
         self.badcfg = os.path.join(self.tmp, "bad.yaml")
         with open(self.good, "w") as handle:
@@ -217,6 +294,7 @@ class Cli(unittest.TestCase):
 class GitInput(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, self.repo)
         self.g("init", "-q", "-b", "main")
         self.write("auth/login.py", "x = 1\n")
         self.write("docs/a.md", "hello\n")
@@ -255,6 +333,71 @@ class GitInput(unittest.TestCase):
         self.write("docs/we ird\u00e9 name.md", "x\n")
         self.commit()
         self.assertEqual(lane.git_changed_paths(self.base, "HEAD", self.repo), ["docs/we ird\u00e9 name.md"])
+
+    def change_details(self, strict=False):
+        cfg = os.path.join(os.path.dirname(lane.__file__), "lane-config.yaml")
+        args = ["--config", cfg, "--base", self.base, "--repo-root", self.repo, "--json"]
+        if strict:
+            args.append("--strict")
+        code, out, _ = run_main(args)
+        return code, json.loads(out)
+
+    def test_change_facts_executable_mode_is_not_lite(self):
+        self.g("update-index", "--chmod=+x", "docs/a.md")
+        self.g("commit", "-q", "-m", "make executable")
+        code, report = self.change_details()
+        self.assertEqual((code, report["lane"]), (0, "Standard"))
+        entry = report["paths"][0]
+        self.assertEqual(entry.get("old_mode"), "100644")
+        self.assertEqual(entry.get("new_mode"), "100755")
+        self.assertEqual(entry.get("status"), "M")
+
+    def test_change_facts_symlink_type_is_not_lite(self):
+        self.write("docs/a.md", "../auth/login.py")
+        blob = self.g("hash-object", "-w", "docs/a.md").strip()
+        self.g("update-index", "--cacheinfo", "120000", blob, "docs/a.md")
+        self.g("commit", "-q", "-m", "replace prose with symlink")
+        code, report = self.change_details()
+        self.assertEqual((code, report["lane"]), (0, "Standard"))
+        self.assertEqual(report["paths"][0].get("new_mode"), "120000")
+        self.assertEqual(report["paths"][0].get("status"), "T")
+
+    def test_change_facts_keep_deleted_file_mode(self):
+        self.g("rm", "docs/a.md")
+        self.g("commit", "-q", "-m", "delete prose")
+        code, report = self.change_details()
+        self.assertEqual((code, report["lane"]), (0, "Lite"))
+        entry = report["paths"][0]
+        self.assertEqual(entry.get("old_mode"), "100644")
+        self.assertEqual(entry.get("new_mode"), "000000")
+        self.assertEqual(entry.get("status"), "D")
+
+    def test_change_facts_preserve_malformed_raw_path(self):
+        raw = "docs/source\n.py"
+        support.require_filename(os.path.basename(raw))
+        self.write(raw, "print('source')\n")
+        self.commit()
+        code, report = self.change_details()
+        self.assertEqual((code, report["lane"]), (0, "Standard"))
+        self.assertEqual(report["paths"][0].get("raw_path"), raw)
+        self.assertIn("malformed", report["paths"][0]["note"])
+
+    def test_change_facts_missing_metadata_fails_closed(self):
+        response = subprocess.CompletedProcess([], 0, b"docs/a.md\0", b"")
+        with patch.object(lane.subprocess, "run", return_value=response):
+            code, report = self.change_details(strict=True)
+        self.assertEqual(code, 3)
+        self.assertTrue(report["error"])
+
+    def test_change_facts_raw_paths_are_not_normalized_for_git(self):
+        raw = "docs/ literal[1]*.md"
+        support.require_filename(os.path.basename(raw))
+        self.write(raw, "text\n")
+        self.commit()
+        code, report = self.change_details()
+        self.assertEqual(code, 0)
+        self.assertEqual(report["paths"][0].get("raw_path"), raw)
+        self.assertEqual(lane.git_changed_paths(self.base, "HEAD", self.repo), [raw])
 
     def test_unsafe_refs_rejected(self):
         for ref in ("--output=/tmp/x", "-p", "", "a b", "a;b"):

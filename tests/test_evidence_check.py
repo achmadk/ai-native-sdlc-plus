@@ -6,6 +6,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+if __package__:
+    from . import support
+else:
+    import support
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import evidence_check as ec  # noqa: E402
@@ -73,7 +79,10 @@ class Repo(unittest.TestCase):
     """A tiny repo with a base commit; tests add a change commit on top."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, workspace)
+        self.repo = os.path.join(workspace, "repo")
+        os.mkdir(self.repo)
         self.g("init", "-q", "-b", "main")
         self.write("docs/spec.md", "# Spec\nsomething real\n")
         self.write("docs/intent.md", "# Intent\nsomething real\n")
@@ -286,10 +295,12 @@ class SpecLinks(Repo):
         self.assertIn("no such file", out)
 
     def test_traversal_and_absolute(self):
-        for line in ("Spec: ../secret.md", "Spec: /etc/passwd", "Spec: docs/../../x"):
+        for line in ("Spec: ../secret.md", "Spec: /etc/passwd", "Spec: docs/../../x",
+                     "Spec: docs/../docs/spec.md"):
             self.assertEqual(self.run_standard(line)[0], 1, line)
 
     def test_symlink_escape(self):
+        support.require_symlinks()
         outside = os.path.join(self.repo, "..", "outside-%d.md" % id(self))
         with open(outside, "w") as handle:
             handle.write("secret\n")
@@ -318,6 +329,114 @@ class SpecLinks(Repo):
         code, out, _ = self.ci(body)
         self.assertEqual(code, 1)
         self.assertIn("spec_link", out)
+
+
+class RevisionEvidence(Repo):
+    def test_malformed_path_cannot_grant_docs_exemption(self):
+        support.require_filename("source\n.py")
+        self.write("docs/source\n.py", "print('not prose')\n")
+        self.change(docs__guide_dot_md="text\n")
+        code, out, _ = self.ci(GOOD_STANDARD)
+        self.assertEqual(code, 3, out)
+        self.assertIn("malformed", out)
+        self.assertNotIn("only non-executable", out)
+
+    def test_docs_executable_mode_requires_test_evidence(self):
+        self.g("update-index", "--chmod=+x", "docs/intent.md")
+        self.g("commit", "-q", "-m", "executable documentation")
+        code, out, _ = self.ci(GOOD_STANDARD)
+        self.assertEqual(code, 1, out)
+        self.assertIn("Standard", out)
+        self.assertIn("test_changes", out)
+        self.assertNotIn("only non-executable", out)
+
+    def test_untracked_spec_is_not_candidate_evidence(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/untracked.md", "# Pretend spec\nnot in the commit\n")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/untracked.md"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("spec_link", out)
+
+    def test_git_metadata_is_not_spec_evidence(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", ".git/config"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("spec_link", out)
+
+    def test_tracked_symlink_is_not_regular_spec_blob(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/link.md", "spec.md")
+        blob = self.g("hash-object", "-w", "docs/link.md").strip()
+        self.g("update-index", "--add", "--cacheinfo", "120000", blob, "docs/link.md")
+        self.g("commit", "-q", "-m", "add a symlink blob")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/link.md"))
+        self.assertEqual(code, 1, out)
+
+    def test_spec_must_exist_at_explicit_evaluated_head(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        earlier = self.g("rev-parse", "HEAD").strip()
+        self.change(docs__later_dot_md="new spec only in a later commit\n")
+        body = GOOD_STANDARD.replace("docs/spec.md", "docs/later.md")
+        code, out, _ = self.ci(body, "--head", earlier)
+        self.assertEqual(code, 1, out)
+        self.assertIn("spec_link", out)
+
+    def test_working_file_contents_do_not_replace_committed_evidence(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/spec.md", "")
+        code, out, _ = self.ci(GOOD_STANDARD)
+        self.assertEqual(code, 0, out)
+
+    def test_git_lookup_uses_literal_reference_paths(self):
+        support.require_filename("[literal]*.md")
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/[literal]*.md", "real committed spec\n")
+        self.g("add", "--", "docs/[literal]*.md")
+        self.g("commit", "-q", "-m", "literal path")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/[literal]*.md"))
+        self.assertEqual(code, 0, out)
+
+    def test_git_lookup_preserves_windows_legal_glob_characters(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        self.write("docs/[literal].md", "real committed spec\n")
+        self.g("add", "--", "docs/[literal].md")
+        self.g("commit", "-q", "-m", "literal bracket path")
+        code, out, _ = self.ci(GOOD_STANDARD.replace("docs/spec.md", "docs/[literal].md"))
+        self.assertEqual(code, 0, out)
+
+    def test_ci_paths_without_change_metadata_fail_closed(self):
+        code, out, _ = run_main(["--ci", "--paths", "docs/spec.md", "--repo-root", self.repo,
+                                 "--config", self.cfg])
+        self.assertEqual(code, 3, out)
+        self.assertIn("metadata", out)
+
+    def test_missing_git_membership_is_a_tooling_error(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        real_run = ec.lanelib.subprocess.run
+
+        def broken_lookup(command, **kwargs):
+            if "ls-tree" in command or "rev-parse" in command:
+                return subprocess.CompletedProcess(command, 128, b"", b"unavailable")
+            return real_run(command, **kwargs)
+
+        with patch.object(ec.lanelib.subprocess, "run", side_effect=broken_lookup):
+            code, out, _ = self.ci(GOOD_STANDARD)
+        self.assertEqual(code, 3, out)
+
+
+class PortablePaths(unittest.TestCase):
+    def test_malformed_path_input_cannot_disappear_from_exemption_checks(self):
+        paths = ["docs/guide.md", "docs/source\n.py"]
+        changes = [{"raw_path": path, "old_mode": "000000", "new_mode": "100644", "status": "A"}
+                   for path in paths]
+        with self.assertRaisesRegex(ec.ToolError, "malformed changed path"):
+            ec.detect("", paths, ".", ec.lanelib.parse_config(CONFIG), "Standard", changes)
+
+    def test_filename_diagnostics_cannot_form_workflow_commands(self):
+        for raw in ("docs/::error::x.md", "docs/source\n.py"):
+            text = ec.safe(raw)
+            self.assertNotIn("::error::", text)
+            self.assertNotIn("\n", text)
 
 
 class Sections(unittest.TestCase):
@@ -368,6 +487,41 @@ class Sections(unittest.TestCase):
 
     def test_case_and_punctuation_insensitive(self):
         self.assertGreaterEqual(self.chars("##  REVIEW-NOTES:\n" + "e" * 25, "review notes"), 25)
+
+
+class FenceSafety(unittest.TestCase):
+    EVIDENCE = ("## Trace\nThis convincing evidence is actually inside a code sample.\n"
+                "Spec: https://example.com/spec\nLane: Critical\n"
+                "Tests: none - the source change needs a real reviewed reason\n")
+
+    def assert_hidden(self, body):
+        self.assertIsNone(ec.find_section(ec.parse_sections(body), ("trace",)))
+        self.assertIsNone(ec.find_key_value(body, ("spec",)))
+        self.assertIsNone(ec.declared_lane(body))
+        result = ec.detect(body, ["src/app.py"], ".", {}, "Standard")
+        self.assertFalse(result["test_changes"][0])
+
+    def test_shorter_inner_fences_do_not_expose_evidence(self):
+        for marker in ("`", "~"):
+            with self.subTest(marker=marker):
+                self.assert_hidden(marker * 5 + "\n" + marker * 3 + "\n" +
+                                   self.EVIDENCE + marker * 3 + "\n" + marker * 5)
+
+    def test_invalid_closing_text_does_not_expose_evidence(self):
+        for marker in ("`", "~"):
+            for tail in ("not a closer", " <!-- still literal code -->"):
+                with self.subTest(marker=marker, tail=tail):
+                    self.assert_hidden(marker * 3 + "\n" + marker * 3 + tail + "\n" +
+                                       self.EVIDENCE + marker * 3)
+
+    def test_mismatched_and_unterminated_fences_remain_hidden(self):
+        self.assert_hidden("````\n~~~\n" + self.EVIDENCE)
+        self.assert_hidden("~~~~\n~~~\n" + self.EVIDENCE)
+
+    def test_longer_valid_closer_exposes_only_following_evidence(self):
+        body = "````python\n" + self.EVIDENCE + "`````   \n## Trace\n" + "x" * 25
+        self.assertEqual(ec.find_section(ec.parse_sections(body), ("trace",)), 25)
+        self.assertIsNone(ec.declared_lane(body))
 
 
 class TestEvidence(Repo):
@@ -438,6 +592,7 @@ class Safety(Repo):
         self.assertNotIn("pwned ::", out)
 
     def test_filename_cannot_inject_workflow_commands(self):
+        support.require_filename("::error::x.md")
         self.change(**{"docs__::error::x_dot_md": "x\n"})
         code, out, _ = self.ci("", env={"GITHUB_ACTIONS": "true"})
         self.assertNotIn("::error::x", out)

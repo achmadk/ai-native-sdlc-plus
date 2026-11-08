@@ -9,7 +9,7 @@ You route first because ceremony scales with risk. A typo must not pay for a pay
 
 ## Hot path (every change)
 
-1. Collect the changed paths: `git diff --name-only --no-renames <base>...HEAD`. Use `--no-renames` so a file moved out of a risky directory still counts. Never guess the lane by feel.
+1. Use the classifier's Git diff input so raw paths, file modes/types, and both rename sides remain available. Do not turn a line-delimited filename list into proof of a documentation-only change. Never guess the lane by feel.
 2. Run the classifier: `python3 scripts/lane.py --base <base> --strict` (or `--paths <files>` before anything is committed). It prints one lane and the matched rule. The change takes the **highest** lane of any path, and a path that matches no rule is Standard, so Lite means every path was Lite.
 3. If the classifier errors or reports an invalid config (exit code 3 with `--strict`), stop and tell the user. Do not pick a lane yourself: a broken config is exactly when guessing downgrades risk silently.
 4. Announce lane + rule, then point to the single next skill:
@@ -32,21 +32,21 @@ Related skills, only when the situation calls for them:
 
 ## Lanes only go up
 
-A PR can escalate itself with a `Lane: Critical` line. It can never downgrade: a declared lane below the computed one is ignored. Changes to the gate itself (`scripts/lane.py`, `scripts/evidence_check.py`, `scripts/lane-config.yaml`, `.github/workflows/`, CODEOWNERS, `hooks/`) are always Critical. Do not bundle them into a feature change; send them as their own PR.
+A PR can escalate itself with a `Lane: Critical` line but cannot downgrade. The built-in boundary includes the entire `scripts/` tree, installers/state, attributes, CI definitions/adapters, CODEOWNERS, hooks, and supported skill/agent controls. Custom config cannot lower it. Documentation scripts, executable modes, and indeterminate file kinds do not qualify for Lite documentation treatment; lockfiles default to Standard. Keep config format `version: 1` while calibrating repository rules.
 
 ## When the gate fails
 
-Read the `MISSING` lines; each has a one-line fix. Typical causes: a heading that does not match the template, a section that is only template filler, a `Spec:` link that does not resolve to a file in the change, no test path changed and no `Tests: none - <reason>` waiver. Fix the real gap. Do not pad a section with filler to clear the length check: that defeats the purpose and the human reviewer will see it.
+Read the `MISSING` lines and tooling errors. Local spec/intent links must be nonempty regular tracked blobs at the evaluated head, not untracked files, metadata, or symlinks. Fenced examples do not provide evidence. CI needs `--base`/`--head` change facts; malformed paths are not silently dropped. Fix the actual gap rather than padding prose or weakening rules. Review notes and test waivers still do not authenticate a person's approval.
 
 ## Cold paths (on demand only, detail lives in references/)
 
 - `init`: set up config, templates, CI (GitHub workflow, or `assets/ci-generic.sh` for other CI). See `references/init.md`. Brownfield rule: start at the first new change, never retrofit history.
-- `doctor`: verify install with `python3 scripts/doctor.py`. See `references/doctor.md`. Statuses: verified, FAIL (gate broken or unsafe), WARN (risk or drift), unverified (cannot know from here; never a pass). It cannot prove a CI check blocks merges unless you pass `--check-branch-protection` (needs the `gh` CLI).
+- `doctor`: inspect local health with `python3 scripts/doctor.py`; use `--check-branch-protection --require-enforcement` for the supported hosted profile. See `references/doctor.md`. Missing or unverified prerequisites fail strict readiness; installation, optional-hook status, and a generic exit 0 do not prove merge protection.
 - Onboarding an existing repo: see `references/onboarding.md`.
 
 ## Evidence ladder (honest labels)
 
-Advisory skill -> local pre-push hook (reports the lane and what the PR description owes; never blocks; skipped by `--no-verify`) -> CI check fails closed. In CI the lane is computed from the diff and the evidence is read from the PR description and the repo, not self-declared. The gate scripts and lane config are read from the base branch so a PR cannot weaken the gate judging it. A CI check only blocks merges once marked required in branch protection. It verifies that evidence exists and is structurally real, never that it is good. Say so when asked.
+Advisory skill -> advisory local hook -> fail-closed CI check. CI uses complete Git change facts, tracked evidence, and isolated base-revision tooling. The workflow definition still needs externally required owner review or a supported trusted workflow. Require the exact evidence and scanner checks with the other readiness controls; installation never activates them. The gate verifies presence and supported structure, not semantic quality, authenticated approvals, or passing tests. Say so when asked.
 
 ## Anti-patterns
 

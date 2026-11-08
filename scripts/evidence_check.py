@@ -15,13 +15,17 @@ Exit codes: 0 ok (or local warning) | 1 evidence missing (--ci) |
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
+import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import lane as lanelib  # noqa: E402  (same directory; trusted copy in CI)
+_lane_spec = importlib.util.spec_from_file_location(
+    "sdlc_trusted_lane", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lane.py"))
+lanelib = importlib.util.module_from_spec(_lane_spec)
+_lane_spec.loader.exec_module(lanelib)
 
 REQUIRED = {
     "Lite": ["intent_block", "test_changes", "trace_block"],
@@ -67,7 +71,7 @@ HINTS = {
 _PLACEHOLDER = re.compile(r"\{\{.*?\}\}|\bTBD\b|\bTODO\b|<(?:fill|describe|explain|link|your)[^>]*>", re.I)
 _COMMENT = re.compile(r"<!--.*?-->", re.S)
 _HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
-_FENCE = re.compile(r"^\s{0,3}(```|~~~)")
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _FILLER_LINE = re.compile(r"^\W*(tbd|todo|n/?a|none|\.{2,}|-+)?\W*$", re.I)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 # Key lines never count as section content (else "Tests: none - why" would fill an empty section).
@@ -95,17 +99,35 @@ def norm(text):
 # --------------------------------------------------------------------------
 
 def _scan(body):
-    """Yield (index, line, in_fence) for the body with HTML comments removed."""
-    body = _COMMENT.sub("", body)
-    in_fence, marker = False, ""
+    """Mask comments outside code; never let stripping text manufacture a closer."""
+    marker, in_comment = "", False
     for index, line in enumerate(body.splitlines()):
-        match = _FENCE.match(line)
-        if match and (not in_fence or match.group(1) == marker):
-            in_fence = not in_fence
-            marker = match.group(1) if in_fence else ""
+        match = None if in_comment else _FENCE.match(line)
+        if marker:
+            if (match and match[1][0] == marker[0] and len(match[1]) >= len(marker)
+                    and not match[2].strip()):
+                marker = ""
             yield index, line, True
             continue
-        yield index, line, in_fence
+        if match and not (match[1][0] == "`" and "`" in match[2]):
+            marker = match[1]
+            yield index, line, True
+            continue
+        visible, offset = [], 0
+        while offset < len(line):
+            if in_comment:
+                end = line.find("-->", offset)
+                stop = len(line) if end < 0 else end + 3
+                visible.append(" " * (stop - offset))
+                offset, in_comment = stop, end < 0
+            else:
+                start = line.find("<!--", offset)
+                if start < 0:
+                    visible.append(line[offset:])
+                    break
+                visible.append(line[offset:start])
+                offset, in_comment = start, True
+        yield index, "".join(visible), False
 
 
 def parse_sections(body):
@@ -177,13 +199,16 @@ def link_target(value):
     return value
 
 
-def resolve_repo_file(target, repo_root):
-    """Return (ok, detail). Accepts a repo-relative file path or an http(s) URL."""
+def resolve_repo_file(target, repo_root, revision="HEAD"):
+    """Check a regular tracked blob at the evaluated revision, not checkout bytes."""
     if re.match(r"^https?://\S+$", target, re.I):
         return True, "URL accepted, not verified (no network by design)"
     path = re.split(r"[#?]", target, maxsplit=1)[0]
-    if not path or path.startswith("/") or ".." in path.replace("\\", "/").split("/"):
+    if lanelib.clean_path(path)[0] is None:
         return False, "link is not a safe repo-relative path"
+    path = path.replace("\\", "/")
+    if any(part.lower() == ".git" for part in path.split("/")):
+        return False, "Git metadata is not spec or intent evidence"
     root = os.path.realpath(repo_root)
     full = os.path.realpath(os.path.join(root, path))
     try:
@@ -192,11 +217,36 @@ def resolve_repo_file(target, repo_root):
         inside = False
     if not inside:
         return False, "link resolves outside the repository"
-    if not os.path.isfile(full):
-        return False, "no such file in the change: %s" % safe(path, 60)
-    if os.path.getsize(full) == 0:
+    if not isinstance(revision, str) or not lanelib._REF_OK.fullmatch(revision):
+        raise ToolError("cannot verify evidence at an unsafe Git revision")
+    try:
+        resolved = subprocess.run(["git", "-C", repo_root, "rev-parse", "--verify",
+                                   revision + "^{commit}"], stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, timeout=30)
+        if resolved.returncode or not re.fullmatch(rb"(?:[0-9a-f]{40}|[0-9a-f]{64})", resolved.stdout.strip()):
+            raise ToolError("cannot verify the evaluated Git revision for local evidence")
+        commit = resolved.stdout.strip().decode("ascii")
+        result = subprocess.run(["git", "--literal-pathspecs", "-C", repo_root, "ls-tree",
+                                 "--full-tree", "-l", "-z", commit, "--", path],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ToolError("cannot read Git evidence metadata: %s" % type(exc).__name__)
+    if result.returncode:
+        raise ToolError("cannot read tracked evidence metadata at the evaluated revision")
+    entries = [entry for entry in result.stdout.split(b"\0") if entry]
+    if not entries:
+        return False, "no such file in the evaluated change (must be tracked): %s" % safe(path, 60)
+    header, separator, raw_path = entries[0].partition(b"\t")
+    fields = header.split()
+    if (len(entries) != 1 or not separator or raw_path != path.encode("utf-8") or len(fields) != 4):
+        raise ToolError("invalid tracked evidence metadata")
+    if fields[0] not in (b"100644", b"100755") or fields[1] != b"blob":
+        return False, "linked path is not a regular tracked blob (symlinks are not evidence)"
+    if not fields[3].isdigit():
+        raise ToolError("missing tracked evidence size")
+    if int(fields[3]) == 0:
         return False, "linked file is empty: %s" % safe(path, 60)
-    return True, "verified: %s" % safe(path, 60)
+    return True, "verified tracked blob at %s: %s" % (commit[:12], safe(path, 60))
 
 
 # --------------------------------------------------------------------------
@@ -207,9 +257,16 @@ def _matches_any(path, patterns):
     return any(lanelib.compile_pattern(p)(path) for p in patterns)
 
 
-def detect(body, paths, repo_root, rules, lane):
+def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
     """Return {evidence name: (ok, detail)} for every name this lane might need."""
     found = {}
+    clean = []
+    for raw_path in paths:
+        path, problem = lanelib.clean_path(raw_path)
+        if path is None:
+            raise ToolError("malformed changed path %s (%s); exemption cannot be established" %
+                            (safe(raw_path), problem))
+        clean.append(path)
     sections = parse_sections(body)
     for name, aliases in SECTION_ALIASES.items():
         chars = find_section(sections, aliases)
@@ -225,11 +282,10 @@ def detect(body, paths, repo_root, rules, lane):
         if value is None:
             found[name] = (False, "no '%s:' line in the PR description" % keys[0].capitalize())
         else:
-            found[name] = resolve_repo_file(link_target(value), repo_root)
+            found[name] = resolve_repo_file(link_target(value), repo_root, revision)
 
     tests = rules.get("tests") or list(DEFAULT_TESTS)
     non_exec = rules.get("non_executable") or list(DEFAULT_NON_EXECUTABLE)
-    clean = [p for p in (lanelib.clean_path(x)[0] for x in paths) if p]
     test_paths = [p for p in clean if _matches_any(p, tests)]
     waiver = find_key_value(body, ("tests", "test waiver", "no tests"))
     waived = None
@@ -245,7 +301,11 @@ def detect(body, paths, repo_root, rules, lane):
     elif waived is not None:
         mark = "WAIVER on a Critical change" if lane == "Critical" else "waived"
         found["test_changes"] = (True, "%s: %s" % (mark, safe(waived)))
-    elif clean and lane in ("Lite", "Standard") and all(_matches_any(p, non_exec) for p in clean):
+    elif (clean and changes is not None and len(changes) == len(paths)
+          and {entry["raw_path"] for entry in changes} == set(paths)
+          and lane in ("Lite", "Standard")
+          and all(_matches_any(p, non_exec) and lanelib.is_prose(p) for p in clean)
+          and all(lanelib.regular_change(entry) for entry in changes)):
         found["test_changes"] = (True, "waived: only non-executable paths changed")
     elif "test_changes" not in found:
         found["test_changes"] = (False, "no test path changed and no 'Tests: none - <reason>' waiver")
@@ -415,12 +475,17 @@ def run(args, auto):
     rules, error = lanelib.load_rules(args.config)
     if rules is None:
         raise ToolError(error)
-    paths = lanelib.git_changed_paths(args.base, args.head, args.repo_root) if args.base else list(args.paths)
-    computed, reason, _ = lanelib.classify_detailed(paths, rules)
+    changes = lanelib.git_changed_files(args.base, args.head, args.repo_root) if args.base else None
+    paths = [entry["raw_path"] for entry in changes] if changes is not None else list(args.paths)
+    if args.ci and changes is None:
+        raise ToolError("Git change metadata unavailable; --ci requires --base for verification")
+    computed, reason, _ = lanelib.classify_detailed(paths, rules, changes)
+    if changes is None:
+        notes.append("path-only inspection: change metadata unavailable; no automatic test exemption")
     if args.diff_only:
         lane = lanelib.max_lane(computed, floor)
         notes.append("lane %s (%s)" % (lane, safe(reason, 100)))
-        found = detect("", paths, args.repo_root, rules, lane)["test_changes"]
+        found = detect("", paths, args.repo_root, rules, lane, changes, args.head)["test_changes"]
         detail = found[1]
         if not found[0]:
             detail = "no test path changed; if that is intended, add 'Tests: none - <reason>' to the PR description"
@@ -435,7 +500,7 @@ def run(args, auto):
     if declared and lanelib.RANK[declared] < lanelib.RANK[computed]:
         notes.append("declared lane %s ignored: a change can be escalated, never downgraded" % declared)
 
-    detected = detect(body, paths, args.repo_root, rules, lane)
+    detected = detect(body, paths, args.repo_root, rules, lane, changes, args.head)
     if args.present:
         notes.append("--present attestations merged for local use; not valid in CI")
         for name in args.present:

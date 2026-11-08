@@ -4,35 +4,42 @@ Statuses (one per check, printed as "name: status - detail"):
   verified    checked here and true
   FAIL        checked here and wrong: the gate will not work, or is unsafe
   WARN        works, but there is a risk or drift to look at (counts as FAIL with --strict)
-  unverified  cannot be known from here, and the detail says why. Never a pass, never a failure
+  unverified  cannot be known from here; fails an explicitly requested enforcement verdict
   info        context only
 
 Exit codes: 0 no FAIL (and no WARN with --strict) | 1 FAIL | 2 usage error.
 
-Network: none by default. With --check-branch-protection it runs read-only `gh api`
-GET requests, which is the only way to prove the check is required. Everything else is local.
+Network: none by default. REST inspection uses `gh api` GET. Strict enforcement may
+also use one fixed read-only GraphQL POST query for classic merge-queue state.
+--require-enforcement requires the bounded supported profile.
+An observed profile is a settings snapshot, not proof of code correctness or a hosted scan.
 The config is parsed with the lane.py that sits next to this file, so a repo's own copy is
 never executed. Stdlib only. Python >= 3.8.
 """
 
 import argparse
+import base64
+import binascii
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import quote
 
 sys.dont_write_bytecode = True  # an inspector must not leave files in the repo it inspects
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
 try:
-    import lane as lanelib
+    _spec = importlib.util.spec_from_file_location("sdlc_doctor_lane", os.path.join(HERE, "lane.py"))
+    lanelib = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(lanelib)
 except Exception:  # missing or broken lane.py is reported by the checks, not raised here
     lanelib = None
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 OK, FAIL, WARN, UNVERIFIED, INFO = "verified", "FAIL", "WARN", "unverified", "info"
 MAX_FILE_BYTES = 1000000
 MAX_TRACKED_FILES = 200000
@@ -97,7 +104,8 @@ def in_git(root):
 
 
 def clip(text, limit=160):
-    text = re.sub(r"\s+", " ", str(text)).strip()
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(text)).replace("::", ": :")
+    text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= limit else text[:limit - 3] + "..."
 
 
@@ -228,86 +236,297 @@ def check_rule_coverage(root, rules):
     return results
 
 
-def _strip_yaml_comments(text):
-    return re.sub(r"(?m)(^|\s)#.*$", r"\1", text)
+class ProfileError(ValueError):
+    """An input is outside the deliberately bounded inspection profile."""
 
 
-def _base_checkout_dir(text):
-    """Directory written by the actions/checkout step whose ref is the PR base SHA, or None."""
-    steps = re.split(r"(?m)^\s*-\s+(?=\S)", text)
-    for step in steps:
-        if "actions/checkout@" in step and re.search(r"ref\s*:.*base\.sha", step):
-            match = re.search(r"path\s*:\s*([\w./-]+)", step)
-            if match:
-                return match.group(1).strip("./") or None
-    return None
+def _yaml_comment(line):
+    quoted, escaped = None, False
+    for i, char in enumerate(line):
+        if escaped:
+            escaped = False
+        elif quoted == '"' and char == "\\":
+            escaped = True
+        elif char == quoted:
+            quoted = None
+        elif quoted is None and char in "\"'":
+            quoted = char
+        elif quoted is None and char == "#" and (i == 0 or line[i - 1].isspace()):
+            return line[:i].rstrip()
+    return line.rstrip()
+
+
+def _yaml_scalar(value):
+    """Only single-line scalars and flat flow values; never aliases, tags or folding."""
+    if value.startswith("{") and value.endswith("}"):
+        result = {}
+        for item in re.split(r",(?=(?:[^\"']|\"[^\"]*\"|'[^']*')*$)", value[1:-1]):
+            if not item.strip() and not result:
+                continue
+            match = re.fullmatch(r"\s*([A-Za-z_][\w-]*):\s+(.+)", item)
+            if not match or match[1] in result:
+                raise ProfileError("unsupported or duplicate flow mapping key")
+            scalar = _yaml_scalar(match[2].strip())
+            if isinstance(scalar, (dict, list)):
+                raise ProfileError("nested flow values are unsupported")
+            result[match[1]] = scalar
+        return result
+    if value.startswith("[") and value.endswith("]"):
+        body = value[1:-1]
+        if not body.strip():
+            return []
+        items = re.split(r",(?=(?:[^\"']|\"[^\"]*\"|'[^']*')*$)", body)
+        parsed = [_yaml_scalar(item.strip()) for item in items]
+        if any(isinstance(item, (dict, list)) for item in parsed):
+            raise ProfileError("nested flow values are unsupported")
+        return parsed
+    if value.startswith('"'):
+        try:
+            result = json.loads(value)
+            if isinstance(result, str):
+                return result
+        except ValueError:
+            pass
+        raise ProfileError("unsupported quoted scalar")
+    if value.startswith("'"):
+        if re.fullmatch(r"'(?:[^']|'')*'", value):
+            return value[1:-1].replace("''", "'")
+        raise ProfileError("unsupported quoted scalar")
+    if not value or value[0] in "&*!|>[]{}`%@" or ": " in value or " #" in value:
+        raise ProfileError("unsupported YAML scalar or indirection")
+    if value in ("true", "false"):
+        return value == "true"
+    if value in ("null", "~"):
+        return None
+    if re.fullmatch(r"0|[1-9][0-9]*", value):
+        return int(value)
+    return value
+
+
+def parse_workflow(text):
+    """Parse a small, two-space YAML subset, rejecting ambiguity rather than guessing.
+
+    Mapping keys, block sequences, flat flow values and literal blocks are supported.
+    Duplicate keys, tabs, anchors, merges, tags, multiline scalars and extra documents
+    are not. Semantic allowlists below are separate from this structural parser.
+    """
+    if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_FILE_BYTES:
+        raise ProfileError("workflow unreadable or too large")
+    if re.search(r"[\x00-\x09\x0b-\x1f\x7f\ufeff]", text):
+        raise ProfileError("unsupported workflow control character")
+    lines, tokens, i = text.splitlines(), [], 0
+    while i < len(lines):
+        raw = lines[i]
+        i += 1
+        line = _yaml_comment(raw).strip()
+        if not line:
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent % 2:
+            raise ProfileError("workflow requires two-space indentation")
+        if line.startswith("- "):
+            tokens.append((indent, "-", None))
+            indent += 2
+            line = line[2:]
+        literal = None
+        if re.fullmatch(r"[A-Za-z_][\w-]*: \|", line):
+            content = []
+            while i < len(lines):
+                child = lines[i]
+                if child.strip() and len(child) - len(child.lstrip(" ")) <= indent:
+                    break
+                if child.strip() and not child.startswith(" " * (indent + 2)):
+                    raise ProfileError("unsupported literal block indentation")
+                content.append(child[indent + 2:] if child.strip() else "")
+                i += 1
+            literal = "\n".join(content) + "\n"
+        tokens.append((indent, line, literal))
+    if not tokens or tokens[0][0] != 0 or len(tokens) > 10000:
+        raise ProfileError("empty, oversized or indented workflow")
+
+    def block(pos, indent, depth=0):
+        if depth > 32 or tokens[pos][0] != indent:
+            raise ProfileError("unsupported workflow nesting")
+        sequence = tokens[pos][1] == "-"
+        result = [] if sequence else {}
+        while pos < len(tokens) and tokens[pos][0] == indent:
+            _, line, literal = tokens[pos]
+            pos += 1
+            if sequence:
+                if line != "-" or pos == len(tokens):
+                    raise ProfileError("unsupported sequence item")
+                value, pos = block(pos, indent + 2, depth + 1)
+                result.append(value)
+                continue
+            match = re.fullmatch(r"([A-Za-z_][\w-]*|'[A-Za-z_][\w-]*'|\"[A-Za-z_][\w-]*\"):(?: (.*))?", line)
+            if not match:
+                if not result and depth and (pos == len(tokens) or tokens[pos][0] < indent):
+                    return _yaml_scalar(line), pos
+                raise ProfileError("unsupported workflow mapping")
+            key, raw_value = match.groups()
+            key = key.strip("'\"")
+            if key in result:
+                raise ProfileError("duplicate workflow key: %s" % key)
+            if literal is not None:
+                value = literal
+            elif raw_value:
+                value = _yaml_scalar(raw_value)
+            elif pos < len(tokens) and tokens[pos][0] > indent:
+                value, pos = block(pos, indent + 2, depth + 1)
+            else:
+                value = None
+            result[key] = value
+            if pos < len(tokens) and tokens[pos][0] > indent:
+                raise ProfileError("unsupported multiline scalar or indentation")
+        return result, pos
+
+    result, consumed = block(0, 0)
+    if consumed != len(tokens) or not isinstance(result, dict):
+        raise ProfileError("unsupported workflow document")
+    return result
+
+
+_BASE = "${{ github.event.pull_request.base.sha }}"
+_HEAD = "${{ github.event.pull_request.head.sha }}"
+_EVENTS = {"opened", "synchronize", "reopened", "edited", "ready_for_review"}
+_GATE_COMMAND = ('python3 -I trusted/scripts/evidence_check.py --ci '
+                 '--config trusted/scripts/lane-config.yaml --repo-root change '
+                 '--base="$BASE_SHA" --head="$HEAD_SHA" --event-path "$GITHUB_EVENT_PATH"')
+_SCANNER = "gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34"
+_CI_NAMES = ("no-pr-target", "trigger", "edited-trigger", "invokes-gate", "fetch-depth",
+             "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions")
+
+
+def workflow_results(text, scanner=False):
+    prefix = "scanner-" if scanner else "ci-"
+    try:
+        doc = parse_workflow(text)
+    except ProfileError as exc:
+        return [(prefix + "workflow-profile", UNVERIFIED, str(exc))] + [
+            (prefix + name, UNVERIFIED, "unsupported workflow; execution not inferred from text") for name in _CI_NAMES]
+    events, jobs = doc.get("on"), doc.get("jobs")
+    job_id = "scan" if scanner else "evidence"
+    job = jobs.get(job_id) if isinstance(jobs, dict) else None
+    shape = (set(doc) <= {"name", "on", "permissions", "concurrency", "jobs"} and
+             ("name" not in doc or isinstance(doc["name"], str) and "${{" not in doc["name"]) and
+             isinstance(events, dict) and isinstance(jobs, dict) and set(jobs) == {job_id} and
+             isinstance(job, dict))
+    job = job if isinstance(job, dict) else {}
+    steps = job.get("steps")
+    shape = shape and (set(job) <= {"name", "runs-on", "timeout-minutes", "steps"} and
+                       job.get("name", job_id) == ("gitleaks" if scanner else "evidence") and
+                       job.get("runs-on") == "ubuntu-latest" and isinstance(steps, list) and
+                       len(steps) == (2 if scanner else 3))
+    steps = steps if isinstance(steps, list) else []
+    shape = shape and all(isinstance(step, dict) and set(step) <= {"name", "uses", "with", "env", "run"}
+                          and ("name" not in step or isinstance(step["name"], str)) for step in steps)
+    if "concurrency" in doc:
+        shape = shape and doc["concurrency"] == {
+            "group": "sdlc-gate-${{ github.event.pull_request.number }}", "cancel-in-progress": True} and not scanner
+        shape = shape and doc["concurrency"].get("cancel-in-progress") is True
+    if scanner:
+        shape = shape and ("timeout-minutes" not in job or type(job["timeout-minutes"]) is int
+                           and job["timeout-minutes"] == 5)
+    else:
+        shape = shape and type(job.get("timeout-minutes")) is int and job["timeout-minutes"] == 5
+    events = events if isinstance(events, dict) else {}
+    on_pr = "pull_request" in events
+    pr = events.get("pull_request")
+    types = pr.get("types") if isinstance(pr, dict) else None
+    event_profile = (set(events) <= ({"pull_request", "push"} if scanner else {"pull_request"}) and on_pr)
+    if scanner:
+        event_profile = event_profile and pr is None
+        if "push" in events:
+            push = events["push"]
+            event_profile = event_profile and (isinstance(push, dict) and set(push) == {"branches"} and
+                isinstance(push["branches"], list) and bool(push["branches"]) and
+                all(isinstance(b, str) and re.fullmatch(r"[\w./-]+", b) for b in push["branches"]))
+    else:
+        event_profile = event_profile and isinstance(pr, dict) and set(pr) == {"types"} and isinstance(types, list)
+        event_profile = event_profile and all(isinstance(t, str) for t in types) and len(set(types)) == len(types)
+        event_profile = event_profile and set(types) <= _EVENTS
+    shape = shape and event_profile
+    results = [(prefix + "workflow-profile", OK if shape else UNVERIFIED,
+                "recognized bounded workflow structure (not execution proof)" if shape else
+                "unsupported workflow shape, condition, permission override or indirection")]
+
+    def add(name, good, bad_status, detail):
+        results.append((prefix + name, OK if good else bad_status, detail))
+
+    add("no-pr-target", "pull_request_target" not in events, FAIL, "pull_request_target is outside the read-only profile")
+    add("trigger", on_pr, FAIL, "pull_request trigger present" if on_pr else "missing pull_request trigger")
+    expected_perms = {"contents": "read", "pull-requests": "read"} if scanner else {"contents": "read"}
+    add("permissions", doc.get("permissions") == expected_perms, WARN,
+        "requires exactly read-only permissions: %s" % ", ".join(sorted(expected_perms)))
+    actions = [s.get("uses") for s in steps if isinstance(s, dict) and "uses" in s]
+    unpinned = sorted(set(a for a in actions if isinstance(a, str) and
+                          not re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", a)))
+    pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)
+    add("pinned-actions", pinned, WARN, "all actions pinned to commit SHAs" if pinned else
+        "not pinned to a commit SHA: %s" % clip(", ".join(unpinned) or "missing/unsupported action"))
+    checkouts = [s for s in steps if isinstance(s, dict) and isinstance(s.get("uses"), str)
+                 and s["uses"].startswith("actions/checkout@")]
+    add("persist-credentials", len(checkouts) == (1 if scanner else 2) and all(
+        isinstance(s.get("with"), dict) and s["with"].get("persist-credentials") is False for s in checkouts),
+        WARN, "every checkout requires persist-credentials: false")
+    if not shape:
+        results.append((prefix + "invokes-gate", UNVERIFIED, "unsupported workflow: no execution claim"))
+        return results
+    without_name = lambda step: {k: v for k, v in step.items() if k != "name"}
+    if scanner:
+        checkout, scan = (without_name(s) for s in steps)
+        checkout_ok = (set(checkout) == {"uses", "with"} and isinstance(checkout["uses"], str) and
+                       checkout["uses"].startswith("actions/checkout@") and
+                       checkout["with"] == {"fetch-depth": 0, "persist-credentials": False} and
+                       type(checkout["with"].get("fetch-depth")) is int)
+        env = scan.get("env")
+        scan_ok = (set(scan) == {"uses", "env"} and scan["uses"] == _SCANNER and isinstance(env, dict) and
+                   set(env) <= {"GITHUB_TOKEN", "GITLEAKS_ENABLE_COMMENTS", "GITLEAKS_LICENSE"} and
+                   env.get("GITHUB_TOKEN") == "${{ secrets.GITHUB_TOKEN }}" and
+                   (env.get("GITLEAKS_ENABLE_COMMENTS") == "false" or env.get("GITLEAKS_ENABLE_COMMENTS") is False) and
+                   ("GITLEAKS_LICENSE" not in env or env["GITLEAKS_LICENSE"] == "${{ secrets.GITLEAKS_LICENSE }}"))
+        add("fetch-depth", checkout_ok, FAIL, "gitleaks requires full-history checkout without persisted credentials")
+        add("invokes-gate", scan_ok, FAIL,
+            "gitleaks pinned supported action requires GITHUB_TOKEN, read-only PR access and comments disabled; "
+            "license/fork availability and hosted scans are not established by workflow recognition")
+        return results
+    base, head, gate = (without_name(s) for s in steps)
+    base_with, head_with = base.get("with"), head.get("with")
+    base_ok = (set(base) == {"uses", "with"} and isinstance(base.get("uses"), str) and
+               base["uses"].startswith("actions/checkout@") and
+               base_with == {"ref": _BASE, "path": "trusted", "persist-credentials": False})
+    head_ok = (set(head) == {"uses", "with"} and isinstance(head.get("uses"), str) and
+               head["uses"].startswith("actions/checkout@") and
+               head_with == {"ref": _HEAD, "path": "change", "fetch-depth": 0, "persist-credentials": False} and
+               type(head_with.get("fetch-depth")) is int)
+    command = gate.get("run")
+    command = command.replace("\\\n", " ").strip() if isinstance(command, str) else ""
+    single_command = "\n" not in command and "\r" not in command
+    command = " ".join(command.split())
+    isolated = command == _GATE_COMMAND
+    legacy = command == _GATE_COMMAND.replace("python3 -I ", "python3 ")
+    gate_ok = (set(gate) == {"env", "run"} and gate.get("env") == {"BASE_SHA": _BASE, "HEAD_SHA": _HEAD}
+               and single_command and (isolated or legacy))
+    add("edited-trigger", isinstance(types, list) and set(types) == _EVENTS, WARN,
+        "requires open, synchronize, reopen, edited and ready_for_review events; old-event reruns use the old PR body")
+    add("invokes-gate", gate_ok, FAIL, "recognized evidence_check.py --ci command with explicit base/head/event" if gate_ok
+        else "unsupported gate command; requires --ci and explicit trusted config, base/head and event (no success fallback)")
+    add("fetch-depth", isinstance(head_with, dict) and type(head_with.get("fetch-depth")) is int
+        and head_with["fetch-depth"] == 0, FAIL, "head checkout requires fetch-depth: 0")
+    add("trusted-tooling", base_ok and head_ok and gate_ok, WARN,
+        "recognized base-branch checkout (trusted/) and explicit candidate checkout" if base_ok and head_ok and gate_ok else
+        "tooling/config must run from the base checkout with the explicit candidate revision")
+    add("isolated-python", isolated and gate_ok, WARN, "gate must use python3 -I without shell indirection")
+    return results
 
 
 def check_workflow(root):
-    path = os.path.join(root, ".github", "workflows", "sdlc-gate.yml")
-    if not os.path.isfile(path):
-        return []
-    raw = read_text(path)
-    if raw is None:
-        return [("ci-readable", FAIL, "workflow file unreadable or larger than %d bytes" % MAX_FILE_BYTES)]
-    text = _strip_yaml_comments(raw)
     results = []
-
-    if re.search(r"\bpull_request_target\b", text):
-        results.append(("ci-no-pr-target", FAIL,
-                        "uses pull_request_target: it runs with write access and secrets next to untrusted PR code"))
-    else:
-        results.append(("ci-no-pr-target", OK, "does not use pull_request_target"))
-
-    on_pr = re.search(r"(?m)^(?:on\s*:\s*.*\bpull_request\b|\s{1,4}pull_request\s*:|\s*-\s*pull_request\s*$)", text)
-    results.append(("ci-trigger", OK if on_pr else FAIL,
-                    "runs on pull_request" if on_pr else "does not trigger on pull_request, so the gate never runs"))
-    if on_pr:
-        edited = re.search(r"\bedited\b", text)
-        results.append(("ci-edited-trigger", OK if edited else WARN,
-                        "re-checks when the PR description is edited" if edited else
-                        "no 'edited' trigger: evidence lives in the PR description, so edits will not re-run the gate"))
-
-    invokes = re.search(r"evidence_check\.py", text) and re.search(r"--ci\b", text) and re.search(r"--base\b", text)
-    results.append(("ci-invokes-gate", OK if invokes else FAIL,
-                    "runs evidence_check.py --ci with --base" if invokes else
-                    "does not run evidence_check.py with both --ci and --base (the gate needs a computed lane)"))
-
-    depth = re.search(r"fetch-depth\s*:\s*0\b", text)
-    results.append(("ci-fetch-depth", OK if depth else FAIL,
-                    "full history checked out for the merge-base diff" if depth else
-                    "no 'fetch-depth: 0': a shallow clone cannot compute the diff, so every PR errors"))
-
-    trusted_dir = _base_checkout_dir(text)
-    trusted = bool(trusted_dir) and re.search(
-        r"python3?\s+\.?/?%s/scripts/evidence_check\.py" % re.escape(trusted_dir), text)
-    results.append(("ci-trusted-tooling", OK if trusted else WARN,
-                    "gate scripts run from the base-branch checkout (%s/)" % trusted_dir if trusted else
-                    "gate scripts are not run from a checkout of the base commit: a PR can weaken the gate that judges it"))
-
-    perms = re.search(r"(?m)^\s*permissions\s*:", text) and re.search(r"contents\s*:\s*read", text)
-    results.append(("ci-permissions", OK if perms else WARN,
-                    "token limited to contents: read" if perms else
-                    "no least-privilege 'permissions:' block (the default token may be broader than needed)"))
-
-    checkouts = len(re.findall(r"uses\s*:\s*actions/checkout@", text))
-    persisted = len(re.findall(r"persist-credentials\s*:\s*false", text))
-    if checkouts:
-        results.append(("ci-persist-credentials", OK if persisted >= checkouts else WARN,
-                        "checkout credentials not persisted" if persisted >= checkouts else
-                        "%d checkout step(s) lack 'persist-credentials: false'" % (checkouts - persisted)))
-
-    unpinned = []
-    for action, ref in re.findall(r"(?m)^\s*-?\s*uses\s*:\s*([^\s@]+)@(\S+)", text):
-        label = "%s@%s" % (action, ref)
-        if not _SHA.match(ref) and label not in unpinned:
-            unpinned.append(label)
-    if unpinned:
-        results.append(("ci-pinned-actions", WARN,
-                        "not pinned to a commit SHA: %s%s" % (", ".join(unpinned[:3]),
-                                                              " +%d more" % (len(unpinned) - 3) if len(unpinned) > 3 else "")))
-    else:
-        results.append(("ci-pinned-actions", OK, "all actions pinned to commit SHAs"))
+    for rel, scanner in (("sdlc-gate.yml", False), ("gitleaks.yml", True)):
+        path = os.path.join(root, ".github", "workflows", rel)
+        if not os.path.isfile(path):
+            continue  # strict hosted inspection requires both; preserve legacy installation diagnostics
+        results += workflow_results(read_text(path), scanner)
     return results
 
 
@@ -419,26 +638,82 @@ def check_shallow(root):
 
 
 # --------------------------------------------------------------------------
-# opt-in remote check (read-only `gh api` GETs)
+# opt-in remote checks (REST GETs, one fixed read-only GraphQL POST)
 # --------------------------------------------------------------------------
 
 _REMOTE = re.compile(r"^(?:https://(?:[^@/]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)"
                      r"([^/\s]+)/([^/\s]+?)(?:\.git)?/?$")
 
 
-def _gh(path):
-    env = dict(os.environ, GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1")
-    code, out, err = run(["gh", "api", path], env=env)
+def _gh_result(command):
+    env = dict(os.environ, GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1", GH_HOST="github.com")
+    code, out, err = run(command, env=env)
     if code == 0:
         try:
-            return "ok", json.loads(out), ""
+            if len(out) > 16000000:
+                return "error", None, "provider response exceeds inspection limit"
+            return "ok", json.loads(out, object_pairs_hook=_unique_json), ""
         except ValueError:
             return "error", None, "unparseable response"
     return "error", None, clip(err or out or "gh api failed", 120)
 
 
+def _gh(path):
+    return _gh_result(["gh", "api", path, "--method", "GET", "--hostname", "github.com",
+                       "-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: 2022-11-28"])
+
+
+_QUEUE_QUERY = ('query SdlcMergeQueue($owner: String!, $repo: String!, $branch: String!) { '
+                'repository(owner: $owner, name: $repo) { mergeQueue(branch: $branch) { id } } }')
+
+
+def _gh_queue(owner, repo, branch):
+    # The sole POST operation: fixed query text, with all external input in variables.
+    return _gh_result(["gh", "api", "graphql", "--method", "POST", "--hostname", "github.com",
+                       "-f", "query=" + _QUEUE_QUERY, "-f", "owner=" + owner,
+                       "-f", "repo=" + repo, "-f", "branch=" + branch])
+
+
+def _classic_queue(slug, branch):
+    owner, repo = slug.split("/")
+    state, response, error = _gh_queue(owner, repo, branch)
+    unavailable = (UNVERIFIED, "classic merge-queue state unverified: missing/unsupported GraphQL data")
+    if state != "ok":
+        return UNVERIFIED, "classic merge-queue state unverified (%s)" % clip(error)
+    if not isinstance(response, dict) or ("errors" in response and response["errors"] != []):
+        return unavailable
+    data = response.get("data")
+    repo = data.get("repository") if isinstance(data, dict) else None
+    if not isinstance(repo, dict) or "mergeQueue" not in repo:
+        return unavailable
+    queue = repo["mergeQueue"]
+    if queue is None:
+        return OK, "GraphQL observed no merge queue on %s" % branch
+    if isinstance(queue, dict) and isinstance(queue.get("id"), str) and queue["id"]:
+        return FAIL, "merge queue enabled on %s: unsupported without a separately supported merge-group workflow" % branch
+    return unavailable
+
+
 def _context_matches(context, check_name):
-    return context == check_name or context.endswith("/ " + check_name)
+    return context == check_name
+
+
+def _unique_json(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def _actions_identity():
+    state, app, error = _gh("apps/github-actions")
+    if (state == "ok" and isinstance(app, dict) and type(app.get("id")) is int and app["id"] > 0 and
+            app.get("slug") == "github-actions" and isinstance(app.get("owner"), dict) and
+            app["owner"].get("login") == "github"):
+        return app["id"], "GitHub Actions application github-actions (id %d), resolved from github.com/apps metadata" % app["id"]
+    return None, "GitHub Actions application identity unverified (%s)" % (error or "incomplete/unexpected app metadata")
 
 
 def check_branch_protection(root, check_name):
@@ -456,20 +731,42 @@ def check_branch_protection(root, check_name):
     if state != "ok" or not isinstance(repo, dict) or not repo.get("default_branch"):
         return [(name, UNVERIFIED, "could not read the repository (%s)" % (err or "no default branch in response"))]
     branch = repo["default_branch"]
+    if not isinstance(branch, str) or not re.fullmatch(r"[A-Za-z0-9._/-]+", branch):
+        return [(name, UNVERIFIED, "unsupported default branch name")]
+    encoded_branch = quote(branch, safe="")
+    app_id, app_detail = _actions_identity()
 
     matched, unpinned, answered, errors = False, False, 0, []
     owners_required, owners_known, admins_enforced = False, False, None
 
-    state, rules, err = _gh("repos/%s/rules/branches/%s" % (slug, branch))
+    try:
+        rules = _provider_pages("repos/%s/rules/branches/%s" % (slug, encoded_branch))
+        state, err = "ok", ""
+    except ProfileError as exc:
+        state, rules, err = "error", None, str(exc)
     if state == "ok" and isinstance(rules, list):
         answered += 1
         for rule in rules:
+            if not isinstance(rule, dict):
+                errors.append("rulesets: incomplete rule")
+                continue
             params = rule.get("parameters") or {}
+            if not isinstance(params, dict):
+                errors.append("rulesets: incomplete parameters")
+                continue
             if rule.get("type") == "required_status_checks":
-                for item in params.get("required_status_checks") or []:
+                checks = params.get("required_status_checks")
+                if not isinstance(checks, list):
+                    errors.append("rulesets: incomplete check list")
+                    continue
+                for item in checks:
+                    if not isinstance(item, dict):
+                        errors.append("rulesets: incomplete check")
+                        continue
                     if _context_matches(str(item.get("context", "")), check_name):
                         matched = True
-                        if item.get("integration_id") in (None, 0, -1):
+                        if (app_id is None or type(item.get("integration_id")) is not int or
+                                item["integration_id"] != app_id):
                             unpinned = True
             if rule.get("type") == "pull_request":
                 owners_known = True
@@ -477,23 +774,37 @@ def check_branch_protection(root, check_name):
     else:
         errors.append("rulesets: %s" % (err or "unexpected response"))
 
-    state, prot, err = _gh("repos/%s/branches/%s/protection" % (slug, branch))
+    state, prot, err = _gh("repos/%s/branches/%s/protection" % (slug, encoded_branch))
     if state == "ok" and isinstance(prot, dict):
         answered += 1
         required = prot.get("required_status_checks") or {}
-        for item in required.get("checks") or []:
+        if not isinstance(required, dict):
+            required = {}
+            errors.append("branch protection: incomplete check settings")
+        classic_checks = required.get("checks", [])
+        if not isinstance(classic_checks, list):
+            classic_checks = []
+            errors.append("branch protection: incomplete check list")
+        for item in classic_checks:
+            if not isinstance(item, dict):
+                errors.append("branch protection: incomplete check")
+                continue
             if _context_matches(str(item.get("context", "")), check_name):
                 matched = True
-                if item.get("app_id") in (None, 0, -1):
+                if app_id is None or type(item.get("app_id")) is not int or item["app_id"] != app_id:
                     unpinned = True
-        for context in required.get("contexts") or []:
+        classic_contexts = required.get("contexts", [])
+        if not isinstance(classic_contexts, list) or not all(isinstance(c, str) for c in classic_contexts):
+            classic_contexts = []
+            errors.append("branch protection: incomplete check contexts")
+        for context in classic_contexts:
             if _context_matches(str(context), check_name) and not matched:
                 matched, unpinned = True, True
         reviews = prot.get("required_pull_request_reviews")
         if isinstance(reviews, dict):
             owners_known = True
             owners_required = owners_required or bool(reviews.get("require_code_owner_reviews"))
-        admins_enforced = (prot.get("enforce_admins") or {}).get("enabled")
+        admins_enforced = prot["enforce_admins"].get("enabled") if isinstance(prot.get("enforce_admins"), dict) else None
     elif "not protected" in err.lower():
         answered += 1  # an authoritative "no classic protection"
     else:
@@ -501,11 +812,11 @@ def check_branch_protection(root, check_name):
 
     results = []
     if matched:
-        results.append((name, OK, "'%s' is a required status check on %s" % (check_name, branch)))
+        results.append((name, (UNVERIFIED if app_id is None else WARN) if unpinned else OK,
+                        "'%s' is a required status check on %s; %s" % (check_name, branch, app_detail)))
         if unpinned:
             results.append(("required-check-source", WARN,
-                            "the required check is not pinned to the GitHub Actions app: any other app or status "
-                            "using the name '%s' could satisfy it" % check_name))
+                            "required check '%s' lacks the exact authoritative GitHub Actions application identity" % check_name))
     elif not errors:  # both sources answered authoritatively and neither lists the check
         results.append((name, FAIL, "'%s' is NOT a required status check on %s: the gate cannot block merges" % (check_name, branch)))
     else:
@@ -520,11 +831,512 @@ def check_branch_protection(root, check_name):
     return results
 
 
+def _provider(path, expected):
+    state, value, error = _gh(path)
+    if state != "ok" or not isinstance(value, expected):
+        raise ProfileError("%s unverified (%s)" % (clip(path), error or "unexpected provider response"))
+    return value
+
+
+def _provider_pages(path):
+    values = []
+    separator = "&" if "?" in path else "?"
+    for page in range(1, 11):
+        entries = _provider(path + separator + "per_page=100&page=%d" % page, list)
+        if len(entries) > 100:
+            raise ProfileError("oversized provider page; completeness unverified")
+        values.extend(entries)
+        if len(entries) < 100:
+            return values
+    raise ProfileError("provider pagination limit exceeded; completeness/bypass visibility unverified")
+
+
+def _boolean(data, key, label):
+    if not isinstance(data, dict) or type(data.get(key)) is not bool:
+        raise ProfileError("%s unverified: missing or non-boolean %s" % (label, key))
+    return data[key]
+
+
+def _rule_signature(rule):
+    if not isinstance(rule, dict) or not isinstance(rule.get("type"), str):
+        raise ProfileError("ruleset rule type unverified")
+    params = rule.get("parameters", {})
+    if not isinstance(params, dict):
+        raise ProfileError("ruleset parameters unverified")
+    return json.dumps([rule["type"], params], sort_keys=True)
+
+
+def _ruleset_applies(conditions, branch):
+    if not isinstance(conditions, dict) or set(conditions) != {"ref_name"}:
+        raise ProfileError("unsupported ruleset conditions; applicability unverified")
+    refs = conditions["ref_name"]
+    if not isinstance(refs, dict) or set(refs) != {"include", "exclude"}:
+        raise ProfileError("ruleset ref conditions unverified")
+
+    def matches(pattern):
+        if pattern in ("~ALL", "~DEFAULT_BRANCH"):
+            return True  # the inspected branch is the provider's default branch
+        if not isinstance(pattern, str) or not re.fullmatch(r"refs/heads/[A-Za-z0-9._/-]+", pattern):
+            raise ProfileError("unsupported ruleset ref pattern; applicability unverified")
+        return pattern == "refs/heads/" + branch
+
+    selected = {}
+    for key in ("include", "exclude"):
+        if not isinstance(refs[key], list):
+            raise ProfileError("ruleset ref conditions unverified")
+        selected[key] = [matches(pattern) for pattern in refs[key]]
+    return any(selected["include"]) and not any(selected["exclude"])
+
+
+def enforcement_settings(prefix, branch, app_id):
+    """Combine effective rules only after checking their provenance and bypass visibility."""
+    encoded = quote(branch, safe="")
+    effective = _provider_pages(prefix + "/rules/branches/" + encoded)
+    effective_by_id = {}
+    for rule in effective:
+        _rule_signature(rule)
+        rid = rule.get("ruleset_id")
+        if type(rid) is not int or rid <= 0:
+            raise ProfileError("effective ruleset identity unverified")
+        effective_by_id.setdefault(rid, []).append(rule)
+
+    listed = _provider_pages(prefix + "/rulesets?includes_parents=true")
+
+    checks, reviews, bypasses, seen = [], [], [], set()
+    prohibit_delete = prohibit_force = False
+
+    def status_checks(params, classic=False):
+        key = "checks" if classic else "required_status_checks"
+        items = params.get(key)
+        if not isinstance(items, list):
+            raise ProfileError("required check list unverified")
+        fresh = _boolean(params, "strict" if classic else "strict_required_status_checks_policy", "up-to-date checks")
+        if not classic and _boolean(params, "do_not_enforce_on_create", "check creation bypass"):
+            bypasses.append("ruleset skips checks on branch creation")
+        contexts = []
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get("context"), str) or not item["context"]:
+                raise ProfileError("required check context unverified")
+            source = item.get("app_id" if classic else "integration_id")
+            if source is not None and type(source) is not int:
+                raise ProfileError("%s application identity unverified" % clip(item["context"]))
+            contexts.append(item["context"])
+            checks.append((item["context"], source, fresh))
+        if classic:
+            names = params.get("contexts")
+            if not isinstance(names, list) or not all(isinstance(c, str) for c in names):
+                raise ProfileError("required check contexts unverified")
+            for name in names:
+                if name not in contexts:
+                    checks.append((name, None, fresh))
+
+    def review_rule(params, classic=False):
+        count = params.get("required_approving_review_count")
+        if type(count) is not int or count < 0:
+            raise ProfileError("required pull request review count unverified")
+        owners = _boolean(params, "require_code_owner_reviews" if classic else "require_code_owner_review", "owner review")
+        stale = _boolean(params, "dismiss_stale_reviews" if classic else "dismiss_stale_reviews_on_push", "fresh review")
+        last = _boolean(params, "require_last_push_approval", "fresh review")
+        reviews.append((count, owners, stale or last))
+        if classic:
+            allowances = params.get("bypass_pull_request_allowances")
+            if not isinstance(allowances, dict) or not {"users", "teams", "apps"} <= set(allowances):
+                raise ProfileError("classic pull request bypass allowances unverified")
+            for kind in ("users", "teams", "apps"):
+                actors = allowances[kind]
+                if not isinstance(actors, list) or not all(isinstance(a, dict) for a in actors):
+                    raise ProfileError("classic bypass actors unverified")
+                if actors:
+                    names = [str(a.get("login") or a.get("slug") or a.get("id") or "unknown") for a in actors]
+                    bypasses.append("classic %s: %s" % (kind, clip(", ".join(names))))
+
+    slug = prefix[len("repos/"):]
+    for summary in listed:
+        if not isinstance(summary, dict) or type(summary.get("id")) is not int or summary["id"] <= 0:
+            raise ProfileError("ruleset listing identity unverified")
+        rid = summary["id"]
+        if rid in seen:
+            raise ProfileError("duplicate ruleset listing; completeness unverified")
+        seen.add(rid)
+        mode, target = summary.get("enforcement"), summary.get("target")
+        if mode not in ("active", "evaluate", "disabled") or target not in ("branch", "tag", "push"):
+            raise ProfileError("unsupported ruleset mode or target")
+        if mode != "active" or target != "branch":
+            if rid in effective_by_id:
+                raise ProfileError("effective ruleset disagrees with listed enforcement/target")
+            continue
+        source_type, source = summary.get("source_type"), summary.get("source")
+        if source_type == "Repository" and source == slug:
+            route = prefix + "/rulesets/%d" % rid
+        elif source_type == "Organization" and source == slug.split("/")[0]:
+            route = "orgs/%s/rulesets/%d" % (quote(source, safe=""), rid)
+        else:
+            raise ProfileError("unsupported ruleset source; inherited bypass settings unverified")
+        detail = _provider(route, dict)
+        if any(detail.get(key) != summary.get(key) for key in ("id", "source_type", "source", "enforcement", "target")):
+            raise ProfileError("ruleset metadata disagrees with listing; re-inspect settings")
+        applies = _ruleset_applies(detail.get("conditions"), branch)
+        rules = detail.get("rules")
+        if not isinstance(rules, list):
+            raise ProfileError("ruleset rules unverified")
+        signatures = sorted(_rule_signature(r) for r in rules)
+        expected = effective_by_id.get(rid, [])
+        if not applies:
+            if expected:
+                raise ProfileError("effective ruleset applicability disagrees with conditions")
+            continue
+        if signatures != sorted(_rule_signature(r) for r in expected) or any(
+                r.get("ruleset_source_type") != source_type or r.get("ruleset_source") != source for r in expected):
+            raise ProfileError("effective ruleset contents or source unverified")
+        actors = detail.get("bypass_actors")
+        if not isinstance(actors, list):
+            raise ProfileError("ruleset %d bypass actors unverified (missing/inaccessible)" % rid)
+        for actor in actors:
+            if not isinstance(actor, dict) or not {"actor_id", "actor_type", "bypass_mode"} <= set(actor):
+                raise ProfileError("ruleset bypass actor metadata unverified")
+            bypasses.append("ruleset %d: %s %s (%s)" % (
+                rid, clip(actor["actor_type"]), clip(actor["actor_id"]), clip(actor["bypass_mode"])))
+        for rule in rules:
+            kind, params = rule["type"], rule.get("parameters", {})
+            if kind == "required_status_checks":
+                if set(params) - {"required_status_checks", "strict_required_status_checks_policy", "do_not_enforce_on_create"}:
+                    raise ProfileError("unsupported status-check ruleset parameters")
+                status_checks(params)
+            elif kind == "pull_request":
+                if set(params) - {"required_approving_review_count", "require_code_owner_review",
+                                  "dismiss_stale_reviews_on_push", "require_last_push_approval",
+                                  "required_review_thread_resolution", "allowed_merge_methods"}:
+                    raise ProfileError("unsupported pull request ruleset parameters")
+                review_rule(params)
+            elif kind in ("deletion", "non_fast_forward", "required_signatures", "required_linear_history") and not params:
+                prohibit_delete = prohibit_delete or kind == "deletion"
+                prohibit_force = prohibit_force or kind == "non_fast_forward"
+            else:
+                raise ProfileError("unsupported ruleset rule %s%s" % (clip(kind),
+                    "; merge queues need a separately supported merge-group workflow" if kind == "merge_queue" else ""))
+    if set(effective_by_id) - seen:
+        raise ProfileError("effective ruleset absent from complete listing; bypass visibility unverified")
+
+    state, protection, error = _gh(prefix + "/branches/" + encoded + "/protection")
+    if state == "ok" and isinstance(protection, dict):
+        if not {"required_status_checks", "required_pull_request_reviews"} <= set(protection):
+            raise ProfileError("classic protection settings incomplete/unverified")
+        required, review = protection["required_status_checks"], protection["required_pull_request_reviews"]
+        if required is not None:
+            if not isinstance(required, dict):
+                raise ProfileError("classic required checks unverified")
+            status_checks(required, classic=True)
+        if review is not None:
+            if not isinstance(review, dict):
+                raise ProfileError("classic pull request settings unverified")
+            review_rule(review, classic=True)
+        admins = _boolean(protection.get("enforce_admins"), "enabled", "administrative bypass")
+        force = _boolean(protection.get("allow_force_pushes"), "enabled", "force-push bypass")
+        delete = _boolean(protection.get("allow_deletions"), "enabled", "branch deletion bypass")
+        if not admins:
+            bypasses.append("classic protection exempts administrators")
+        if force:
+            bypasses.append("classic protection permits force pushes")
+        if delete:
+            bypasses.append("classic protection permits branch deletion")
+        prohibit_force = prohibit_force or not force and admins
+        prohibit_delete = prohibit_delete or not delete and admins
+    elif not (state != "ok" and "branch not protected" in error.lower() and "404" in error):
+        raise ProfileError("classic branch protection unverified (%s)" % (error or "unexpected response"))
+
+    queue_status, queue_detail = (_classic_queue(slug, branch) if state == "ok" else
+        (OK, "no classic protection and no merge queue in the complete effective ruleset inventory"))
+    results = [("enforcement-protection-sources", OK, "observed classic protection and complete applicable active rulesets"),
+               ("enforcement-merge-queue", queue_status, queue_detail)]
+    for context in ("evidence", "gitleaks"):
+        bindings = [source for c, source, _ in checks if c == context]
+        found = bool(bindings) and all(source == app_id for source in bindings) if app_id is not None else False
+        results.append(("enforcement-check-" + context, (OK if found else FAIL) if app_id is not None else UNVERIFIED,
+                        "exact '%s' check from GitHub Actions application id %s %s on %s" %
+                        (context, app_id, "required" if found else "NOT required with the expected identity", branch)))
+    criteria = (
+        ("pr", bool(reviews), "pull request changes required"),
+        ("owner-review", any(count >= 1 and owner for count, owner, _ in reviews), "required approving owner review"),
+        ("review-freshness", any(count >= 1 and fresh for count, _, fresh in reviews),
+         "fresh review after pushes (dismiss stale approvals or require last-push approval)"),
+        ("branch-freshness", app_id is not None and all(any(c == wanted and source == app_id and fresh
+             for c, source, fresh in checks) for wanted in ("evidence", "gitleaks")), "up-to-date required check evaluation"),
+        ("bypass", not bypasses and prohibit_force and prohibit_delete,
+         "no unreviewed bypass: admins bound, force pushes/deletion blocked, no disclosed bypass actors"))
+    for name, good, label in criteria:
+        detail = label + (" observed" if good else " NOT established")
+        if name == "bypass" and bypasses:
+            detail += "; disclosed bypasses need a separate operator decision: " + "; ".join(bypasses)
+        results.append(("enforcement-" + name, OK if good else FAIL, detail))
+    return results
+
+
+def _glob_language(patterns, boundary=False):
+    """Epsilon-NFA for a bounded glob grammar, without sampling current paths.
+
+    Boundary basename rules match any segment, per lane.compile_pattern. Owner
+    basename rules match file basenames; explicit directory/** rules cover their
+    descendants. This conservative subset never promotes root-only ownership.
+    """
+    edges, epsilon, accepts = [[]], [set()], set()
+    alphabet = {"/", "\0"}  # NUL represents characters absent from all literal sets.
+
+    def node():
+        edges.append([])
+        epsilon.append(set())
+        return len(edges) - 1
+
+    for pattern in patterns:
+        rooted = pattern.startswith("/")
+        pattern = pattern[1:] if rooted else pattern
+        if pattern.endswith("/"):
+            pattern += "**"
+        basename = "/" not in pattern
+        if basename and (boundary or not rooted):
+            pattern = "**/" + pattern
+        variants = [pattern]
+        if boundary and basename:
+            variants.append(pattern + "/**")
+        for variant in variants:
+            current = node()
+            epsilon[0].add(current)
+            i = 0
+            while i < len(variant):
+                following = node()
+                if variant.startswith("**/", i):
+                    loop = node()
+                    epsilon[current].update((following, loop))
+                    edges[loop].extend(((None, loop), (frozenset("/"), following)))
+                    i += 3
+                elif variant.startswith("**", i):
+                    edges[current].append((None, current))
+                    epsilon[current].add(following)
+                    i += 2
+                elif variant[i] == "*":
+                    edges[current].append(("segment", current))
+                    epsilon[current].add(following)
+                    i += 1
+                elif variant[i] == "?":
+                    edges[current].append(("segment", following))
+                    i += 1
+                else:
+                    char = variant[i]
+                    chars = {char}
+                    if boundary and char.isalpha():
+                        chars.update((char.lower(), char.upper()))
+                        # Unicode IGNORECASE has these additional ASCII equivalents.
+                        chars.update({"i": "\u0130\u0131", "s": "\u017f", "k": "\u212a"}.get(char.lower(), ""))
+                    alphabet.update(chars)
+                    edges[current].append((frozenset(chars), following))
+                    i += 1
+                current = following
+            accepts.add(current)
+
+    def closure(states):
+        result, pending = set(states), list(states)
+        while pending:
+            for target in epsilon[pending.pop()]:
+                if target not in result:
+                    result.add(target)
+                    pending.append(target)
+        return frozenset(result)
+
+    def step(states, char):
+        targets = set()
+        for state in states:
+            for label, target in edges[state]:
+                if label is None or (char != "/" if label == "segment" else char in label):
+                    targets.add(target)
+        return closure(targets)
+
+    return closure({0}), accepts, alphabet, step
+
+
+def _ownership_coverage(text, paths):
+    if lanelib is None:
+        raise ProfileError("ownership boundary unverified: trusted lane module unavailable")
+    patterns = []
+    for line in text.splitlines():
+        line = re.sub(r"(^|\s)#.*$", "", line).strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            raise ProfileError("ownership has ownerless overrides; full boundary coverage unverified")
+        if not all(re.fullmatch(r"@[A-Za-z0-9][A-Za-z0-9-]*(?:/[A-Za-z0-9_.-]+)?", owner) for owner in parts[1:]):
+            raise ProfileError("unsupported ownership identity syntax")
+        pattern = parts[0]
+        if (not re.fullmatch(r"[A-Za-z0-9_./*?-]+", pattern) or pattern == "/" or "//" in pattern or
+                pattern.endswith("**/") or
+                any(part in (".", "..") for part in pattern.split("/")) or
+                any("**" in part and part != "**" for part in pattern.split("/"))):
+            raise ProfileError("unsupported ownership pattern")
+        patterns.append(pattern)
+    if not patterns:
+        raise ProfileError("ownership declarations are missing")
+    if any(p in ("*", "**", "/**", "**/*", "/**/*") for p in patterns):
+        return  # every later declaration also has provider-validated owners
+    if sum(len(p) for p in patterns) > 10000:
+        raise ProfileError("ownership patterns exceed supported proof limit")
+    owner_start, owner_ends, owner_chars, owner_step = _glob_language(patterns)
+    for pattern in lanelib.BUILTIN_CRITICAL:
+        if not pattern.isascii():
+            raise ProfileError("unsupported non-ASCII ownership boundary")
+        start, ends, chars, step = _glob_language([pattern], boundary=True)
+        pending, seen = [(start, owner_start)], {(start, owner_start)}
+        while pending:
+            critical, owned = pending.pop()
+            if ends.intersection(critical) and not owner_ends.intersection(owned):
+                raise ProfileError("ownership does not cover the complete case-insensitive future boundary %s "
+                                   "(root anchoring and all case variants matter)" % pattern)
+            for char in chars | owner_chars:
+                after = step(critical, char)
+                if not after:
+                    continue
+                pair = (after, owner_step(owned, char))
+                if pair not in seen:
+                    seen.add(pair)
+                    pending.append(pair)
+            if len(seen) > 6000:
+                raise ProfileError("ownership coverage proof exceeds supported state limit; unverified")
+
+
+def enforcement_files(prefix, branch):
+    """Inspect immutable provider blobs. Never execute hosted or inspected-repo scripts."""
+    snapshot = _provider(prefix + "/branches/" + quote(branch, safe=""), dict)
+    try:
+        sha, tree_sha = snapshot["commit"]["sha"], snapshot["commit"]["commit"]["tree"]["sha"]
+    except (KeyError, TypeError):
+        raise ProfileError("protected branch snapshot unverified")
+    if not all(isinstance(value, str) and _SHA.fullmatch(value) for value in (sha, tree_sha)):
+        raise ProfileError("protected branch snapshot identity unverified")
+    tree = _provider(prefix + "/git/trees/" + tree_sha + "?recursive=1", dict)
+    if tree.get("sha") != tree_sha or tree.get("truncated") is not False or not isinstance(tree.get("tree"), list):
+        raise ProfileError("hosted tree unverified or truncated")
+    if len(tree["tree"]) > MAX_TRACKED_FILES:
+        raise ProfileError("hosted tree exceeds inspection limit")
+    entries = {}
+    for entry in tree["tree"]:
+        if not isinstance(entry, dict):
+            raise ProfileError("hosted tree entry unverified")
+        path = entry.get("path")
+        if (not isinstance(path, str) or not path or path in entries or path.startswith("/") or
+                any(p in ("", ".", "..") for p in path.split("/")) or re.search(r"[\x00-\x1f\x7f\\]", path)):
+            raise ProfileError("hosted tree path unverified")
+        entries[path] = entry
+
+    def blob(path):
+        entry = entries.get(path)
+        if (not isinstance(entry, dict) or entry.get("type") != "blob" or entry.get("mode") not in ("100644", "100755") or
+                not isinstance(entry.get("sha"), str) or not _SHA.fullmatch(entry["sha"])):
+            raise ProfileError("hosted %s missing or not a regular tracked file" % clip(path))
+        response = _provider(prefix + "/git/blobs/" + entry["sha"], dict)
+        if (response.get("sha") != entry["sha"] or response.get("encoding") != "base64" or
+                not isinstance(response.get("content"), str) or type(response.get("size")) is not int or
+                not 0 < response["size"] <= MAX_FILE_BYTES or len(response["content"]) > MAX_FILE_BYTES * 2):
+            raise ProfileError("hosted %s blob response unverified" % clip(path))
+        try:
+            data = base64.b64decode("".join(response["content"].split()), validate=True)
+            identity = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+            if len(data) != response["size"] or identity != entry["sha"]:
+                raise ValueError("blob identity mismatch")
+            return data.decode("utf-8")
+        except (ValueError, UnicodeError, binascii.Error):
+            raise ProfileError("hosted %s blob integrity/encoding unverified" % clip(path))
+
+    results = [("enforcement-snapshot", OK, "inspecting %s at %s (read-only branch snapshot)" % (branch, sha))]
+    for filename in ("lane.py", "evidence_check.py"):
+        body = blob("scripts/" + filename)
+        if hashlib.sha256(body.encode("utf-8")).hexdigest() != sha256(os.path.join(HERE, filename)):
+            raise ProfileError("hosted tooling differs from the trusted inspector distribution; execution contract unverified")
+    try:
+        if lanelib is None:
+            raise ProfileError("trusted config parser unavailable")
+        lanelib.parse_config(blob("scripts/lane-config.yaml"))
+    except (ValueError, lanelib.ConfigError if lanelib is not None else ValueError):
+        raise ProfileError("hosted lane configuration unverified")
+    results.append(("enforcement-tooling", OK, "hosted checker/lane match the trusted distribution; config parses as data"))
+
+    foundation = {".github/workflows/sdlc-gate.yml": False, ".github/workflows/gitleaks.yml": True}
+    for path, scanner in foundation.items():
+        inspected = workflow_results(blob(path), scanner)
+        problems = [name for name, status, _ in inspected if status != OK]
+        results.append(("enforcement-workflow-" + ("gitleaks" if scanner else "evidence"),
+                        UNVERIFIED if problems else OK,
+                        "%s workflow %s" % (path, "unsupported/unsafe: " + ", ".join(problems) if problems else
+                                             "matches the bounded supported profile (not runtime proof)")))
+    others = [p for p in entries if p.startswith(".github/workflows/") and p.endswith((".yml", ".yaml")) and p not in foundation]
+    if len(others) > 100:
+        raise ProfileError("workflow inventory exceeds supported inspection limit")
+    for path in others:
+        try:
+            doc = parse_workflow(blob(path))
+        except ProfileError:
+            raise ProfileError("other workflow has unsupported shape; exact check-name uniqueness unverified")
+        jobs, permissions = doc.get("jobs"), doc.get("permissions")
+        if not isinstance(jobs, dict) or not isinstance(permissions, dict) or any(v not in ("read", "none") for v in permissions.values()):
+            raise ProfileError("other workflow permissions/shape unsupported; check-source uniqueness unverified")
+        for job_id, job in jobs.items():
+            if not isinstance(job, dict) or "uses" in job:
+                raise ProfileError("reusable/indirect workflow check names unsupported")
+            name = job.get("name", job_id)
+            if not isinstance(name, str) or "${{" in name or name in ("evidence", "gitleaks"):
+                raise ProfileError("other workflow has duplicate or indeterminate evidence/gitleaks check names")
+            if "permissions" in job and (not isinstance(job["permissions"], dict) or
+                                          any(v not in ("read", "none") for v in job["permissions"].values())):
+                raise ProfileError("other workflow job permissions unsupported; check-source uniqueness unverified")
+    results.append(("enforcement-workflow-names", OK, "no other workflow can declare the same exact check names in the supported profile"))
+    owner_path = next((p for p in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS") if p in entries), None)
+    if owner_path is None:
+        raise ProfileError("hosted ownership declarations missing")
+    owners = blob(owner_path)
+    errors = _provider(prefix + "/codeowners/errors?ref=" + sha, dict)
+    if not isinstance(errors.get("errors"), list):
+        raise ProfileError("provider ownership validation unverified")
+    if errors["errors"]:
+        raise ProfileError("provider reports %d ownership error(s); owner identities/coverage not established" % len(errors["errors"]))
+    _ownership_coverage(owners, entries)
+    results.append(("enforcement-ownership", OK, "%s: provider-valid owners cover the entire declared execution boundary, including new files" % owner_path))
+    return results
+
+
+def check_enforcement(root):
+    results = []
+    try:
+        if not in_git(root):
+            raise ProfileError("not a git work tree; hosted enforcement unverified")
+        code, remote, _ = git(root, "remote", "get-url", "origin")
+        match = _REMOTE.fullmatch(remote.strip()) if code == 0 else None
+        if not match or not all(re.fullmatch(r"[A-Za-z0-9_.-]+", p) for p in match.groups()):
+            raise ProfileError("origin is not a supported github.com repository")
+        if shutil.which("gh") is None:
+            raise ProfileError("gh CLI unavailable; hosted enforcement unverified")
+        prefix = "repos/%s/%s" % match.groups()
+        repo = _provider(prefix, dict)
+        branch = repo.get("default_branch")
+        if not isinstance(branch, str) or not re.fullmatch(r"[A-Za-z0-9._/-]+", branch):
+            raise ProfileError("default branch unverified or unsupported")
+        app_id, app_detail = _actions_identity()
+        results.append(("enforcement-application", OK if app_id is not None else UNVERIFIED, app_detail))
+        results += enforcement_settings(prefix, branch, app_id)
+        results += enforcement_files(prefix, branch)
+    except ProfileError as exc:
+        results.append(("enforcement-inspection", UNVERIFIED, str(exc)))
+    ready = bool(results) and all(status == OK for _, status, _ in results)
+    results.append(("enforcement-readiness", OK if ready else FAIL,
+                    "supported profile observed; not code correctness, authenticated approval, runtime agent isolation or "
+                    "a successful hosted scan. Settings can change; scanner licensing/fork/private access still need "
+                    "authorized hosted verification" if ready else
+                    "NOT ready: false, missing, unsupported or unverified prerequisites. No settings changed; activation "
+                    "and any disclosed bypass need separate operator authorization"))
+    return results
+
+
 # --------------------------------------------------------------------------
 # assembly
 # --------------------------------------------------------------------------
 
-def check_repo(root, check_remote=False, check_name="evidence"):
+def check_repo(root, check_remote=False, check_name="evidence", require_enforcement=False):
     """Return a list of (name, status, detail)."""
     results = check_environment()
     results += check_files(root)
@@ -537,12 +1349,20 @@ def check_repo(root, check_remote=False, check_name="evidence"):
     results += check_codeowners(root)
     results += check_default_branch(root)
     results += check_shallow(root)
-    if check_remote:
+    if require_enforcement and not check_remote:
+        raise ValueError("--require-enforcement requires --check-branch-protection")
+    if require_enforcement:
+        results += check_enforcement(root)
+    elif check_remote:
         results += check_branch_protection(root, check_name)
     else:
         results.append(("required-check", UNVERIFIED,
                         "mark the CI check '%s' as required in branch protection or a ruleset; nothing blocks merges until "
-                        "then. Prove it with --check-branch-protection (uses gh)" % check_name))
+                         "then. Prove it with --check-branch-protection (uses gh)" % check_name))
+    if not require_enforcement:
+        results.append(("enforcement-readiness", UNVERIFIED,
+                        "installation health or a single required check is not hosted merge readiness; use "
+                        "--check-branch-protection --require-enforcement for the supported profile"))
     return results
 
 
@@ -560,14 +1380,20 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--check-branch-protection", action="store_true",
                         help="read branch protection via `gh api` (network, read-only)")
+    parser.add_argument("--require-enforcement", action="store_true",
+                        help="require the complete supported hosted profile; needs --check-branch-protection")
     parser.add_argument("--check-name", default="evidence",
                         help="job name of the required check (default: evidence)")
     args = parser.parse_args(argv)
+    if args.require_enforcement and not args.check_branch_protection:
+        parser.error("--require-enforcement requires --check-branch-protection")
+    if args.require_enforcement and args.check_name != "evidence":
+        parser.error("--require-enforcement requires the exact evidence and gitleaks checks, not a custom --check-name")
     if not os.path.isdir(args.root):
         sys.stderr.write("doctor: --root %r is not a directory\n" % args.root)
         return 2
 
-    results = check_repo(args.root, args.check_branch_protection, args.check_name)
+    results = check_repo(args.root, args.check_branch_protection, args.check_name, args.require_enforcement)
     counts = summarise(results)
     failed = counts[FAIL] > 0 or (args.strict and counts[WARN] > 0)
     if args.json:

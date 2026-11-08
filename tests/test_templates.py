@@ -4,9 +4,15 @@ does every file a skill mentions exist, and are the shared secret patterns ident
 import glob
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
+
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 for sub in ("scripts", "skills/spec-first/scripts", "skills/context-pack/scripts", "skills/verify-and-evals/scripts"):
@@ -81,11 +87,17 @@ class EndToEnd(unittest.TestCase):
     """A PR assembled from the shipped templates must pass the gate, lane by lane."""
 
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        directory = support.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.repo = directory.name
         for rel in ("docs/spec.md", "docs/intent.md"):
             os.makedirs(os.path.join(self.repo, "docs"), exist_ok=True)
             with open(os.path.join(self.repo, rel), "w") as handle:
                 handle.write("# real document\n")
+        for arguments in (("init", "-q"), ("add", "docs"), ("commit", "-q", "-m", "evidence fixtures")):
+            subprocess.run(["git", "-C", self.repo, "-c", "user.name=Fixture",
+                            "-c", "user.email=fixture@example.invalid", *arguments],
+                           check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         with open(os.path.join(ROOT, "scripts/lane-config.yaml")) as handle:
             self.rules = lane.parse_config(handle.read())
 

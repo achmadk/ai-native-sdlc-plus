@@ -8,18 +8,28 @@
 #   - a "/" in the pattern   -> anchored at the repo root        (src/**, **/*.md)
 # Critical rules match case-insensitively (fail safe).
 # Always Critical, regardless of this file (see BUILTIN_CRITICAL in lane.py):
-#   scripts/lane.py, scripts/evidence_check.py, scripts/lane-config.yaml,
-#   scripts/doctor.py, .github/workflows/**, CODEOWNERS, hooks/**
+#   scripts/**, installers/state, CI workflows/adapters, CODEOWNERS, hooks,
+#   skill instructions/scripts and supported agent-control files.
+# Version identifies the config format; policy edits do not change that format.
 version: 1
 
 critical:            # CALIBRATE on your first repo; track how often this fires
-  - "auth/**"
+  - "**/auth/**"
+  - "**/authentication/**"
+  - "**/payment/**"
+  - "**/payments/**"
   - "**/migrations/**"
-  - "infra/**"
+  - "**/infra/**"
+  - "**/infrastructure/**"
+  - "**/security/**"
   - "skills/*/SKILL.md"      # skill instructions are behaviour, not prose
   - "skills/*/scripts/**"
 
 standard:
+  - "*.lock"
+  - "package-lock.json"
+  - "npm-shrinkwrap.json"
+  - "pnpm-lock.yaml"
   - "src/**"
   - "skills/**"
   - "adapters/**"
@@ -29,7 +39,6 @@ lite:
   - "docs/**"
   - "README.md"
   - "CHANGELOG.md"
-  - "**/*.lock"
 
 # Optional. Paths that count as tests for the test_changes evidence.
 tests:

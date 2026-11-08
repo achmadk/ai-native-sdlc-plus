@@ -3,10 +3,14 @@ import json
 import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+
+if __package__:
+    from . import support
+else:
+    import support
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -79,7 +83,7 @@ class BacktestTests(unittest.TestCase):
         commit_file(tmp, "docs/b.md")
 
     def test_end_to_end_counts(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             self.make_repo(tmp)
             results = lb.backtest(tmp, "HEAD", 10, str(Path(tmp) / "scripts" / "lane.py"))
             summary = lb.summarize(results)
@@ -90,13 +94,13 @@ class BacktestTests(unittest.TestCase):
             self.assertEqual(summary["top_rules"][0], ("Lite: matched Lite rule docs/**", 2))
 
     def test_limit_applies(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             self.make_repo(tmp)
             results = lb.backtest(tmp, "HEAD", 2, str(Path(tmp) / "scripts" / "lane.py"))
             self.assertEqual(len(results), 2)
 
     def test_too_many_files_is_skipped_not_truncated(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             self.make_repo(tmp)
             for i in range(3):
                 (Path(tmp) / "bulk").mkdir(exist_ok=True)
@@ -108,7 +112,7 @@ class BacktestTests(unittest.TestCase):
             self.assertIsNone(results[0]["lane"])
 
     def test_unclassified_is_visible(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             self.make_repo(tmp)
             runner = lambda script, files, style, root: (2, "usage: lane.py [-h]\n")  # noqa: E731
             results = lb.backtest(tmp, "HEAD", 3, "ignored.py", runner=runner)
@@ -117,7 +121,7 @@ class BacktestTests(unittest.TestCase):
             self.assertEqual(sum(summary["lanes"].values()), 0)
 
     def test_bad_revision_raises(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             self.make_repo(tmp)
             with self.assertRaises(lb.BacktestError):
                 lb.backtest(tmp, "no-such-rev", 3, "x.py")
@@ -126,7 +130,7 @@ class BacktestTests(unittest.TestCase):
 @unittest.skipUnless(GIT, "git is not installed")
 class CliTests(unittest.TestCase):
     def test_report_and_json(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             BacktestTests().make_repo(tmp)
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -143,7 +147,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(data["summary"]["lanes"]["Critical"], 1)
 
     def test_missing_lane_script(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with support.TemporaryDirectory() as tmp:
             git(tmp, "init", "-q")
             old, sys.stderr = sys.stderr, io.StringIO()
             try:

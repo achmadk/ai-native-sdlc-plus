@@ -1,12 +1,14 @@
 #!/bin/sh
-# One-command install. Copies config, templates, CI workflow, hook. Idempotent.
+# Source-relative launcher; the shared installer owns all filesystem changes.
 set -u
 ROOT="${1:-.}"
-mkdir -p "$ROOT/scripts" "$ROOT/.github/workflows" "$ROOT/hooks"
-cp scripts/lane-config.yaml "$ROOT/scripts/" 2>/dev/null || true
-cp scripts/lane.py scripts/evidence_check.py scripts/doctor.py "$ROOT/scripts/" 2>/dev/null || true
-cp .github/workflows/sdlc-gate.yml "$ROOT/.github/workflows/" 2>/dev/null || true
-cp .github/pull_request_template.md "$ROOT/.github/" 2>/dev/null || true
-cp hooks/pre-push hooks/pre-push.sh hooks/pre-push.ps1 "$ROOT/hooks/" 2>/dev/null || true
-chmod +x "$ROOT/hooks/pre-push" "$ROOT/hooks/pre-push.sh" 2>/dev/null || true
-python3 "$ROOT/scripts/doctor.py" --root "$ROOT"
+if [ "$#" -gt 1 ]; then printf '%s\n' 'usage: sh install.sh [root]' >&2; exit 2; fi
+SOURCE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+for python in python3 python; do
+  if command -v "$python" >/dev/null 2>&1 &&
+     "$python" -I -B -c 'import sys; sys.exit(sys.version_info < (3, 8))' </dev/null >/dev/null 2>&1; then
+    exec "$python" -I -B "$SOURCE/scripts/install.py" "$ROOT"
+  fi
+done
+printf '%s\n' 'installation failed: Python >= 3.8 required (tried python3 and python); no files changed' >&2
+exit 1

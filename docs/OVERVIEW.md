@@ -19,7 +19,7 @@ Ten skills, one gate. The skills tell people and agents what to do; the gate che
 
 ## How a change flows
 
-1. `lane.py` classifies the diff. The highest-risk path decides the lane. Lanes only go up.
+1. `lane.py` classifies paths plus Git mode/type facts. The highest risk decides the lane; a documentation directory does not make executable content Lite. Path-only planning remains advisory.
 2. Lite: a short intent, tests, a trace. Standard: a spec file, one human approval before build, review notes. Critical: intent statement, spec, threat note, rollout plan, a second human reviewer.
 3. The PR description carries the evidence under fixed headings (`## Intent`, `## Trace`, `## Review notes`, `## Threat note`, `## Rollout plan`). The templates in each skill's `assets/` use those headings.
 4. After merge, `ship-and-observe` covers rollout and the loops that follow incidents, findings and failing builds. Every loop ends in a new intent and a regression case.
@@ -31,13 +31,13 @@ Ten skills, one gate. The skills tell people and agents what to do; the gate che
 | The skills | Advice. They shape what an agent or person does but nothing stops a skip |
 | `hooks/pre-push` | A reminder. Never blocks, and `--no-verify` skips it |
 | The CI gate (`evidence_check.py`) | Blocks only once the check named `evidence` is required in branch protection. Checks that evidence exists and is structurally real, never that it is good |
-| `doctor.py --check-branch-protection` | The only thing that can show the gate actually blocks merges |
+| `doctor.py --check-branch-protection --require-enforcement` | Read-only inspection of the supported hosted profile; missing or unverified prerequisites fail. It is not proof of arbitrary workflow behavior or code correctness |
 
-The gate reads its scripts and lane config from the base branch, so a PR cannot weaken the gate judging it. Protect the gate files with CODEOWNERS and required code-owner review.
+The gate reads its scripts and lane config from the base branch using isolated Python. The PR-controlled workflow still needs required owner review or a supported organization-controlled workflow. The protection profile requires exact `evidence` and `gitleaks` contexts from the expected application, owner/fresh-review and branch-freshness controls, and visible bypass settings. Installation does not configure these settings.
 
 ## Suggested adoption order for a team at "experimental"
 
-1. **Install and verify the gate** (`ai-sdlc`, `references/init.md`). Prove the required check with doctor.
+1. **Install and verify the gate** (`ai-sdlc`, `references/init.md`). Resolve file conflicts, then separately authorize activation and inspect the supported profile with doctor.
 2. **Specs and proof:** `spec-first` for Lite and Standard changes, and `verify-and-evals` red-to-green evidence in the PR trace.
 3. **Review and trace:** `review-by-intent` and `decision-trace`. These are where reasoning is kept or lost.
 4. **Context and shipping:** `context-pack` when history matters, `ship-and-observe` for Critical changes.
@@ -47,4 +47,4 @@ The gate reads its scripts and lane config from the base branch, so a PR cannot 
 
 ## Honest status
 
-Tested with 380 unit and integration tests and a 155-mutant verification battery (100% non-equivalent killed; see `PATCH-NOTES.md`). Verified: Linux, macOS, Python 3.8-3.13, Windows PowerShell (`install.ps1`, `pre-push.ps1`), ShellCheck clean (0 warnings), all 10 skills at >= 0.85 trigger precision/recall. Regulatory evidence mapped for US and EU teams (`docs/compliance/`: EU AI Act, CRA, NIST AI RMF, SOC 2). Still uncalibrated: lane caps, freshness windows, and size limits remain starting points for teams to calibrate with `scripts/doctor.py`. Survey figures cited in the skills are self-reported perception from one study, not measured outcomes.
+Validation is revision-specific: run the unit/integration suite, mutation runner, and ShellCheck workflow against the candidate. Historical results in `PATCH-NOTES.md` and `evals/` are not a current pass certificate; lexical trigger scores are not actual-agent evaluations. Native Windows and hosted scanner behavior need real platform/provider results, not skipped tests or API mocks. Compliance mappings are supporting material, not certification. Lane caps, freshness windows, and size limits remain starting points for calibration. Survey figures in the skills are self-reported perceptions, not measured outcomes.

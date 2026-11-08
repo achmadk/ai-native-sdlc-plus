@@ -11,29 +11,37 @@ import subprocess
 import sys
 import tempfile
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
-TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor"],
-         E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook"], D: ["tests.test_doctor"],
+TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
+         E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
+         D: ["tests.test_doctor.WorkflowChecks", "tests.test_doctor.Basics", "tests.test_doctor.ConfigChecks",
+             "tests.test_doctor.HookChecks", "tests.test_doctor.CodeownersChecks", "tests.test_doctor.RemoteChecks",
+             "tests.test_doctor.GitState", "tests.test_doctor"],
          H: ["tests.test_hook"], HD: ["tests.test_hook"], C: ["tests.test_check_brief", "tests.test_templates"],
          S: ["tests.test_check_spec", "tests.test_templates"], R: ["tests.test_redgreen", "tests.test_templates"],
-         G: ["tests.test_ci_generic"]}
+         G: ["tests.test_ci_generic", "tests.test_ci_security"]}
 
 MUTANTS = [
     (L, "top = max(per_path", "top = min(per_path", False),
     (L, 'return "Standard", None', 'return "Lite", None', False),
     (L, 'compile_pattern(pattern, name == "critical")', "compile_pattern(pattern, False)", False),
     (L, '(pattern + " (built-in)", compile_pattern(pattern, True))', '(pattern + " (built-in)", compile_pattern(pattern, False))', False),
-    (L, '    "scripts/lane-config.yaml",\n', "", False),
+    (L, '    "scripts/**",\n', "", False),
     (L, '    ".github/workflows/**",\n', "", False),
     (L, '    "hooks/**",\n', "", False),
     (L, 'text.startswith("/") or re.match', 'False or re.match', False),
     (L, 'if ".." in text.split("/"):', "if False:", False),
     (L, "if _CONTROL_CHARS.search(item):", "if False:", False),
-    (L, '"--no-renames", ', "", False),
+    (L, '"--no-renames",\n', "\n", False),
     (L, '"-z",\n', "\n", False),
     (L, "if not _REF_OK.match(ref or \"\"):", "if False:", False),
     (L, "if version != str(CONFIG_VERSION):", "if False:", False),
@@ -50,21 +58,21 @@ MUTANTS = [
     (E, "lanelib.max_lane(computed, declared, floor)", "lanelib.max_lane(computed, declared)", False),
     (E, "if args.ci and args.present is not None:", "if False:", False),
     (E, "inside = os.path.commonpath([root, full]) == root", "inside = True", False),
-    (E, "if os.path.getsize(full) == 0:", "if False:", False),
+    (E, "if int(fields[3]) == 0:", "if False:", False),
     (E, '.replace("::", ": :")', "", False),
     (E, "if len(text) > MAX_BODY_BYTES:", "if False:", False),
-    (E, 'lane in ("Lite", "Standard") and all(', 'lane in ("Lite", "Standard", "Critical") and all(', False),
+    (E, 'and lane in ("Lite", "Standard")\n', 'and lane in ("Lite", "Standard", "Critical")\n', False),
     (E, "if meaningful_chars(match.group(1)) >= MIN_WAIVER_CHARS:", "if True:", False),
     (E, "if next_level <= level:", "if next_level < level:", False),
     (E, "        return 1\n    say(", "        return 0\n    say(", False),
     (E, "if in_fence:\n            continue\n        match = pattern.match(line)", "if False:\n            continue\n        match = pattern.match(line)", False),
     (E, 'if not in_fence:\n            match = re.match', 'if True:\n            match = re.match', False),
-    (E, 'if not path or path.startswith("/") or ".." in path.replace("\\\\", "/").split("/"):', 'if not path:', True),
+    (E, 'if lanelib.clean_path(path)[0] is None:', 'if False:', False),
     # --- doctor.py ---
-    (D, r'if re.search(r"\bpull_request_target\b", text):', "if False:", False),
-    (D, r'depth = re.search(r"fetch-depth\s*:\s*0\b", text)', "depth = True", False),
-    (D, "trusted = bool(trusted_dir) and re.search(", "trusted = True or re.search(", False),
-    (D, "if not _SHA.match(ref) and label not in unpinned:", "if label not in unpinned:", False),
+    (D, '"pull_request_target" not in events', "True", False),
+    (D, 'and head_with["fetch-depth"] == 0, FAIL', 'and True, FAIL', False),
+    (D, 'add("trusted-tooling", base_ok and head_ok and gate_ok, WARN,', 'add("trusted-tooling", True, WARN,', False),
+    (D, "pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)", "pinned = True", False),
     (D, "covered = has_owner", "covered = True", False),
     (D, "    if missing:\n", "    if False:\n", False),
     (D, 'ln.strip() and "__pycache__" not in ln and not ln.endswith(".pyc")', "ln.strip()", False),
@@ -74,8 +82,8 @@ MUTANTS = [
     (D, "failed = counts[FAIL] > 0 or (args.strict and counts[WARN] > 0)", "failed = False", False),
     (D, "results.append((name, missing_status, \"%s missing\" % rel))", "results.append((name, UNVERIFIED, \"%s missing\" % rel))", False),
     (D, "elif not errors:", "elif False:", False),
-    (D, 'if item.get("integration_id") in (None, 0, -1):', "if False:", False),
-    (D, 'if item.get("app_id") in (None, 0, -1):', "if False:", False),
+    (D, 'if (app_id is None or type(item.get("integration_id")) is not int or\n                                item["integration_id"] != app_id):', "if False:", False),
+    (D, 'if app_id is None or type(item.get("app_id")) is not int or item["app_id"] != app_id:', "if False:", False),
     (D, "if admins_enforced is False:", "if admins_enforced is not None:", False),
     (D, "if total >= MIN_FILES_FOR_SHARE and", "if True and", False),
     (D, "sys.dont_write_bytecode = True", "sys.dont_write_bytecode = False", False),
@@ -108,7 +116,7 @@ MUTANTS = [
     (H, "--diff-only --base=", "--base=", False),
     (H, "sed 's/^/sdlc: /'", "cat", False),
     (H, 'if [ -z "$base" ]; then', "if false; then", False),
-    (H, "if ! command -v python3 >/dev/null 2>&1; then", "if false; then", False),
+    (H, 'if [ -z "$python_cmd" ]; then', "if false; then", False),
     (H, 'if [ ! -f "$tool" ] || [ ! -f "$cfg" ]; then', "if false; then", False),
     (H, "*[!0]*) return 1 ;; *) return 0 ;;", "*[!0]*) return 0 ;; *) return 1 ;;", False),
     (HD, "\nexit 0\n", "\n", False),
@@ -211,13 +219,17 @@ MUTANTS = [
     (G, '[ -f "$tmp/scripts/evidence_check.py" ] && [ -f "$tmp/scripts/lane.py" ] && [ -f "$tmp/scripts/lane-config.yaml" ] ||', "true ||", False),
     (G, ': "${SDLC_BASE:=}" "${SDLC_HEAD:=}" "${SDLC_PR_BODY_FILE:=}"\n', "", False),
     (G, '--pr-body-file "$SDLC_PR_BODY_FILE"', "", False),
-    (G, "python3 \"$tmp/scripts/evidence_check.py\" --ci \\", "python3 \"$tmp/scripts/evidence_check.py\" \\", False),
+    (G, "python3 -I \"$tmp/scripts/evidence_check.py\" --ci \\", "python3 -I \"$tmp/scripts/evidence_check.py\" \\", False),
 ]
 
 
 def run_tests(tree, modules=None):
-    cmd = [sys.executable, "-m", "unittest"] + (modules or ["discover", "-s", "tests"])
+    cmd = [sys.executable, "-B", "-m", "unittest"] + (
+        ["--failfast"] + modules if modules else ["discover", "-s", "tests", "-v"])
     proc = subprocess.run(cmd, cwd=tree, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not modules or proc.returncode:
+        sys.stdout.write(proc.stdout.decode("utf-8", "replace"))
+        sys.stderr.write(proc.stderr.decode("utf-8", "replace"))
     return proc.returncode == 0
 
 
@@ -239,7 +251,7 @@ def try_mutant(number, mutant):
                 return number, mutant, "killed"
         return number, mutant, "survived"
     finally:
-        shutil.rmtree(tree, ignore_errors=True)
+        support.remove_tree(tree)
 
 
 def main():

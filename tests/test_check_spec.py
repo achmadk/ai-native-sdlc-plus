@@ -6,6 +6,11 @@ import sys
 import tempfile
 import unittest
 
+if __package__:
+    from . import support
+else:
+    import support
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(ROOT, "skills", "spec-first", "scripts"))
 import check_spec as cs  # noqa: E402
@@ -29,7 +34,9 @@ def spec(header=HEADER, intent="Users can sign in safely.", out="- Password rese
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.repo = tempfile.mkdtemp()
+        workspace = tempfile.mkdtemp()
+        self.addCleanup(support.remove_tree, workspace)
+        self.repo = os.path.join(workspace, "repo")
         os.makedirs(os.path.join(self.repo, "tests"))
         with open(os.path.join(self.repo, "tests", "test_a.py"), "w") as handle:
             handle.write("# test\n")
@@ -147,6 +154,7 @@ class Traceability(Base):
         self.assertEqual(self.errors(spec(tests=TEST.replace("tests/test_a.py::test_bad_password", "the login smoke suite")), exist=True), [])
 
     def test_symlink_escape(self):
+        support.require_symlinks()
         outside = os.path.join(self.repo, "..", "outside-%d.py" % os.getpid())
         with open(outside, "w") as handle:
             handle.write("x")
