@@ -90,6 +90,14 @@ class Install(unittest.TestCase):
 
 
 class Basics(Install):
+    def test_shipped_source_has_no_doctor_failures(self):
+        code, out, err = run_main(["--root", ROOT, "--json"])
+        report = json.loads(out)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(report["summary"][doctor.FAIL], 0)
+        self.assertEqual([row["status"] for row in report["results"]
+                          if row["name"] == "scanner-invokes-gate"], [doctor.OK])
+
     def test_correct_install_has_no_failures_and_exits_zero(self):
         results = self.results()
         self.assertEqual([r for r in results if r[1] == doctor.FAIL], [])
@@ -696,6 +704,117 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 """
+
+
+class ScannerProfiles(Install):
+    V2 = "f586c14365d4643c6aa59d472ae6e984bf47bb34"
+    V3 = "e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e"
+
+    def setUp(self):
+        super(ScannerProfiles, self).setUp()
+        self.inspector = Path(self.workspace, "trusted inspector")
+        self.inspector.mkdir()
+        self.registry = self.inspector / "scanner-profiles.json"
+        self.profiles = {"version": 1, "scanner": "gitleaks/gitleaks-action", "approved": [
+            {"release": "v2.3.8", "sha": self.V2}, {"release": "v3.0.0", "sha": self.V3}]}
+        self.registry.write_text(json.dumps(self.profiles), encoding="utf-8")
+        self.put(".github/workflows/gitleaks.yml", SCANNER_PROFILE)
+        for name in ("doctor.py", "lane.py"):
+            shutil.copy2(Path(ROOT, "scripts", name), self.inspector / name)
+        patcher = mock.patch.object(doctor, "HERE", str(self.inspector))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def scan(self, text=SCANNER_PROFILE):
+        return {name: (status, detail) for name, status, detail in doctor.workflow_results(text, scanner=True)}
+
+    def assert_bad_registry(self):
+        rows = self.scan()
+        self.assertIn("scanner-profile-data", rows, rows)
+        self.assertEqual(rows["scanner-profile-data"][0], doctor.FAIL)
+        self.assertIn("scanner-profiles.json", rows["scanner-profile-data"][1])
+        self.assertNotEqual(rows.get("scanner-invokes-gate", (None,))[0], doctor.OK)
+
+    def test_reviewed_v3_and_existing_v2_are_recognized(self):
+        for sha in (self.V2, self.V3):
+            with self.subTest(sha=sha):
+                rows = self.scan(SCANNER_PROFILE.replace(self.V2, sha))
+                self.assertEqual(rows["scanner-invokes-gate"][0], doctor.OK, rows)
+                self.assertFalse(any(status == doctor.FAIL for status, _ in rows.values()))
+
+    def test_approval_comes_from_the_registry_not_a_compiled_fallback(self):
+        self.profiles["approved"] = [self.profiles["approved"][1]]
+        self.registry.write_text(json.dumps(self.profiles), encoding="utf-8")
+        self.assertEqual(self.scan()["scanner-invokes-gate"][0], doctor.FAIL)
+
+    def test_unlisted_wrong_owner_and_mutable_references_are_rejected(self):
+        original = "gitleaks/gitleaks-action@" + self.V2
+        for ref in ("gitleaks/gitleaks-action@" + "a" * 40,
+                    "untrusted/gitleaks-action@" + self.V2,
+                    "gitleaks/gitleaks-action@v3.0.0", "gitleaks/gitleaks-action@" + self.V3[:7], "[]", "{}"):
+            with self.subTest(ref=ref):
+                self.assertNotEqual(self.scan(SCANNER_PROFILE.replace(original, ref))["scanner-invokes-gate"][0], doctor.OK)
+
+    def test_invalid_registry_shapes_and_entries_fail_closed(self):
+        invalid = [None, [], {}, dict(self.profiles, version=True), dict(self.profiles, version="1"),
+                   dict(self.profiles, version=2), dict(self.profiles, scanner="untrusted/action"),
+                   dict(self.profiles, extra=True), dict(self.profiles, approved=[]),
+                   dict(self.profiles, approved="all"), dict(self.profiles, approved=[self.profiles["approved"][0]] * 2)]
+        for entry in (None, {}, {"release": "", "sha": self.V2}, {"release": 2, "sha": self.V2},
+                      {"release": "v2.3.8", "sha": self.V2[:7]}, {"release": "v2.3.8", "sha": self.V2.upper()},
+                      {"release": "v2.3.8", "sha": True}, {"release": "v2.3.8", "sha": self.V2, "extra": True}):
+            invalid.append(dict(self.profiles, approved=[entry]))
+        for index, value in enumerate(invalid):
+            with self.subTest(case=index):
+                self.registry.write_text(json.dumps(value), encoding="utf-8")
+                self.assert_bad_registry()
+
+    def test_duplicate_keys_encoding_and_excessive_data_are_rejected(self):
+        raw = json.dumps(self.profiles)
+        for value in (raw.replace('"version": 1', '"version": 2, "version": 1').encode(),
+                      raw.replace('"release": "v2.3.8"', '"release": "other", "release": "v2.3.8"').encode(),
+                      b"\xff", b"[" * 2000, b" " * (doctor.MAX_FILE_BYTES + 1)):
+            with self.subTest(size=len(value)):
+                self.registry.write_bytes(value)
+                self.assert_bad_registry()
+
+    def test_missing_own_registry_fails_even_without_a_target_scanner(self):
+        self.registry.unlink()
+        Path(self.repo, ".github/workflows/gitleaks.yml").unlink()
+        code, out, err = run_main(["--root", self.repo, "--json"])
+        self.assertEqual(code, 1, out + err)
+        self.assertTrue(json.loads(out)["failed"])
+        self.assertIn("scanner-profile-data", out)
+        self.assertNotIn("Traceback", err)
+
+    def test_target_registry_and_cwd_cannot_approve_an_unknown_scanner(self):
+        forged = dict(self.profiles, approved=[{"release": "v9.0.0", "sha": "a" * 40}])
+        target_registry = Path(self.repo, "scripts/scanner-profiles.json")
+        self.put("scripts/scanner-profiles.json", json.dumps(forged))
+        self.put(".github/workflows/gitleaks.yml", SCANNER_PROFILE.replace(self.V2, "a" * 40))
+        env = dict(os.environ, SDLC_SCANNER_PROFILES=str(target_registry), SCANNER_PROFILES=str(target_registry))
+        result = subprocess.run([sys.executable, "-I", "-B", str(self.inspector / "doctor.py"),
+                                 "--root", self.repo, "--json"], cwd=self.repo, env=env,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        rows = {row["name"]: row["status"] for row in json.loads(result.stdout)["results"]}
+        self.assertEqual(rows["scanner-invokes-gate"], doctor.FAIL)
+
+    def test_external_inspector_does_not_require_target_registry(self):
+        self.assertFalse(Path(self.repo, "scripts/scanner-profiles.json").exists())
+        self.put(".github/workflows/gitleaks.yml", SCANNER_PROFILE.replace(self.V2, self.V3))
+        self.assertEqual(self.status("scanner-invokes-gate"), doctor.OK)
+        self.assertFalse(any(status == doctor.FAIL for _, status, _ in self.results()))
+
+    def test_invalid_own_registry_is_reported_by_the_real_cli(self):
+        self.registry.write_text("not JSON", encoding="utf-8")
+        result = subprocess.run([sys.executable, "-I", "-B", str(self.inspector / "doctor.py"),
+                                 "--root", self.repo, "--json"], cwd=self.repo,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(json.loads(result.stdout)["failed"])
+        self.assertIn("scanner-profile-data", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
 
 
 class EnforcementChecks(Install):

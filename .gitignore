@@ -6,3 +6,9 @@ __pycache__/
 .omo/
 opencode_session.txt
 prompt.md
+
+# Generated OpenSpec contributor instructions; product skills remain tracked.
+/.agents/skills/openspec-*/
+/.claude/skills/openspec-*/
+/.kilocode/skills/openspec-*/
+/.opencode/skills/openspec-*/

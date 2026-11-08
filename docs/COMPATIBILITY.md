@@ -8,6 +8,12 @@ Versioning applies to skills, scripts, templates, and adapters. Lane-config `ver
 
 The core runtime floor is Python 3.8 and uses only the standard library. Git is required for revision-aware checks; authenticated `gh` is needed only for explicit hosted inspection. Workflow actions use full immutable SHAs; comments identify their human-readable versions.
 
+## Scanner compatibility data
+
+The updated doctor is distributed with `scripts/scanner-profiles.json`. Install or update the complete owned bundle rather than copying the Python file alone. Missing, malformed, or unsupported data is an inspector failure; it never enables arbitrary action references.
+
+The registry is loaded beside the running inspector, not from the inspected repository, current directory, or environment. It currently records the reviewed v2.3.8 and v3.0.0 references. A separately inspected repository does not need to supply a registry, and cannot use one to approve its own scanner. Recognition still requires the existing workflow, credential, and immutable-pin checks; it is not proof of a hosted scan or continued support for a legacy runtime.
+
 ## Configured CI coverage
 
 | Platform | Python | Suites |
@@ -49,3 +55,13 @@ Temporary fixtures remove read-only Git objects and unlink junctions without tra
 Foundation behavior tightens deliberately: install conflicts return nonzero without overwriting local work; path-only inspection cannot grant a CI documentation exemption; local evidence must be tracked at the evaluated revision; nested security and control paths receive higher lanes. Existing config format 1 and helper invocation forms remain supported. Root helper entry points delegate to the existing skill-local implementations.
 
 The installer preserves `.gitattributes` conflicts and maintains `.sdlc-install.json` ownership state. A pre-manifest installation has no implied ownership: identical files are retained, differing files require explicit reconciliation. Do not claim an automatic rollback or uninstall interface; neither is provided by this change.
+
+## Contributor-generated instructions
+
+Generated OpenSpec skills under `.agents/skills/openspec-*/`, `.claude/skills/openspec-*/`, `.kilocode/skills/openspec-*/`, and `.opencode/skills/openspec-*/` are local workspace artifacts, not additional product skills. Tracking cleanup retains existing local copies. Fresh clones keep the project specifications and the ten authored skills under `skills/`, but do not receive those generated contributor copies.
+
+Use an installed compatible OpenSpec CLI and explicitly select the tools needed for your workspace with `openspec init --tools <selection>`; the repository already has an OpenSpec root. Review local customizations before generating files. `openspec update` refreshes configured instructions. These are contributor-invoked operations, not automatic cleanup or permission to force overwrites, register every tool, or modify global configuration.
+
+CLI-generated compatibility folders follow that CLI's tool naming and stay ignored. New hand-authored Kilo project commands and agents belong in `.kilo/`. Authored adapters, root `AGENTS.md`, `.claude/` commands/configuration, `.cursorrules`, Copilot instructions, and project specs are not part of the generated-skill cleanup.
+
+Product discovery is verified on clean candidate content, excluding ignored local copies. Such a listing verifies exported skill names, not Skills-only runtime bootstrap. Current WS0 results and any unavailable-tool limitations belong to the `fix-self-consistency` change record rather than the earlier dated results above.

@@ -392,13 +392,65 @@ _EVENTS = {"opened", "synchronize", "reopened", "edited", "ready_for_review"}
 _GATE_COMMAND = ('python3 -I trusted/scripts/evidence_check.py --ci '
                  '--config trusted/scripts/lane-config.yaml --repo-root change '
                  '--base="$BASE_SHA" --head="$HEAD_SHA" --event-path "$GITHUB_EVENT_PATH"')
-_SCANNER = "gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34"
 _CI_NAMES = ("no-pr-target", "trigger", "edited-trigger", "invokes-gate", "fetch-depth",
              "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions")
 
 
+def scanner_references():
+    """Read approvals from this inspector's bundle, never from the inspected repo."""
+    prefix = "trusted scanner-profiles.json: "
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    try:
+        with open(os.path.join(HERE, "scanner-profiles.json"), "rb") as handle:
+            raw = handle.read(MAX_FILE_BYTES + 1)
+    except OSError as exc:
+        raise ProfileError(prefix + "cannot read registry (%s)" % type(exc).__name__) from None
+    if len(raw) > MAX_FILE_BYTES:
+        raise ProfileError(prefix + "registry exceeds the size limit")
+    try:
+        data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+    except (ValueError, UnicodeError, RecursionError) as exc:
+        raise ProfileError(prefix + "invalid UTF-8 JSON (%s)" % type(exc).__name__) from None
+    if not isinstance(data, dict) or set(data) != {"version", "scanner", "approved"}:
+        raise ProfileError(prefix + "expected version, scanner and approved fields")
+    if type(data["version"]) is not int or data["version"] != 1:
+        raise ProfileError(prefix + "unsupported registry version")
+    if data["scanner"] != "gitleaks/gitleaks-action":
+        raise ProfileError(prefix + "unsupported scanner owner/repository")
+    if not isinstance(data["approved"], list) or not data["approved"]:
+        raise ProfileError(prefix + "approved must be a nonempty list")
+    releases, references = set(), set()
+    for entry in data["approved"]:
+        if not isinstance(entry, dict) or set(entry) != {"release", "sha"}:
+            raise ProfileError(prefix + "each approval requires only release and sha")
+        release, sha = entry["release"], entry["sha"]
+        if not isinstance(release, str) or not release or release.strip() != release or not release.isprintable():
+            raise ProfileError(prefix + "release must be a nonempty printable label")
+        if not isinstance(sha, str) or not _SHA.fullmatch(sha):
+            raise ProfileError(prefix + "approval requires a full lowercase commit SHA")
+        reference = data["scanner"] + "@" + sha
+        if release in releases or reference in references:
+            raise ProfileError(prefix + "duplicate release or commit approval")
+        releases.add(release)
+        references.add(reference)
+    return references
+
+
 def workflow_results(text, scanner=False):
     prefix = "scanner-" if scanner else "ci-"
+    if scanner:
+        try:
+            approved_scanners = scanner_references()
+        except ProfileError as exc:
+            return [("scanner-profile-data", FAIL, str(exc))]
     try:
         doc = parse_workflow(text)
     except ProfileError as exc:
@@ -480,7 +532,9 @@ def workflow_results(text, scanner=False):
                        checkout["with"] == {"fetch-depth": 0, "persist-credentials": False} and
                        type(checkout["with"].get("fetch-depth")) is int)
         env = scan.get("env")
-        scan_ok = (set(scan) == {"uses", "env"} and scan["uses"] == _SCANNER and isinstance(env, dict) and
+        scanner_ref = scan.get("uses")
+        supported_scanner = isinstance(scanner_ref, str) and scanner_ref in approved_scanners
+        scan_ok = (set(scan) == {"uses", "env"} and supported_scanner and isinstance(env, dict) and
                    set(env) <= {"GITHUB_TOKEN", "GITLEAKS_ENABLE_COMMENTS", "GITLEAKS_LICENSE"} and
                    env.get("GITHUB_TOKEN") == "${{ secrets.GITHUB_TOKEN }}" and
                    (env.get("GITLEAKS_ENABLE_COMMENTS") == "false" or env.get("GITLEAKS_ENABLE_COMMENTS") is False) and
@@ -488,7 +542,9 @@ def workflow_results(text, scanner=False):
         add("fetch-depth", checkout_ok, FAIL, "gitleaks requires full-history checkout without persisted credentials")
         add("invokes-gate", scan_ok, FAIL,
             "gitleaks pinned supported action requires GITHUB_TOKEN, read-only PR access and comments disabled; "
-            "license/fork availability and hosted scans are not established by workflow recognition")
+            "license/fork availability and hosted scans are not established by workflow recognition"
+            if supported_scanner else
+            "gitleaks action reference is not approved by trusted scanner-profiles.json: " + clip(scanner_ref))
         return results
     base, head, gate = (without_name(s) for s in steps)
     base_with, head_with = base.get("with"), head.get("with")
@@ -525,6 +581,11 @@ def check_workflow(root):
     for rel, scanner in (("sdlc-gate.yml", False), ("gitleaks.yml", True)):
         path = os.path.join(root, ".github", "workflows", rel)
         if not os.path.isfile(path):
+            if scanner:
+                try:
+                    scanner_references()
+                except ProfileError as exc:
+                    results.append(("scanner-profile-data", FAIL, str(exc)))
             continue  # strict hosted inspection requires both; preserve legacy installation diagnostics
         results += workflow_results(read_text(path), scanner)
     return results

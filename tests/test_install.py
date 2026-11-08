@@ -29,7 +29,7 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
     ".gitattributes", "install.sh", "install.ps1", "scripts/install.py", "scripts/install-manifest.json",
-    "scripts/lane.py", "scripts/lane-config.yaml", "scripts/evidence_check.py",
+    "scripts/lane.py", "scripts/lane-config.yaml", "scripts/evidence_check.py", "scripts/scanner-profiles.json",
     "scripts/doctor.py", "scripts/doctor_online.py", "scripts/lane_backtest.py",
     "scripts/trace_lint.py", "scripts/check_spec.py", "scripts/check_brief.py", "scripts/redgreen.py",
     ".github/pull_request_template.md", ".github/workflows/sdlc-gate.yml",
@@ -214,7 +214,7 @@ class InvocationCases:
         self.assertTrue((self.target / STATE).is_file())
 
     def test_custom_policy_workflow_template_hook_and_skill_prevent_all_payload_writes(self):
-        for rel in ("scripts/lane-config.yaml", ".github/workflows/sdlc-gate.yml",
+        for rel in ("scripts/lane-config.yaml", "scripts/scanner-profiles.json", ".github/workflows/sdlc-gate.yml",
                     ".github/workflows/gitleaks.yml", ".github/pull_request_template.md",
                     "hooks/pre-push", "hooks/pre-push.sh", "hooks/pre-push.ps1", "skills/ai-sdlc/SKILL.md"):
             with self.subTest(path=rel):
@@ -233,6 +233,24 @@ class InvocationCases:
         result = self.invoke(cwd=self.source)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("scripts/lane.py", result.stdout + result.stderr)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_owned_scanner_registry_upgrades_and_preserves_local_changes(self):
+        self.successful_install()
+        rel = "scripts/scanner-profiles.json"
+        target = self.target / rel
+        self.assertTrue(target.is_file(), "the installed doctor requires its owned scanner registry")
+        updated = (self.source / rel).read_bytes() + b"\n"
+        self.put(self.source / rel, updated)
+        self.successful_install()
+        self.assertEqual(target.read_bytes(), updated)
+        state = json.loads((self.target / STATE).read_text())
+        self.assertEqual(state["files"][rel]["sha256"], hashlib.sha256(updated).hexdigest())
+        self.put(target, updated + b" ")
+        before = self.snapshot()
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(rel, result.stdout + result.stderr)
         self.assertEqual(self.snapshot(), before)
 
     def test_custom_attributes_conflict_without_payload_writes(self):
@@ -754,6 +772,35 @@ class FingerprintContract(InstallFixture):
 
 
 class HelperEntryPoints(InstallFixture):
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
+    def test_installed_doctor_reports_a_missing_registry_without_traceback(self):
+        self.successful_install()
+        registry = self.target / "scripts/scanner-profiles.json"
+        self.assertTrue(registry.is_file(), "required registry must be installed")
+        registry.unlink()
+        result = subprocess.run([sys.executable, "-I", "-B", str(self.target / "scripts/doctor.py"),
+                                 "--root", str(self.target), "--json"], cwd=str(self.cwd),
+                                env=clean_env(), capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertTrue(report["failed"])
+        self.assertIn("scanner-profile-data", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
+
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
+    def test_installed_doctor_is_healthy_without_source_checkout(self):
+        self.successful_install()
+        remove_tree(self.source)
+        result = subprocess.run([sys.executable, "-I", "-B", str(self.target / "scripts/doctor.py"),
+                                 "--root", str(self.target), "--json"], cwd=str(self.cwd),
+                                env=clean_env(), capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertFalse(report["failed"])
+        self.assertEqual(report["summary"]["FAIL"], 0)
+        self.assertEqual([row["status"] for row in report["results"]
+                          if row["name"] == "scanner-invokes-gate"], ["verified"])
+
     def test_root_helpers_delegate_imports_without_shadowing_authoritative_modules(self):
         probe = ("import importlib, sys; sys.path.insert(0, sys.argv[1]); "
                  "module = importlib.import_module(sys.argv[2]); "

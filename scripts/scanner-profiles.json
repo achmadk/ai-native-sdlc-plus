@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "scanner": "gitleaks/gitleaks-action",
+  "approved": [
+    {
+      "release": "v2.3.8",
+      "sha": "f586c14365d4643c6aa59d472ae6e984bf47bb34"
+    },
+    {
+      "release": "v3.0.0",
+      "sha": "e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e"
+    }
+  ]
+}
