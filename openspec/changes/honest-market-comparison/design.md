@@ -109,7 +109,7 @@ wsl -d Ubuntu --cd /mnt/d/PROJECTS/PORTFOLIOS/ai-native-sdlc-plus --exec env PYT
 
 Result: 642 tests in 201.187s, `OK (skipped=28)`: 614 passed, 28 skipped, no failures or errors. Skips were 19 PowerShell installation invocations, two native Windows cross-volume/path checks, three Windows junction checks, two Windows command-line parsing checks, one Windows command fixture, and one ShellCheck invocation. These skips do not establish coverage of those host-specific paths; no tool was installed to change the result.
 
-All 12 comparison-contract tests passed on both hosts. Source inspection and the network-blocking negative control confirm that the validator checks recorded metadata without fetching sources. Published-document failures name the document, and malformed or invalid rows include a line/tool diagnostic. These tests do not validate publisher claims, hosted enforcement, or real-agent behavior. The tested WS1 files remain uncommitted observations, not canonical committed proof.
+All 12 comparison-contract tests passed on both hosts. Source inspection and the network-blocking negative control confirm that the validator checks recorded metadata without fetching sources. Published-document failures name the document, and malformed or invalid rows include a line/tool diagnostic. These tests do not validate publisher claims, hosted enforcement, or real-agent behavior. These were working-tree observations; the later canonical proof below separately evaluates committed revisions.
 
 Spec: openspec/changes/honest-market-comparison/specs/comparison-documentation/spec.md
 
@@ -117,7 +117,7 @@ Spec: openspec/changes/honest-market-comparison/specs/comparison-documentation/s
 
 ### Change
 
-WS1 adds the detailed six-tool comparison, replaces the approved README entry and five-tool summary, and adds the offline documentation contract. The implementation remains in the working tree; no commit or publication is implied.
+WS1 adds the detailed six-tool comparison, replaces the approved README entry and five-tool summary, and adds the offline documentation contract. The implementation is now in the existing candidate `663ac86f8c67f3673311e7f9da784f58e53bd459`; this continuation adds only local proof/completion records and does not create a commit or publish anything.
 
 ### Why
 
@@ -128,15 +128,15 @@ The [approved comparison contract](specs/comparison-documentation/spec.md) requi
 - Retaining fixed-depth, IDE-only, or registry-only characterizations would contradict the reviewed documentation. Publisher statements are labeled rather than promoted to independent results.
 - Live vendor benchmarks, a general Markdown parser, and a new CI job would exceed the approved need. The standard-library test checks two explicit sections using the existing scanner and unittest discovery.
 - Manual `--present` attestations cannot demonstrate CI blocking. The README instead runs the real checker against identified Git revisions and a simplified body, without claiming a hosted replay.
-- Creating a commit to obtain a green proof would exceed approval. Task 3.2 stays pending; previous workstreams' receipts are not WS1 proof.
+- Creating a commit to obtain a green proof would exceed approval. Task 3.2 was deferred until a committed candidate already existed; previous workstreams' receipts are not WS1 proof.
 
 ### Test evidence
 
-The [implementation evidence](#implementation-evidence) records the assertion-based red, subsequent green, measured demo, and fresh Windows/POSIX runs with their commands and skips. The README retains both actual demo shell spellings and the checker/base/head identities. The baseline is `06c2ab56d1f790f17203c586108c53112be563cd`; no committed WS1 candidate exists.
+The [implementation evidence](#implementation-evidence) records the assertion-based red, subsequent green, measured demo, and Windows/POSIX runs with their commands and skips. The README retains both actual demo shell spellings and the checker/base/head identities. The baseline is `06c2ab56d1f790f17203c586108c53112be563cd`; the [canonical proof](#canonical-proof-2026-11-09) evaluates candidate `663ac86f8c67f3673311e7f9da784f58e53bd459` separately from those earlier working-tree runs.
 
 ### Risk accepted
 
-Source liveness and rolling product behavior can change after the checked date. Metadata validation does not establish source truth, effectiveness, reviewer identity, or hosted enforcement. Achmad approved bounded implementation, not independent acceptance of these residual risks; publication and canonical proof remain outside this approval.
+Source liveness and rolling product behavior can change after the checked date. Metadata validation does not establish source truth, effectiveness, reviewer identity, or hosted enforcement. Achmad approved bounded implementation, not independent acceptance of these residual risks. The later continuation request covers proof against the existing candidate, not publication, new commits, or independent risk acceptance.
 
 ### Provenance
 
@@ -148,9 +148,11 @@ Kilo used primary-source web reads, the OpenSpec CLI, Git, standard-library Pyth
 - The local demo names its empty-body simplification, full-history/tool prerequisites, expected missing-evidence exit, and timing exclusions. Its measurements do not imply onboarding speed, competitor performance, or a hosted CI result.
 - The offline parser rejects missing/empty/malformed tables, duplicate or absent tools, hidden content, missing metadata, invalid/future dates, and lookalike source URLs. Its network guard and document/row diagnostics were exercised; it does not verify prose truth or general Markdown compatibility.
 - The new prose uses sourced specifics and ordinary documentation language without fabricated testimonials, unsupported numbers, or decorative assets. Existing README safety caveats outside the approved sections remain unchanged; no UI build or browser interaction is claimed.
-- Independent source/implementation review and an independent trace-reconstruction review remain pending. This assistant self-review and Achmad's scope approval are not substitutes. Task 3.2 remains unchecked until a committed candidate is separately authorized; uncommitted red/green observations and the local evidence-section attestation must not be relabeled as canonical or hosted proof.
+- Independent source/implementation review and an independent trace-reconstruction review remain pending. This assistant self-review and Achmad's scope approval are not substitutes. Task 3.2 is now supported by the separate committed-candidate receipt below; the earlier working-tree observations and local evidence-section attestation have not been relabeled as canonical or hosted proof.
 
-## Handoff Checks, 2026-11-09
+## Initial Handoff Checks, 2026-11-09
+
+This records the pre-commit handoff. The later canonical-proof section supersedes its pending-candidate status without changing these historical results.
 
 - Task 3.4: `openspec validate honest-market-comparison --strict --no-interactive` returned `Change 'honest-market-comparison' is valid`.
 - `git diff --check` passed. Because that command omits untracked files, `git diff --no-index --check -- /dev/null <path>` also ran sequentially for the two new implementation files and all five WS1 planning/record files. No whitespace errors were reported; Git's existing LF-to-CRLF notices were not suppressed and no Git configuration changed.
@@ -158,3 +160,33 @@ Kilo used primary-source web reads, the OpenSpec CLI, Git, standard-library Pyth
 - `git status --short --untracked-files=all` and the README diff confirmed the WS1 scope: `README.md`, `docs/COMPARISON.md`, `tests/test_comparison_docs.py`, and this change's records. The four pre-existing design/task edits and two new proof receipts for `fix-self-consistency` and `fix-cross-volume-hook-reporting` remain separate and untouched. A tracked-tree diff excluding those prior edits and README was empty; runtime sources, workflows, historical evaluations, and other workstreams were not changed. `git diff --cached --name-status` was empty.
 - HEAD remains `06c2ab56d1f790f17203c586108c53112be563cd`. The original WS0 `redgreen-proof.json` still hashes to `241d065709f83cf04bc369c4cf92077ac47f4635` with `git hash-object --no-filters`; its failed history was not overwritten. No WS1 commit, publish, archive, tool installation, settings change, or live evaluation occurred.
 - Task 3.2 remains pending at handoff. A separately authorized committed WS1 candidate is required before the focused `scripts/redgreen.py` proof can be generated; the working-tree test results above do not satisfy that requirement.
+
+## Canonical Proof, 2026-11-09
+
+The user's continuation request was to execute the remaining tasks. At resume, the checkout was clean at the already-existing commit `663ac86f8c67f3673311e7f9da784f58e53bd459`; this session did not create it. Candidate scope inspection found the WS1 implementation/planning files and earlier workstreams' proof-record updates, with no runtime or workflow changes. The proof and completion-record paths classify Standard.
+
+[measured here] Task 3.2 ran in the main foreground on Microsoft Windows 10.0.26300, PowerShell 7.6.9, Python 3.15.2, and Git 2.45.1.windows.1. The existing temporary parent was checked before execution. The command was:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'; $env:TEMP='C:\Users\ACHMAD~1\AppData\Local\Temp\kilo'; $env:TMP=$env:TEMP; python -B scripts/redgreen.py --base 06c2ab56d1f790f17203c586108c53112be563cd --head 663ac86f8c67f3673311e7f9da784f58e53bd459 --cmd "python -B -m unittest tests.test_comparison_docs -v" --test-glob tests/test_comparison_docs.py --repeat 2 --timeout 120 --json
+```
+
+The [canonical receipt](redgreen-proof-663ac86-windows.json) preserves the runner's JSON values and retained output tails, with formatting only. It reports `PASS`, the requested baseline as the merge-base/start, the exact candidate SHA, and only `tests/test_comparison_docs.py` as the overlaid test file.
+
+- Both red repetitions returned exit 1 with `FAILED (failures=2)` and no unittest or runner errors. Their retained tails identify the README assertion `expected exactly one section: How This Compares`, not an import, setup, or tooling failure. The runner retains output tails rather than full per-phase logs.
+- Both green repetitions returned exit 0: all 12 tests passed, with no skips or errors, in 0.043s and 0.057s. This includes the published-document checks and the validator's offline negative controls.
+- After execution, `git worktree list --porcelain` listed only the original checkout, and `git status --short --untracked-files=all` was empty. The temporary proof worktrees were removed and the caller's files were unchanged before recording this receipt.
+
+Task 3.2 is complete for this focused committed-candidate contract. This is not a new full-suite run, source-truth attestation, independent review, or hosted result. The receipt and completion updates remain uncommitted; no new commit, publication, archive, installation, settings change, or later workstream was authorized or performed.
+
+### Receipt and Handoff Verification
+
+`python -B -m json.tool openspec/changes/honest-market-comparison/redgreen-proof-663ac86-windows.json` parsed the saved receipt successfully; its revisions, two red/green repetitions, exit codes, and output tails match the observed runner result. Strict OpenSpec validation, `git diff --check`, and the untracked receipt's `git diff --no-index --check` passed. Scope checks found only this design, the task checkbox, and the new receipt changed; implementation files and earlier proof records still match the candidate commit.
+
+[measured here] The committed candidate also passed the real checker locally in CI mode, with the updated working-tree design as the explicit body input:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'; $env:GITHUB_STEP_SUMMARY=''; python -B scripts/evidence_check.py --ci --config scripts/lane-config.yaml --repo-root . --base=06c2ab56d1f790f17203c586108c53112be563cd --head=663ac86f8c67f3673311e7f9da784f58e53bd459 --pr-body-file openspec/changes/honest-market-comparison/design.md
+```
+
+Result: exit 0, computed Standard, spec verified as a tracked blob at `663ac86f8c67`, one changed test path, and populated trace/review sections. This did not use `--present`, a declared lane, or a lane floor. It validates local structural evidence for the named candidate/body; it does not authenticate a reviewer, assess source truth, or establish a hosted CI run. No step-summary file was written.

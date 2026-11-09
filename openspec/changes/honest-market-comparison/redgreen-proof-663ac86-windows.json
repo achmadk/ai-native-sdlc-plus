@@ -1,0 +1,36 @@
+{
+  "base": "06c2ab56d1f790f17203c586108c53112be563cd",
+  "command": "python -B -m unittest tests.test_comparison_docs -v",
+  "green": [
+    {
+      "error": null,
+      "rc": 0,
+      "tail": "test_duplicate_unknown_and_malformed_rows_fail (tests.test_comparison_docs.ComparisonContract.test_duplicate_unknown_and_malformed_rows_fail) ... ok\ntest_escaped_pipes_do_not_create_extra_cells (tests.test_comparison_docs.ComparisonContract.test_escaped_pipes_do_not_create_extra_cells) ... ok\ntest_metadata_check_does_not_fetch_sources (tests.test_comparison_docs.ComparisonContract.test_metadata_check_does_not_fetch_sources) ... ok\ntest_missing_or_placeholder_metadata_fails (tests.test_comparison_docs.ComparisonContract.test_missing_or_placeholder_metadata_fails) ... ok\ntest_primary_source_authority_is_not_a_substring_match (tests.test_comparison_docs.ComparisonContract.test_primary_source_authority_is_not_a_substring_match) ... ok\ntest_rolling_or_unverified_versions_need_context (tests.test_comparison_docs.ComparisonContract.test_rolling_or_unverified_versions_need_context) ... ok\ntest_tables_hidden_in_comments_or_code_do_not_count (tests.test_comparison_docs.ComparisonContract.test_tables_hidden_in_comments_or_code_do_not_count) ... ok\ntest_valid_detailed_and_summary_tables (tests.test_comparison_docs.ComparisonContract.test_valid_detailed_and_summary_tables) ... ok\ntest_detailed_comparison_meets_contract (tests.test_comparison_docs.PublishedComparison.test_detailed_comparison_meets_contract) ... ok\ntest_readme_summary_meets_contract (tests.test_comparison_docs.PublishedComparison.test_readme_summary_meets_contract) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.043s\n\nOK"
+    },
+    {
+      "error": null,
+      "rc": 0,
+      "tail": "test_duplicate_unknown_and_malformed_rows_fail (tests.test_comparison_docs.ComparisonContract.test_duplicate_unknown_and_malformed_rows_fail) ... ok\ntest_escaped_pipes_do_not_create_extra_cells (tests.test_comparison_docs.ComparisonContract.test_escaped_pipes_do_not_create_extra_cells) ... ok\ntest_metadata_check_does_not_fetch_sources (tests.test_comparison_docs.ComparisonContract.test_metadata_check_does_not_fetch_sources) ... ok\ntest_missing_or_placeholder_metadata_fails (tests.test_comparison_docs.ComparisonContract.test_missing_or_placeholder_metadata_fails) ... ok\ntest_primary_source_authority_is_not_a_substring_match (tests.test_comparison_docs.ComparisonContract.test_primary_source_authority_is_not_a_substring_match) ... ok\ntest_rolling_or_unverified_versions_need_context (tests.test_comparison_docs.ComparisonContract.test_rolling_or_unverified_versions_need_context) ... ok\ntest_tables_hidden_in_comments_or_code_do_not_count (tests.test_comparison_docs.ComparisonContract.test_tables_hidden_in_comments_or_code_do_not_count) ... ok\ntest_valid_detailed_and_summary_tables (tests.test_comparison_docs.ComparisonContract.test_valid_detailed_and_summary_tables) ... ok\ntest_detailed_comparison_meets_contract (tests.test_comparison_docs.PublishedComparison.test_detailed_comparison_meets_contract) ... ok\ntest_readme_summary_meets_contract (tests.test_comparison_docs.PublishedComparison.test_readme_summary_meets_contract) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.057s\n\nOK"
+    }
+  ],
+  "head": "663ac86f8c67f3673311e7f9da784f58e53bd459",
+  "head_sha": "663ac86f8c67f3673311e7f9da784f58e53bd459",
+  "red": [
+    {
+      "error": null,
+      "rc": 1,
+      "tail": "    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Lists differ: ['expected exactly one section: How This Compares'] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n'expected exactly one section: How This Compares'\n\n- ['expected exactly one section: How This Compares']\n+ [] : README.md:\nexpected exactly one section: How This Compares\n\n----------------------------------------------------------------------\nRan 12 tests in 0.050s\n\nFAILED (failures=2)"
+    },
+    {
+      "error": null,
+      "rc": 1,
+      "tail": "    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Lists differ: ['expected exactly one section: How This Compares'] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n'expected exactly one section: How This Compares'\n\n- ['expected exactly one section: How This Compares']\n+ [] : README.md:\nexpected exactly one section: How This Compares\n\n----------------------------------------------------------------------\nRan 12 tests in 0.071s\n\nFAILED (failures=2)"
+    }
+  ],
+  "repeat": 2,
+  "start": "06c2ab56d1f790f17203c586108c53112be563cd",
+  "tests": [
+    "tests/test_comparison_docs.py"
+  ],
+  "verdict": "PASS"
+}
