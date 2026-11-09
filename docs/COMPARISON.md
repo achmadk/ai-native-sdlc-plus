@@ -1,0 +1,43 @@
+# Tool Comparison
+
+This is a source review, not a leaderboard. The versions and rolling documentation below were checked on **2026-11-09**. None of the competing tools was installed or executed for this comparison, and their published evaluations were not independently reproduced here.
+
+Evidence labels have distinct meanings:
+
+- `[report-stated]`: a publisher documents the capability, prerequisite, or result. A primary source is evidence of the statement, not proof of effectiveness.
+- `[measured here]`: a local observation with its command, revision/input identity, environment, date, and limitations. See the [README gate replay](../README.md#sixty-second-gate-demo) for that separately scoped example.
+- `[extrapolated]`: a fit recommendation or trade-off inferred from the documented interfaces. It is not a measured claim of superiority.
+
+The capabilities column is `[report-stated]`; the fit/limits column is `[extrapolated]`. Each row identifies the surfaces reviewed, rather than treating a single CLI release as proof about an entire hosted product.
+
+## Tool comparison
+
+| Tool | Version / surface | Documented capabilities | Fit / limits | Evidence | Primary sources | Checked |
+| --- | --- | --- | --- | --- | --- | --- |
+| Spec Kit | 1.3.2 repository snapshot | Independent SDD, bug-fixing, and assessment processes; integrations, extensions, presets, workflows, gates, overlays, and catalogs. The reviewed setup calls for Python 3.11+, uv, and a supported coding agent. | Evaluate it when reusable processes and organizational customization matter. It is not inherently fixed-depth or advisory-only. Relative ceremony, agent quality, and the behavior of optional components are unverified here; review the selected extensions rather than assuming every catalog entry has the same guarantees. | [report-stated] capabilities; [extrapolated] fit and limits | [README](https://github.com/github/spec-kit/blob/v1.3.2/README.md) [Release](https://github.com/github/spec-kit/releases/tag/v1.3.2) | 2026-11-09 |
+| OpenSpec | 1.16.1 repository snapshot; stores documented as beta | Plain-Markdown requirements/scenarios, per-change artifacts, fluid propose/apply/archive workflows, custom profiles/schemas, and multi-tool instructions. Standalone installers and package-manager routes are documented; npm installation requires Node.js 22.12+. Stores support separate planning repositories. | Evaluate it when evolving specifications and cross-repository planning are central. Its artifact workflow and this toolkit's Git-diff/evidence rules can serve different roles. Actual tool-loader behavior, store deployment, and hosted enforcement are unverified here; do not equate an artifact's existence with approval or execution. | [report-stated] capabilities; [extrapolated] fit and limits | [README](https://github.com/Fission-AI/OpenSpec/blob/v1.16.1/README.md) [Release](https://github.com/Fission-AI/OpenSpec/releases/tag/v1.16.1) | 2026-11-09 |
+| Kiro | IDE 1.4.121; CLI 3.1.0; web/mobile/Crew documentation is rolling | Shared agent-harness concepts across IDE, CLI, web, mobile preview, and Crew; specs, steering, hooks, skills, workflows, MCP, permissions, local sandboxing, and ACP integrations. Installation, authentication, models, and capabilities have surface-specific documentation. | Evaluate it when an integrated execution environment and managed surfaces fit the team. Calling it IDE-only is inaccurate. Pricing, regional/model availability, sandbox effectiveness, and cross-surface behavior are unverified here; review the surface and account settings actually being adopted. | [report-stated] capabilities; [extrapolated] fit and limits | [Docs](https://kiro.dev/docs/) [Changelog](https://kiro.dev/changelog/) | 2026-11-09 |
+| BMAD | 6.12.4 repository snapshot | Right-sized paths for small changes and larger planning efforts, durable context, specialist perspectives, and optional modules for testing and other domains. The reviewed setup lists Node.js 20.12+, Python 3.10+, and uv, with an npm-based installer. | Evaluate it when product, architecture, development, and testing perspectives should share a process. Do not assume every task requires its deepest workflow. Comparative cost/ceremony and optional-module behavior are unverified here; choose the depth and modules before comparing outcomes. | [report-stated] capabilities; [extrapolated] fit and limits | [README](https://github.com/bmad-code-org/BMAD-METHOD/blob/v6.12.4/README.md) [Release](https://github.com/bmad-code-org/BMAD-METHOD/releases/tag/v6.12.4) | 2026-11-09 |
+| Superpowers | 7.0.2 repository snapshot | Composable coding-agent skills for design, planning, TDD, debugging, review, and completion, with harness-specific plugin installation and bootstrap behavior. Its contributor documentation distinguishes skill-behavior evals from plugin-infrastructure tests. | Evaluate it when coding discipline integrated with an existing agent harness is the priority. Published evaluation work should not be dismissed as untested instructions, but those results were not reproduced here. Verify instruction precedence, loader behavior, and repository-level merge controls in the chosen environment. | [report-stated] capabilities; [extrapolated] fit and limits | [README](https://github.com/obra/superpowers/blob/v7.0.2/README.md) [Release](https://github.com/obra/superpowers/releases/tag/v7.0.2) | 2026-11-09 |
+| Tessl | CLI 0.119.0; platform rolling: no single release is exposed by the reviewed overview | Registry/package management, governance policies, evaluations, observability, Context and Findings, and the Tessl Agent are documented platform components. The CLI changelog documents loops and environment bindings. Platform setup includes an account and project configuration. | Evaluate it when shared skill distribution and evaluation/governance services fit the organization. It is more than a static registry. Service permissions, data handling, credits, evaluation quality, and hosted operations are unverified here; do not infer one fixed cloud version from the CLI version. | [report-stated] capabilities; [extrapolated] fit and limits | [Overview](https://docs.tessl.io/) [CLI changelog](https://docs.tessl.io/changelog-cli.md) | 2026-11-09 |
+
+## Where This Toolkit Fits
+
+`[extrapolated]` Consider AI-native SDLC when the immediate requirement is repository-owned, risk-proportional evidence checking with the existing Python/Git toolchain. The [documented guarantees and limits](../LIMITATIONS.md) distinguish structural evidence checks from semantic quality, actual test execution, reviewer identity, and hosted merge enforcement.
+
+`[extrapolated]` Existing OpenSpec or Spec Kit users need not replace their planning method to evaluate this gate. A committed Markdown requirement can be an evidence link today, but automatic change-folder interpretation, full artifact translation, a unified `sdlc` CLI, and a spec-kit extension are not implemented by this comparison change. See the [current command and coverage notes](COMPATIBILITY.md) before adopting it.
+
+No reviewed source establishes a universal winner. This toolkit's presence checks, the other tools' process mechanisms, and hosted governance products are different claims with different trust boundaries. Actual task outcomes, adoption time, model/tool cost, privacy behavior, and agent-loader compatibility require separately designed and authorized evaluations.
+
+## Reading the Evidence
+
+- Versions identify the reviewed snapshot or surface; they are not a promise that it remains the latest release.
+- Checked dates identify this review. A passing metadata check does not prove a source was read, remains live, or is factually correct.
+- Publisher descriptions of their own tools were used for capabilities. Their criticism of competitors was not adopted as independent evidence.
+- Source absence is not feature absence. Unverified areas above identify what this review did not execute or establish.
+- Stars, customer logos, unverified performance percentages, and certification claims are deliberately not used to rank tools.
+- The local gate replay in the README is not a competitor benchmark, cold-install measurement, or newly created hosted PR.
+
+## Offline Validation
+
+Run `python -B -m unittest tests.test_comparison_docs -v` to check the two documented table sections. It requires the bounded columns, named tool rows, qualified evidence, reviewed HTTPS source prefixes, and valid checked dates. Negative controls cover missing/empty/malformed rows, duplicate tools, hidden tables, omitted metadata, and lookalike source URLs. The validator performs no network fetch and does not certify the prose.
