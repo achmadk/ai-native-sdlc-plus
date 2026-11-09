@@ -47,8 +47,10 @@ def run_main(argv):
 class Install(unittest.TestCase):
     """A committed, correct install in a temp git repo."""
 
+    workspace_parent = None
+
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = tempfile.mkdtemp(dir=self.workspace_parent)
         self.addCleanup(support.remove_tree, self.workspace)
         self.repo = os.path.join(self.workspace, "repo")
         for rel in COPIED:
@@ -357,6 +359,135 @@ class HookChecks(Install):
     def test_no_hook_file_means_no_hook_result(self):
         os.remove(os.path.join(self.repo, "hooks/pre-push.sh"))
         self.assertEqual(self.statuses("hook-active"), [])
+
+
+class HookPathReporting(unittest.TestCase):
+    def inspect_hook(self, exists, executable, text, formatter_error=None, root=None, target=None):
+        root = root or os.path.abspath("repo with spaces")
+        target = target or os.path.abspath(os.path.join("shared hooks", "pre-push"))
+        template = os.path.join(root, "hooks", "pre-push.sh")
+        with mock.patch.object(doctor, "in_git", return_value=True), \
+                mock.patch.object(doctor, "git", return_value=(0, target, "")) as lookup, \
+                mock.patch.object(doctor.os.path, "isfile",
+                                  side_effect=lambda path: path == template or (path == target and exists)) as isfile, \
+                mock.patch.object(doctor.os, "access", return_value=executable) as access, \
+                mock.patch.object(doctor, "read_text", return_value=text) as read, \
+                mock.patch.object(doctor.os.path, "relpath", wraps=os.path.relpath,
+                                  side_effect=formatter_error) as relative:
+            try:
+                rows = doctor.check_hook(root)
+            except ValueError as exc:
+                self.fail("hook-path display must not interrupt inspection: %s" % exc)
+            lookup.assert_called_once_with(root, "rev-parse", "--git-path", "hooks/pre-push")
+            relative.assert_called_once_with(target, root)
+            isfile.assert_any_call(target)
+            if exists:
+                access.assert_called_once_with(target, os.X_OK)
+            else:
+                access.assert_not_called()
+            if exists and executable:
+                read.assert_called_once_with(target)
+            else:
+                read.assert_not_called()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "hook-active")
+        return rows[0][1], rows[0][2]
+
+    def test_unrepresentable_relative_path_preserves_status_and_access_target(self):
+        for label, exists, executable, text, expected in (
+                ("missing", False, False, "", doctor.WARN),
+                ("not executable", True, False, "", doctor.WARN),
+                ("foreign hook", True, True, "another hook", doctor.WARN),
+                ("toolkit hook", True, True, doctor.HOOK_MARKER, doctor.OK)):
+            with self.subTest(state=label):
+                target = os.path.abspath(os.path.join("shared hooks", "pre-push"))
+                status, detail = self.inspect_hook(exists, executable, text,
+                                                  formatter_error=ValueError("different volumes"), target=target)
+                self.assertEqual(status, expected)
+                self.assertIn(target, detail)
+
+    def test_same_volume_display_stays_relative(self):
+        root = os.path.abspath("repo with spaces")
+        target = os.path.abspath(os.path.join("shared hooks", "pre-push"))
+        expected = os.path.relpath(target, root)
+        status, detail = self.inspect_hook(True, True, doctor.HOOK_MARKER, root=root, target=target)
+        self.assertEqual(status, doctor.OK)
+        self.assertIn("git runs " + expected, detail)
+
+    def test_unrelated_formatter_error_is_not_hidden(self):
+        with self.assertRaisesRegex(RuntimeError, "unexpected formatter failure"):
+            self.inspect_hook(False, False, "", formatter_error=RuntimeError("unexpected formatter failure"))
+
+    @unittest.skipUnless(os.name == "nt", "Windows drive-letter path semantics")
+    def test_native_cross_volume_paths_remain_absolute(self):
+        root, target = r"C:\worktree with spaces", r"D:\common git\hooks\pre-push"
+        for exists, expected in ((False, doctor.WARN), (True, doctor.OK)):
+            with self.subTest(exists=exists):
+                status, detail = self.inspect_hook(exists, exists, doctor.HOOK_MARKER, root=root, target=target)
+                self.assertEqual(status, expected)
+                self.assertIn(target, detail)
+
+    def test_unknown_git_target_remains_unverified_without_formatting(self):
+        for is_repo, response in ((False, (0, "", "")), (True, (1, "", "failure")), (True, (0, "", ""))):
+            with self.subTest(is_repo=is_repo, response=response):
+                with mock.patch.object(doctor.os.path, "isfile", return_value=True), \
+                        mock.patch.object(doctor, "in_git", return_value=is_repo), \
+                        mock.patch.object(doctor, "git", return_value=response), \
+                        mock.patch.object(doctor.os.path, "relpath") as relative:
+                    rows = doctor.check_hook("repo")
+                    self.assertEqual(rows[0][1], doctor.UNVERIFIED)
+                    relative.assert_not_called()
+
+
+@unittest.skipUnless(os.name == "nt", "native Windows cross-volume worktree")
+class CrossVolumeHookChecks(Install):
+    workspace_parent = ROOT
+
+    def setUp(self):
+        if Path(ROOT).resolve().drive.lower() == Path(tempfile.gettempdir()).drive.lower():
+            self.skipTest("two approved Windows fixture volumes are unavailable")
+        try:
+            with support.TemporaryDirectory(prefix="sdlc-volume-probe-", dir=ROOT):
+                pass
+        except PermissionError:
+            self.skipTest("workspace volume cannot host an owned temporary Git fixture")
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull, PYTHONDONTWRITEBYTECODE="1")
+        patcher = mock.patch.dict(os.environ, env, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super(CrossVolumeHookChecks, self).setUp()
+
+    def test_linked_worktree_on_another_volume_reports_missing_hook(self):
+        with support.TemporaryDirectory(prefix="sdlc-linked-worktree-") as directory:
+            worktree = Path(directory, "worktree with spaces")
+            self.g("worktree", "add", "--quiet", "--detach", str(worktree), "HEAD")
+            try:
+                lookup = subprocess.run(["git", "-C", str(worktree), "rev-parse", "--git-path", "hooks/pre-push"],
+                                        check=True, capture_output=True, text=True)
+                target = lookup.stdout.strip()
+                self.assertTrue(os.path.isabs(target))
+                self.assertEqual(Path(target).resolve(), Path(self.repo, ".git", "hooks", "pre-push").resolve())
+                self.assertNotEqual(Path(target).drive.lower(), worktree.drive.lower())
+                self.assertFalse(Path(target).exists())
+                config = Path(self.repo, ".git", "config")
+                config_before = config.read_bytes()
+                status_before = self.g("status", "--porcelain")
+                result = subprocess.run([sys.executable, "-I", "-B", os.path.join(ROOT, "scripts", "doctor.py"),
+                                         "--root", str(worktree), "--json"], cwd=str(worktree),
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(config.read_bytes(), config_before)
+                self.assertEqual(self.g("status", "--porcelain"), status_before)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report = json.loads(result.stdout)
+                self.assertFalse(report["failed"])
+                hook = next(row for row in report["results"] if row["name"] == "hook-active")
+                self.assertEqual(hook["status"], doctor.WARN)
+                self.assertIn(target, hook["detail"])
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertFalse(Path(target).exists())
+            finally:
+                self.g("worktree", "remove", "--force", str(worktree))
 
 
 class CodeownersChecks(Install):

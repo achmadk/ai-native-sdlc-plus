@@ -609,7 +609,11 @@ def check_hook(root):
         return [("hook-active", UNVERIFIED, "could not ask git where pre-push hooks live")]
     target = out.strip()
     target = target if os.path.isabs(target) else os.path.join(root, target)
-    shown = os.path.relpath(target, root)
+    try:
+        shown = os.path.relpath(target, root)
+    except ValueError:
+        # A linked worktree can share hooks on another Windows volume.
+        shown = target
     if not os.path.isfile(target):
         return [("hook-active", WARN,
                  "git would run %s and nothing is there (git only runs a file named exactly 'pre-push', so hooks/pre-push.sh alone is "
