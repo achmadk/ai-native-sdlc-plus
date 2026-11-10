@@ -25,7 +25,10 @@ SPEC_FIRST_DIR = os.path.join(ROOT, "skills", "spec-first", "scripts")
 if SPEC_FIRST_DIR not in sys.path:
     sys.path.insert(0, SPEC_FIRST_DIR)
 import check_spec as cs  # noqa: E402
-import spec_inputs  # noqa: E402
+try:
+    import spec_inputs  # noqa: F401, E402
+except ImportError:
+    spec_inputs = None
 
 FIXTURES_DIR = os.path.join(ROOT, "tests", "fixtures", "interop")
 
