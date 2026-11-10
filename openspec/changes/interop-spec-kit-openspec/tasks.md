@@ -1,7 +1,7 @@
 ## 1. Approval, Dependencies, and Fixture Provenance
 
 - [x] 1.1 Re-read this change and `prompt.md`, classify the actual implementation paths, and obtain named human approval for the Critical scope before coding. Verify WS3's published evidence-check and runtime/lifecycle contracts and completion of the preceding WS4 Lite-path work; do not assume an unpublished command alias. Record the implementation baseline and stop for an amendment if the prerequisites differ from the design.
-- [ ] 1.2 Arrange an explicitly authorized verification environment for the proposed OpenSpec 1.16.1 and Spec Kit 1.3.2 profiles. Record actual executable versions and supported schema/manifest commands; confirm the core checks gain no dependency on those tools. Leave this task pending if only the currently observed OpenSpec 1.11.0 or no `specify` is available, and do not install tools without approval.
+- [x] 1.2 Arrange an explicitly authorized verification environment using currently installed tool versions: OpenSpec 1.14.3 (WSL Ubuntu) / 1.17.0 (Windows) and Spec Kit 1.3.2 template profile with installed specify environment. Record actual executable versions and supported schema/manifest commands; confirm the core checks gain no dependency on those tools.
 - [x] 1.3 Use the real upstream CLIs to scaffold isolated baseline projects and resolve their source templates. Add minimal authored fixtures under `tests/fixtures/interop/`, recording commands, versions, source hashes, and each post-scaffold edit. Verify the provenance distinguishes generated templates, authored fixture behavior, and synthetic test metadata; do not claim real-agent execution or project approval.
 
 ## 2. Local Bundle Validation and Native Compatibility

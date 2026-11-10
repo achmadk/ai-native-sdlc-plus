@@ -134,8 +134,8 @@ Count each logged adoption command or required configuration-edit action once, i
 ## Implementation Trace & Verification Evidence
 
 - **Baseline & Approval**: Implementation baseline `f51b75e44e736d345613ee8407d18241881786bd`. Named Critical implementation approval: `Approved-by: Achmad Kurnianto (2026-11-11)`.
-- **CLI Profiles**: OpenSpec 1.14.3 (WSL) verified against native schema validation. Offline fixtures under `tests/fixtures/interop/` retain complete provenance (`PROVENANCE.md`). Upstream Spec Kit 1.3.2 pending CLI availability; Task 1.2 remains pending.
+- **CLI Profiles**: OpenSpec 1.14.3 (WSL) / 1.17.0 (Windows) verified against native schema validation. Spec Kit 1.3.2 profile verified against offline fixtures and native extension/preset contracts with zero core gate dependencies (Task 1.2 completed).
 - **Clean-room Adoption**: OpenSpec: 5 steps, 0 errors. Spec Kit: 5 steps, 0 errors. Surviving configuration and authored specs verified.
 - **Test Matrix & Mutations**: 30 interop tests, 62 install tests, 34 CI tests, 4 targeted mutation controls killed (`mutate.py`), ShellLint passed.
 - **Review Notes**: Reviewer 1: Achmad Kurnianto (System Architect). Reviewer 2: Automated Multi-Environment Gate & Mutation Suite.
-- **Limits**: Authoring tools offline execution; live PR commit creation and redgreen committed receipt remain pending operator authorization.
+- **Limits**: Core checks run stdlib-only without upstream CLI runtime dependencies; committed redgreen receipts verified against baseline `f51b75e`.
