@@ -4,6 +4,8 @@
     {"source": "install.sh", "destination": "install.sh", "mode": "0755"},
     {"source": "install.ps1", "destination": "install.ps1", "mode": "0644"},
     {"source": ".gitattributes", "destination": ".gitattributes", "mode": "0644"},
+    {"source": "scripts/sdlc.py", "destination": "scripts/sdlc.py", "mode": "0644"},
+    {"source": "scripts/agent_profiles.py", "destination": "scripts/agent_profiles.py", "mode": "0644"},
     {"source": "scripts/install.py", "destination": "scripts/install.py", "mode": "0644"},
     {"source": "scripts/install-manifest.json", "destination": "scripts/install-manifest.json", "mode": "0644"},
     {"source": "scripts/lane.py", "destination": "scripts/lane.py", "mode": "0644"},

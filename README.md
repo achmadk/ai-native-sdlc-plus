@@ -4,7 +4,7 @@ AI-native SDLC combines Agent Skills with a standard-library Python gate for ris
 
 Claims convention: `[report-stated]` means a cited publisher or survey reports it, not an independently reproduced outcome; `[measured here]` means a scoped local observation with recorded inputs and environment; `[extrapolated]` means a fit judgment. Historical evaluation records do not attest a newer revision or a comparative benchmark.
 
-Already using OpenSpec or Spec Kit? Keep that planning process while evaluating this repository's gate and skills. Individual committed Markdown specs can be evidence links today; automatic change-folder interpretation, format translation, and a unified `sdlc` command are not implemented here. Start with the [sourced comparison](docs/COMPARISON.md) and [current compatibility notes](docs/COMPATIBILITY.md).
+Already using OpenSpec or Spec Kit? Keep that planning process while evaluating this repository's gate and skills. Individual committed Markdown specs can be evidence links today; automatic change-folder interpretation and format translation are not implemented here. Use `scripts/sdlc.py` (or the local wheel's `sdlc` entry point) as the unified front door for `init`, `lane`, `check spec|brief|evidence`, `doctor`, `explain`, `status`, `update`, and `uninstall` (`lite` is not part of this release). Start with the [sourced comparison](docs/COMPARISON.md) and [current compatibility notes](docs/COMPATIBILITY.md).
 
 ---
 
@@ -74,12 +74,17 @@ The shared standard-library installer copies the explicit payload in `scripts/in
 
 Ownership is recorded in `.sdlc-install.json`. Identical reruns preserve file/state bytes and modification times. An unchanged managed file can be upgraded; a differing unowned or locally modified file causes a reported conflict before payload writes. This includes existing lane configs, templates, workflows, and `.gitattributes`. Reconcile conflicts explicitly and rerun; do not delete ownership state to force an overwrite. A later I/O failure reports a partial result and returns nonzero rather than claiming success.
 
-From the installed repository:
+From the installed repository (via the unified `sdlc` front door or direct helpers):
 
 ```bash
-python3 scripts/doctor.py --root .             # offline installation health
-python3 scripts/check_spec.py --help
-python3 scripts/check_brief.py --help
+python3 scripts/sdlc.py init --root . [--agents claude,cursor,copilot,codex,gemini,opencode,kilo]
+python3 scripts/sdlc.py status --root .        # read-only ownership, policy, and drift status
+python3 scripts/sdlc.py doctor --root .        # grouped offline installation health (raw counts retained)
+python3 scripts/sdlc.py explain codeowners --root .
+python3 scripts/sdlc.py lane --paths <files>
+python3 scripts/sdlc.py check spec --help
+python3 scripts/sdlc.py check brief --help
+python3 scripts/sdlc.py check evidence --help
 python3 scripts/redgreen.py --help
 ```
 

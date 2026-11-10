@@ -9,14 +9,14 @@ You route first because ceremony scales with risk. A typo must not pay for a pay
 
 ## Hot path (every change)
 
-1. Use the classifier's Git diff input so raw paths, file modes/types, and both rename sides remain available. Do not turn a line-delimited filename list into proof of a documentation-only change. Never guess the lane by feel.
-2. Run the classifier: `python3 scripts/lane.py --base <base> --strict` (or `--paths <files>` before anything is committed). It prints one lane and the matched rule. The change takes the **highest** lane of any path, and a path that matches no rule is Standard, so Lite means every path was Lite.
+1. Use the classifier's Git diff input so raw paths, file modes/types, and both rename sides remain available. Do not turn a line-delimited filename list into proof of a documentation-only change. Never guess the lane by feel. If this repository has only skills installed and `scripts/sdlc.py` / `scripts/lane.py` is absent, tell the user to initialize the owned runtime first (`sdlc init --root .` or `python3 <tool-root>/scripts/sdlc.py init --root .`) rather than improvising classification.
+2. Run the classifier via the front door: `python3 scripts/sdlc.py lane --base <base> --strict` (or `python3 scripts/lane.py --base <base> --strict`, or `--paths <files>` before anything is committed). It prints one lane and the matched rule. The change takes the **highest** lane of any path, and a path that matches no rule is Standard, so Lite means every path was Lite.
 3. If the classifier errors or reports an invalid config (exit code 3 with `--strict`), stop and tell the user. Do not pick a lane yourself: a broken config is exactly when guessing downgrades risk silently.
 4. Announce lane + rule, then point to the single next skill:
    - Lite -> spec-first (short intent+plan block). Tests and trace owed. No pre-approval.
    - Standard -> spec-first (combined spec). One human approval before build. Evals owed.
    - Critical -> spec-first split (intent + spec), threat note, two-person review, staged rollout + rollback.
-5. State the evidence this lane owes at merge, exactly (this is what `scripts/evidence_check.py` enforces):
+5. State the evidence this lane owes at merge, exactly (this is what `python3 scripts/sdlc.py check evidence` / `scripts/evidence_check.py` enforces):
    - Lite: intent section, test changes, trace section.
    - Standard: spec link, test changes, trace section, review notes.
    - Critical: intent link, spec link, threat note, test changes, trace section, review notes, rollout plan.
@@ -40,8 +40,8 @@ Read the `MISSING` lines and tooling errors. Local spec/intent links must be non
 
 ## Cold paths (on demand only, detail lives in references/)
 
-- `init`: set up config, templates, CI (GitHub workflow, or `assets/ci-generic.sh` for other CI). See `references/init.md`. Brownfield rule: start at the first new change, never retrofit history.
-- `doctor`: inspect local health with `python3 scripts/doctor.py`; use `--check-branch-protection --require-enforcement` for the supported hosted profile. See `references/doctor.md`. Missing or unverified prerequisites fail strict readiness; installation, optional-hook status, and a generic exit 0 do not prove merge protection.
+- `init` / `status` / `update` / `uninstall`: set up or reconcile config, templates, CI (GitHub workflow, or `assets/ci-generic.sh` for other CI), canonical user-owned `AGENTS.md`, and optional project-local `--agents` profiles with `python3 scripts/sdlc.py init --root .`. See `references/init.md`. Brownfield rule: start at the first new change, never retrofit history.
+- `doctor` / `explain`: inspect local health with `python3 scripts/sdlc.py doctor --root .` (or `python3 scripts/doctor.py`) and inspect check details with `python3 scripts/sdlc.py explain <check-id> --root .`; use `--check-branch-protection --require-enforcement` for the supported hosted profile. See `references/doctor.md`. Missing or unverified prerequisites fail strict readiness; installation, optional-hook status, and a generic exit 0 do not prove merge protection.
 - Onboarding an existing repo: see `references/onboarding.md`.
 
 ## Evidence ladder (honest labels)

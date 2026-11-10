@@ -20,6 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
+FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
          E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
@@ -28,7 +29,16 @@ TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", 
              "tests.test_doctor.GitState", "tests.test_doctor"],
          H: ["tests.test_hook"], HD: ["tests.test_hook"], C: ["tests.test_check_brief", "tests.test_templates"],
          S: ["tests.test_check_spec", "tests.test_templates"], R: ["tests.test_redgreen", "tests.test_templates"],
-         G: ["tests.test_ci_generic", "tests.test_ci_security"]}
+         G: ["tests.test_ci_generic", "tests.test_ci_security"],
+         FD: ["tests.test_sdlc_cli.PublicCLIContract", "tests.test_sdlc_cli.DoctorAndExplainContract",
+              "tests.test_sdlc_cli.RuntimeIsolationContract", "tests.test_sdlc_cli"],
+         I: ["tests.test_lifecycle.StatusAndDryRunPlanningContract", "tests.test_lifecycle.UpdateReconciliationContract",
+             "tests.test_lifecycle.UninstallContract", "tests.test_lifecycle.LifecycleRaceAndFailureContract",
+             "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
+         AP: ["tests.test_agent_profiles.ClaudeCursorCopilotCodexProfilesContract",
+              "tests.test_agent_profiles.GeminiOpencodeKiloAndHostilePolicyContract",
+              "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
+         BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"]}
 
 MUTANTS = [
     (L, "top = max(per_path", "top = min(per_path", False),
@@ -38,6 +48,11 @@ MUTANTS = [
     (L, '    "scripts/**",\n', "", False),
     (L, '    ".github/workflows/**",\n', "", False),
     (L, '    "hooks/**",\n', "", False),
+    (L, '    ".cursor/skills/**",\n', "", False),
+    (L, '    ".github/prompts/**",\n', "", False),
+    (L, '    ".opencode",\n', "", False),
+    (L, '    ".gemini",\n', "", False),
+    (L, '    "AGENTS.override.md",\n', "", False),
     (L, 'text.startswith("/") or re.match', 'False or re.match', False),
     (L, 'if ".." in text.split("/"):', "if False:", False),
     (L, "if _CONTROL_CHARS.search(item):", "if False:", False),
@@ -220,6 +235,22 @@ MUTANTS = [
     (G, ': "${SDLC_BASE:=}" "${SDLC_HEAD:=}" "${SDLC_PR_BODY_FILE:=}"\n', "", False),
     (G, '--pr-body-file "$SDLC_PR_BODY_FILE"', "", False),
     (G, "python3 -I \"$tmp/scripts/evidence_check.py\" --ci \\", "python3 -I \"$tmp/scripts/evidence_check.py\" \\", False),
+    # --- sdlc.py (dispatcher bypasses & hidden doctor failures) ---
+    (FD, "return 0 if code is None else int(code)", "return 0", False),
+    (FD, "for req in required:", "for req in ():", False),
+    (FD, 'if status == "FAIL" or (strict and status == "WARN") or status not in ("FAIL", "WARN", "unverified", "info"):',
+     'if status == "FAIL" or (False and status == "WARN") or status not in ("FAIL", "WARN", "unverified", "info"):', False),
+    (FD, 'if status == "verified":', 'if status in ("verified", "FAIL"):', False),
+    (FD, "failed = counts[doctor_mod.FAIL] > 0 or (parsed.strict and counts[doctor_mod.WARN] > 0)", "failed = False", False),
+    # --- install.py (unsafe ownership/deletion & dropped generated records) ---
+    (I, "recognized.discard(CANONICAL_POLICY)", "recognized.add(CANONICAL_POLICY)", False),
+    (I, "unrecognized = sorted(rel for rel in owned if rel not in recognized)", "unrecognized = []", False),
+    (I, "if additive:", "if False:", False),
+    (I, 'elif snap["record"] != owned_rec:', "elif False:", False),
+    # --- agent_profiles.py (native manual command safety) ---
+    (AP, '"disable-model-invocation: true\\n"', '"disable-model-invocation: false\\n"', False),
+    # --- build_wheel.py (required source integrity) ---
+    (BW, "if license_snap is None:", "if False:", False),
 ]
 
 
