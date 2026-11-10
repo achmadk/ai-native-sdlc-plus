@@ -21,7 +21,7 @@ import shlex
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNTIME_ROOT = os.path.dirname(HERE)
 
-SUPPORTED_COMMANDS = ("init", "lane", "check", "doctor", "update", "uninstall", "status", "explain")
+SUPPORTED_COMMANDS = ("init", "lane", "lite", "check", "doctor", "update", "uninstall", "status", "explain")
 CHECK_SUBCOMMANDS = ("spec", "brief", "evidence")
 
 # Fixed helper mapping inside RUNTIME_ROOT: (entry_relpath, required_companion_relpaths)
@@ -29,6 +29,10 @@ DELEGATED_HELPERS = {
     ("lane",): (
         "scripts/lane.py",
         ("scripts/lane.py", "scripts/lane-config.yaml"),
+    ),
+    ("lite",): (
+        "scripts/lite.py",
+        ("scripts/lite.py", "scripts/lane.py", "scripts/lane-config.yaml", "scripts/evidence_check.py"),
     ),
     ("check", "spec"): (
         "skills/spec-first/scripts/check_spec.py",
@@ -50,6 +54,7 @@ usage: sdlc <command> [options]
 Supported commands:
   init        Initialize the owned SDLC runtime, user policy starter, and selected agent profiles
   lane        Classify changed paths into Lite, Standard, or Critical
+  lite        Draft and verify a factual PR description for an eligible Lite change
   check       Run a policy validator: check spec | check brief | check evidence
   doctor      Inspect installation health with actionable grouped findings
   status      Inspect owned runtime state and drift without modifying files
@@ -59,7 +64,7 @@ Supported commands:
 
 Integration entry point:
   sdlc check evidence ...   (or: python3 <tool-root>/scripts/sdlc.py check evidence ...)
-  Note: 'gate' is not a supported alias; 'lite' is not part of this release.
+  Note: 'gate' is not a supported alias (use 'sdlc check evidence ...').
 
 Run 'sdlc <command> --help' (or 'sdlc check <subcommand> --help') for command options.
 """
@@ -269,8 +274,6 @@ def dispatch(argv=None, runtime_root=None):
     if cmd not in SUPPORTED_COMMANDS:
         if cmd == "gate":
             return _usage_error("unknown command 'gate' (use 'sdlc check evidence ...')")
-        if cmd == "lite":
-            return _usage_error("unknown command 'lite' (not implemented in this release)")
         return _usage_error("unknown command %r" % cmd)
 
     try:
@@ -278,6 +281,11 @@ def dispatch(argv=None, runtime_root=None):
             relpath, required = DELEGATED_HELPERS[("lane",)]
             mod = load_runtime_module(rt_root, "_sdlc_delegated_lane", relpath, required)
             return _invoke_helper_main(mod, "sdlc lane", rest)
+
+        if cmd == "lite":
+            relpath, required = DELEGATED_HELPERS[("lite",)]
+            mod = load_runtime_module(rt_root, "_sdlc_delegated_lite", relpath, required)
+            return _invoke_helper_main(mod, "sdlc lite", rest)
 
         if cmd == "check":
             if not rest:

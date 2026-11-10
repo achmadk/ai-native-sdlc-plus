@@ -78,6 +78,10 @@ BUILTIN_CRITICAL = (
     ".kilo/skills/**",
     ".kilocode/skills/**",
     ".kilocode/rules/**",
+    "openspec/config.yaml",
+    "openspec/config.yml",
+    "openspec/schema/**",
+    "openspec/schemas/**",
 )
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")

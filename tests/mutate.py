@@ -21,6 +21,7 @@ L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
 FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
+LT, CB = "scripts/lite.py", "scripts/ceremony_benchmark.py"
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
          E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
@@ -38,9 +39,18 @@ TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", 
          AP: ["tests.test_agent_profiles.ClaudeCursorCopilotCodexProfilesContract",
               "tests.test_agent_profiles.GeminiOpencodeKiloAndHostilePolicyContract",
               "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
-         BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"]}
+         BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"],
+         LT: ["tests.test_lite"],
+         CB: ["tests.test_ceremony_benchmark"]}
 
 MUTANTS = [
+    (L, '    "openspec/config.yaml",\n', "", False),
+    (LT, 'if lane != "Lite":', "if False:", False),
+    (LT, "if not base_sha:", "if False:", False),
+    (LT, "if base_sha == head_sha:", "if False:", False),
+    (LT, "if args.redgreen:", "if False:", False),
+    (CB, "if reg_err:", "if False:", False),
+    (CB, 'if not data.get("registration_id"):', "if False:", False),
     (L, "top = max(per_path", "top = min(per_path", False),
     (L, 'return "Standard", None', 'return "Lite", None', False),
     (L, 'compile_pattern(pattern, name == "critical")', "compile_pattern(pattern, False)", False),
@@ -287,10 +297,14 @@ def try_mutant(number, mutant):
 
 def main():
     only = sys.argv[1] if len(sys.argv) > 1 else ""
-    if not run_tests(ROOT):
+    chosen = [(i, m) for i, m in enumerate(MUTANTS, 1) if only in m[0]]
+    modules_to_check = set()
+    for _, (rel, _, _, _) in chosen:
+        modules_to_check.update(TESTS.get(rel, []))
+    baseline_modules = list(modules_to_check) if (only and modules_to_check) else None
+    if not run_tests(ROOT, baseline_modules):
         print("baseline tests fail on UNMUTATED code; mutation results would be meaningless")
         return 2
-    chosen = [(i, m) for i, m in enumerate(MUTANTS, 1) if only in m[0]]
     workers = max(1, min(8, os.cpu_count() or 1))
     killed = survived = equivalent = 0
     bad = []

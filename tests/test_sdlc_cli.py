@@ -72,9 +72,9 @@ class PublicCLIContract(FrontDoorContractTestCase):
         empty.mkdir()
         top = self.run_sdlc("--help", cwd=empty)
         self.assertEqual(top.returncode, 0, top.stderr)
-        for name in ("init", "lane", "check", "doctor", "update", "uninstall", "status", "explain"):
+        for name in ("init", "lane", "lite", "check", "doctor", "update", "uninstall", "status", "explain"):
             self.assertIn(name, top.stdout)
-        self.assertNotRegex(top.stdout, r"(?m)^\s*(?:gate|lite)\b")
+        self.assertNotRegex(top.stdout, r"(?m)^\s*gate\b")
 
         check_help = self.run_sdlc("check", "--help", cwd=empty)
         self.assertEqual(check_help.returncode, 0, check_help.stderr)
@@ -83,6 +83,7 @@ class PublicCLIContract(FrontDoorContractTestCase):
 
         for argv in (
             ("lane", "--help"),
+            ("lite", "--help"),
             ("check", "spec", "--help"),
             ("check", "brief", "--help"),
             ("check", "evidence", "--help"),

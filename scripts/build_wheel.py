@@ -154,6 +154,7 @@ def build_wheel(source_root, out_dir):
         "scripts/install.py",
         "scripts/install-manifest.json",
         "scripts/lane.py",
+        "scripts/lite.py",
         "scripts/evidence_check.py",
         "scripts/doctor.py",
         "scripts/scanner-profiles.json",

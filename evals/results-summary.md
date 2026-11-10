@@ -22,4 +22,4 @@
 
 ## Links
 
-evals/gap-analysis.md, evals/pass-criteria.md, evals/results-router-spec-first.md, evals/results-full.md, evals/results-trigger.md, evals/footprint.md, evals/ceremony-benchmark.md, evals/context-reconstruction.md, evals/mutation-security.md, evals/slice-learnings.md.
+evals/gap-analysis.md, evals/pass-criteria.md, evals/results-router-spec-first.md, evals/results-full.md, evals/results-trigger.md, evals/footprint.md, evals/ceremony-measured.md (supersedes historical evals/ceremony-benchmark.md), evals/context-reconstruction.md, evals/mutation-security.md, evals/slice-learnings.md.

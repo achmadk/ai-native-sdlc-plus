@@ -10,6 +10,7 @@
     {"source": "scripts/install-manifest.json", "destination": "scripts/install-manifest.json", "mode": "0644"},
     {"source": "scripts/lane.py", "destination": "scripts/lane.py", "mode": "0644"},
     {"source": "scripts/lane-config.yaml", "destination": "scripts/lane-config.yaml", "mode": "0644"},
+    {"source": "scripts/lite.py", "destination": "scripts/lite.py", "mode": "0644"},
     {"source": "scripts/evidence_check.py", "destination": "scripts/evidence_check.py", "mode": "0644"},
     {"source": "scripts/doctor.py", "destination": "scripts/doctor.py", "mode": "0644"},
     {"source": "scripts/scanner-profiles.json", "destination": "scripts/scanner-profiles.json", "mode": "0644"},

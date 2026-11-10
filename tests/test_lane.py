@@ -89,6 +89,16 @@ class Classification(unittest.TestCase):
                      ".github/workflows/sdlc-gate.yml", "CODEOWNERS", ".github/CODEOWNERS", "hooks/pre-push.sh"):
             self.assertEqual(lane.classify([path], lite_all)[0], "Critical", path)
 
+    def test_openspec_active_control_paths_are_critical_and_cannot_be_downgraded(self):
+        lite_all = lane.parse_config('version: 1\nlite:\n  - "**"\n')
+        for path in (
+            "openspec/config.yaml",
+            "openspec/config.yml",
+            "openspec/schema/custom.yaml",
+            "openspec/schemas/spec-driven.yaml",
+        ):
+            self.assertEqual(lane.classify([path], lite_all)[0], "Critical", path)
+
     def test_critical_rules_are_case_insensitive(self):
         self.assertEqual(lane.classify(["AUTH/Login.py"], rules())[0], "Critical")
         self.assertEqual(lane.classify([".GitHub/Workflows/x.yml"], rules())[0], "Critical")
