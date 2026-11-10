@@ -1,0 +1,80 @@
+name: sdlc-governed
+version: 1
+description: OpenSpec SDLC-governed workflow with risk-proportional evidence (Standard / Critical)
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Initial proposal document outlining the change and capabilities
+    template: proposal.md
+    instruction: |
+      Create the proposal document that establishes WHY this change is needed.
+      Follow standard OpenSpec proposal format with Why, What Changes, Capabilities, and Impact.
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Detailed delta specifications defining WHAT behavior changes
+    template: spec.md
+    instruction: |
+      Create delta specification files under specs/<capability-path>/spec.md defining observable behavior.
+      Include ADDED, MODIFIED, REMOVED, or RENAMED requirements with #### Scenario: (WHEN/THEN) blocks.
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Technical design document with architecture decisions
+    template: design.md
+    instruction: |
+      Create the technical design document explaining HOW to implement the change.
+      Include Context, Goals / Non-Goals, Decisions, Risks / Trade-offs, and Migration Plan.
+    requires:
+      - proposal
+
+  - id: threat-note
+    generates: threat-note.md
+    description: Critical-lane threat modeling note (required for Critical changes only)
+    template: threat-note.md
+    instruction: |
+      If the change touches Critical paths (security, auth, migrations, payment, CI workflows),
+      create threat-note.md detailing what could go wrong, checks run, and accepted risk.
+      If the change is Standard lane (normal feature/bugfix code), deliberately skip this
+      artifact without generating placeholder or fake notes.
+    requires:
+      - proposal
+      - design
+
+  - id: rollout-plan
+    generates: rollout-plan.md
+    description: Critical-lane staged deployment and rollback plan (required for Critical changes only)
+    template: rollout-plan.md
+    instruction: |
+      If the change touches Critical paths (security, auth, migrations, payment, CI workflows),
+      create rollout-plan.md detailing shipping boundaries, stages, signals, and rollback steps.
+      If the change is Standard lane (normal feature/bugfix code), deliberately skip this
+      artifact without generating placeholder or fake notes.
+    requires:
+      - proposal
+      - design
+
+  - id: tasks
+    generates: tasks.md
+    description: Implementation checklist with ## SDLC evidence mapping table
+    template: tasks.md
+    instruction: |
+      Create the tasks checklist breaking down implementation and verification work.
+      Include a ## SDLC evidence section mapping all acceptance units from specs to test paths,
+      explaining why tests fail before implementation and expected outcomes.
+    requires:
+      - specs
+      - design
+      - threat-note
+      - rollout-plan
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Implement tasks in tasks.md, keeping tests and evidence up to date.
+    Verify the SDLC evidence table matches all spec scenarios.
+

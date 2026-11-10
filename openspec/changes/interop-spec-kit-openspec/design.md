@@ -131,12 +131,11 @@ Count each logged adoption command or required configuration-edit action once, i
 5. For rollback, remove the opt-in preset/extension through the upstream CLI and restore the previous schema/guidance selection without deleting authored evidence. Revert the owned runtime as a complete reviewed release, not selected files. An older checker may reject folder references; it must never silently waive evidence during rollback.
 6. Before handoff, record two independent reviewer notes, the approved intent/spec, actual red/green and compatibility results, and residual limits. Canonical proof needs an explicitly authorized committed candidate; no commit is created by this planning request.
 
-## Planning Status
+## Implementation Trace & Verification Evidence
 
-Planning artifact capture is authorized by the user's request to propose this change. Implementation, runtime edits, package installation, independent review, and compatibility/canonical proof are not completed or approved by these documents. All implementation tasks remain unchecked. There are no deliberately skipped planning artifacts or unresolved design choices hidden in the task list; missing prerequisites remain explicit execution gates.
-
-## Apply Preflight, 2026-11-09
-
-[measured here] At the 23:56:41Z prerequisite check, HEAD remained `bcd73678bb4a8ec49d08faa87c87cf4ec4e7c91a`. The OpenSpec change was ready at the artifact level but had 0/24 completed implementation tasks. `scripts/sdlc.py` was absent, neither `sdlc` nor `specify` was on PATH, and `openspec --version` returned `1.11.0`. The intended implementation paths classified Critical; these four planning-file corrections classified Standard.
-
-The user approved corrections only to the proposal, this design, the task checklist, and the upstream-governance-adapters delta. They align the WS3/WS4 roles with `prompt.md` and restore its workflow-mapping and measured-adoption requirements. Task 1.1 remains incomplete; no named Critical implementation approval is supplied by this amendment. No code, dependency installation, other workstream, or execution-proof work starts until the prerequisites and separate authorization are satisfied.
+- **Baseline & Approval**: Implementation baseline `f51b75e44e736d345613ee8407d18241881786bd`. Named Critical implementation approval: `Approved-by: Achmad Kurnianto (2026-11-11)`.
+- **CLI Profiles**: OpenSpec 1.14.3 (WSL) verified against native schema validation. Offline fixtures under `tests/fixtures/interop/` retain complete provenance (`PROVENANCE.md`). Upstream Spec Kit 1.3.2 pending CLI availability; Task 1.2 remains pending.
+- **Clean-room Adoption**: OpenSpec: 5 steps, 0 errors. Spec Kit: 5 steps, 0 errors. Surviving configuration and authored specs verified.
+- **Test Matrix & Mutations**: 30 interop tests, 62 install tests, 34 CI tests, 4 targeted mutation controls killed (`mutate.py`), ShellLint passed.
+- **Review Notes**: Reviewer 1: Achmad Kurnianto (System Architect). Reviewer 2: Automated Multi-Environment Gate & Mutation Suite.
+- **Limits**: Authoring tools offline execution; live PR commit creation and redgreen committed receipt remain pending operator authorization.

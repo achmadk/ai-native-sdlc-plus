@@ -27,6 +27,16 @@ _lane_spec = importlib.util.spec_from_file_location(
 lanelib = importlib.util.module_from_spec(_lane_spec)
 _lane_spec.loader.exec_module(lanelib)
 
+# Trusted spec_inputs helper loading: resolve relative to scripts/ parent directory
+_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_spec_inputs_path = os.path.join(_root_dir, "skills", "spec-first", "scripts", "spec_inputs.py")
+if os.path.isfile(_spec_inputs_path):
+    _spec_inputs_spec = importlib.util.spec_from_file_location("sdlc_trusted_spec_inputs", _spec_inputs_path)
+    spec_inputslib = importlib.util.module_from_spec(_spec_inputs_spec)
+    _spec_inputs_spec.loader.exec_module(spec_inputslib)
+else:
+    spec_inputslib = None
+
 REQUIRED = {
     "Lite": ["intent_block", "test_changes", "trace_block"],
     "Standard": ["spec_link", "test_changes", "trace_block", "review_notes"],
@@ -199,16 +209,19 @@ def link_target(value):
     return value
 
 
-def resolve_repo_file(target, repo_root, revision="HEAD"):
-    """Check a regular tracked blob at the evaluated revision, not checkout bytes."""
+def resolve_repo_file(target, repo_root, revision="HEAD", lane=None, return_bundle_info=False):
+    """Check a regular tracked blob or supported bundle at the evaluated revision, not checkout bytes."""
+    def _ret(ok, detail, b_info=None):
+        return (ok, detail, b_info) if return_bundle_info else (ok, detail)
+
     if re.match(r"^https?://\S+$", target, re.I):
-        return True, "URL accepted, not verified (no network by design)"
+        return _ret(True, "URL accepted, not verified (no network by design)")
     path = re.split(r"[#?]", target, maxsplit=1)[0]
     if lanelib.clean_path(path)[0] is None:
-        return False, "link is not a safe repo-relative path"
+        return _ret(False, "link is not a safe repo-relative path")
     path = path.replace("\\", "/")
     if any(part.lower() == ".git" for part in path.split("/")):
-        return False, "Git metadata is not spec or intent evidence"
+        return _ret(False, "Git metadata is not spec or intent evidence")
     root = os.path.realpath(repo_root)
     full = os.path.realpath(os.path.join(root, path))
     try:
@@ -216,7 +229,7 @@ def resolve_repo_file(target, repo_root, revision="HEAD"):
     except ValueError:  # different drives on Windows
         inside = False
     if not inside:
-        return False, "link resolves outside the repository"
+        return _ret(False, "link resolves outside the repository")
     if not isinstance(revision, str) or not lanelib._REF_OK.fullmatch(revision):
         raise ToolError("cannot verify evidence at an unsafe Git revision")
     try:
@@ -235,18 +248,42 @@ def resolve_repo_file(target, repo_root, revision="HEAD"):
         raise ToolError("cannot read tracked evidence metadata at the evaluated revision")
     entries = [entry for entry in result.stdout.split(b"\0") if entry]
     if not entries:
-        return False, "no such file in the evaluated change (must be tracked): %s" % safe(path, 60)
+        return _ret(False, "no such file in the evaluated change (must be tracked): %s" % safe(path, 60))
     header, separator, raw_path = entries[0].partition(b"\t")
     fields = header.split()
     if (len(entries) != 1 or not separator or raw_path != path.encode("utf-8") or len(fields) != 4):
         raise ToolError("invalid tracked evidence metadata")
-    if fields[0] not in (b"100644", b"100755") or fields[1] != b"blob":
-        return False, "linked path is not a regular tracked blob (symlinks are not evidence)"
-    if not fields[3].isdigit():
-        raise ToolError("missing tracked evidence size")
-    if int(fields[3]) == 0:
-        return False, "linked file is empty: %s" % safe(path, 60)
-    return True, "verified tracked blob at %s: %s" % (commit[:12], safe(path, 60))
+    if fields[0] in (b"100644", b"100755") and fields[1] == b"blob":
+        if not fields[3].isdigit():
+            raise ToolError("missing tracked evidence size")
+        if int(fields[3]) == 0:
+            return _ret(False, "linked file is empty: %s" % safe(path, 60))
+        return _ret(True, "verified tracked blob at %s: %s" % (commit[:12], safe(path, 60)))
+    elif fields[0] == b"040000" or fields[1] == b"tree":
+        # Target is a tracked directory at evaluated revision!
+        if spec_inputslib is None:
+            raise ToolError("trusted spec helper spec_inputs.py is unavailable to verify bundle")
+        try:
+            reader = spec_inputslib.GitRevisionReader(repo_root, commit, path)
+            profile, profile_err = spec_inputslib.detect_profile(reader)
+            if profile_err:
+                return _ret(False, "unsupported bundle: %s" % profile_err)
+            findings, criteria_count = spec_inputslib.validate_bundle(
+                reader, kind="spec", lane=lane or "Standard", repo_root=repo_root, require_approved=True, require_tests_exist=False)
+            errors = [f[2] for f in findings if f[0] == "ERROR"]
+            if errors:
+                return _ret(False, "invalid bundle: %s" % safe("; ".join(errors)))
+            bundle_info = {
+                "profile": profile,
+                "path": path,
+                "commit": commit,
+                "reader": reader,
+                "criteria": criteria_count,
+            }
+            return _ret(True, "verified tracked %s bundle at %s: %s (%d criteria)" % (profile, commit[:12], safe(path, 60), criteria_count), bundle_info)
+        except spec_inputslib.BundleError as exc:
+            return _ret(False, "bundle verification error: %s" % safe(str(exc)))
+    return _ret(False, "linked path is not a regular tracked blob (symlinks are not evidence)")
 
 
 # --------------------------------------------------------------------------
@@ -277,12 +314,52 @@ def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
         else:
             found[name] = (True, "section present (%d chars)" % chars)
 
-    for name, keys in LINK_KEYS.items():
-        value = find_key_value(body, keys)
-        if value is None:
-            found[name] = (False, "no '%s:' line in the PR description" % keys[0].capitalize())
+    spec_val = find_key_value(body, LINK_KEYS["spec_link"])
+    bundle_info = None
+    if spec_val is None:
+        found["spec_link"] = (False, "no 'Spec:' line in the PR description")
+    else:
+        ok, detail, b_info = resolve_repo_file(link_target(spec_val), repo_root, revision, lane=lane, return_bundle_info=True)
+        found["spec_link"] = (ok, detail)
+        if ok and b_info:
+            bundle_info = b_info
+
+    intent_val = find_key_value(body, LINK_KEYS["intent_link"])
+    if intent_val is not None:
+        found["intent_link"] = resolve_repo_file(link_target(intent_val), repo_root, revision, lane=lane)
+    elif bundle_info and bundle_info.get("profile") == "openspec":
+        proposal_rel = (bundle_info["path"].rstrip("/") + "/proposal.md").lstrip("/")
+        ok, detail = resolve_repo_file(proposal_rel, repo_root, revision, lane=lane)
+        if ok:
+            found["intent_link"] = (True, "resolved to OpenSpec proposal at %s: %s" % (bundle_info["commit"][:12], safe(proposal_rel, 60)))
         else:
-            found[name] = resolve_repo_file(link_target(value), repo_root, revision)
+            found["intent_link"] = (False, detail)
+    else:
+        found["intent_link"] = (False, "no 'Intent link:' line in the PR description")
+
+    if lane == "Critical" and bundle_info:
+        reader = bundle_info["reader"]
+        if not (found.get("threat_note") and found["threat_note"][0]):
+            if reader.file_exists("threat-note.md"):
+                tn_content = reader.read_text("threat-note.md")
+                chars = spec_inputslib.meaningful_chars(tn_content)
+                if chars >= MIN_SECTION_CHARS:
+                    found["threat_note"] = (True, "verified tracked threat-note.md in bundle (%d chars)" % chars)
+                else:
+                    found["threat_note"] = (False, "threat-note.md in bundle is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS))
+            else:
+                found["threat_note"] = (False, "missing required threat-note.md in Critical bundle (and no PR section)")
+
+        if not (found.get("rollout_plan") and found["rollout_plan"][0]):
+            if reader.file_exists("rollout-plan.md"):
+                rp_content = reader.read_text("rollout-plan.md")
+                chars = spec_inputslib.meaningful_chars(rp_content)
+                if chars >= MIN_SECTION_CHARS:
+                    found["rollout_plan"] = (True, "verified tracked rollout-plan.md in bundle (%d chars)" % chars)
+                else:
+                    found["rollout_plan"] = (False, "rollout-plan.md in bundle is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS))
+            else:
+                found["rollout_plan"] = (False, "missing required rollout-plan.md in Critical bundle (and no PR section)")
 
     tests = rules.get("tests") or list(DEFAULT_TESTS)
     non_exec = rules.get("non_executable") or list(DEFAULT_NON_EXECUTABLE)

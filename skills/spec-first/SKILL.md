@@ -12,8 +12,10 @@ When implementation gets cheap, ambiguous intent and missing context become the 
 | Lane | What you write | What the gate looks for |
 |---|---|---|
 | Lite | A short `## Intent` section in the PR description (outcome, plan), plus tests and a trace | an Intent section with real content |
-| Standard | One spec file from `assets/intent-template.md`, for example `docs/specs/<change>.md`, linked from the PR as `Spec: docs/specs/<change>.md` | the link resolves to a non-empty file |
-| Critical | An intent statement (`assets/intent-critical-template.md`), a spec (`assets/spec-critical-template.md`), and a `## Threat note` (`assets/threat-note-template.md`), linked as `Intent link:` and `Spec:` | all three |
+| Standard | One spec file from `assets/intent-template.md`, for example `docs/specs/<change>.md`, linked from the PR as `Spec: docs/specs/<change>.md` (or an OpenSpec/Spec Kit folder) | the link resolves to a non-empty file or valid upstream bundle |
+| Critical | An intent statement (`assets/intent-critical-template.md`), a spec (`assets/spec-critical-template.md`), and a `## Threat note` (`assets/threat-note-template.md`), linked as `Intent link:` and `Spec:` (or an OpenSpec/Spec Kit folder with `threat-note.md` and `rollout-plan.md`) | all required artifacts |
+
+Supported upstream bundles (an OpenSpec change folder or Spec Kit feature folder) are accepted in-place as `Spec: path/to/folder` without rewriting or copying into native format. See `docs/INTEROPERABILITY.md`.
 
 ## How to specify
 

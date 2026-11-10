@@ -1,0 +1,12 @@
+schema_version: "1.0"
+name: speckit-sdlc-gate
+version: "1.0.0"
+description: "Risk-proportional SDLC evidence gate extension for GitHub Spec Kit"
+commands:
+  - name: speckit.sdlc.gate
+    description: "Run risk-proportional SDLC evidence gate check"
+    executable: bin/speckit-sdlc-gate
+hooks:
+  - event: before-implement
+    command: speckit.sdlc.gate
+

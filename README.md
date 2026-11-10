@@ -4,7 +4,7 @@ AI-native SDLC combines Agent Skills with a standard-library Python gate for ris
 
 Claims convention: `[report-stated]` means a cited publisher or survey reports it, not an independently reproduced outcome; `[measured here]` means a scoped local observation with recorded inputs and environment; `[extrapolated]` means a fit judgment. Historical evaluation records do not attest a newer revision or a comparative benchmark.
 
-Already using OpenSpec or Spec Kit? Keep that planning process while evaluating this repository's gate and skills. Individual committed Markdown specs can be evidence links today; automatic change-folder interpretation and format translation are not implemented here. Use `scripts/sdlc.py` (or the local wheel's `sdlc` entry point) as the unified front door for `init`, `lane`, `check spec|brief|evidence`, `doctor`, `explain`, `status`, `update`, and `uninstall` (`lite` is not part of this release). Start with the [sourced comparison](docs/COMPARISON.md) and [current compatibility notes](docs/COMPATIBILITY.md).
+Already using OpenSpec or Spec Kit? Keep that planning process while evaluating this repository's gate and skills. The gate and spec checker accept OpenSpec change folders and Spec Kit feature folders in-place as lane-appropriate specification evidence—see [the interoperability guide](docs/INTEROPERABILITY.md). Use `scripts/sdlc.py` (or the local wheel's `sdlc` entry point) as the unified front door for `init`, `lane`, `check spec|brief|evidence`, `doctor`, `explain`, `status`, `update`, `uninstall`, and `lite`. Start with the [sourced comparison](docs/COMPARISON.md), [current compatibility notes](docs/COMPATIBILITY.md), and [interoperability guide](docs/INTEROPERABILITY.md).
 
 ---
 

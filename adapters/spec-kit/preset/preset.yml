@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: sdlc-governed
+version: "1.0.0"
+description: "SDLC governance preset augmenting Spec Kit plan and task templates"
+dependencies:
+  extensions:
+    - name: speckit-sdlc-gate
+      version: ">=1.0.0"
+provides:
+  templates:
+    - id: plan-template
+      strategy: append
+      file: templates/plan-additions.md
+    - id: tasks-template
+      strategy: append
+      file: templates/tasks-additions.md
+

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Spec Kit delegate command invoking the canonical SDLC evidence gate."""
+
+import os
+import subprocess
+import sys
+
+if sys.version_info < (3, 8):
+    sys.exit("speckit-sdlc-gate requires Python >= 3.8")
+
+sys.dont_write_bytecode = True
+
+
+def find_repo_root(start=None):
+    cur = os.path.abspath(start or os.getcwd())
+    while True:
+        if os.path.isdir(os.path.join(cur, ".git")) or os.path.isfile(os.path.join(cur, "scripts", "sdlc.py")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return os.path.abspath(start or os.getcwd())
+        cur = parent
+
+
+def main():
+    repo_root = find_repo_root()
+    sdlc_cli = os.path.join(repo_root, "scripts", "sdlc.py")
+    evidence_cli = os.path.join(repo_root, "scripts", "evidence_check.py")
+
+    if not os.path.isfile(sdlc_cli) and not os.path.isfile(evidence_cli):
+        sys.stderr.write("speckit-sdlc-gate: error: SDLC gate runtime is not installed in this repository (run python scripts/install.py)\n")
+        return 2
+
+    # Forward arguments or construct check evidence command
+    extra_args = sys.argv[1:]
+
+    if os.path.isfile(sdlc_cli):
+        cmd = [sys.executable, "-B", sdlc_cli, "check", "evidence", "--repo-root", repo_root] + extra_args
+    else:
+        cmd = [sys.executable, "-B", evidence_cli, "--repo-root", repo_root] + extra_args
+
+    proc = subprocess.run(cmd, check=False)
+    return proc.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+

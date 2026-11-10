@@ -20,11 +20,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
+SI = "skills/spec-first/scripts/spec_inputs.py"
 FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
 LT, CB = "scripts/lite.py", "scripts/ceremony_benchmark.py"
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
-         E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
+         E: ["tests.test_evidence_check", "tests.test_spec_interop", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
+         SI: ["tests.test_spec_interop", "tests.test_interop_adapters"],
          D: ["tests.test_doctor.WorkflowChecks", "tests.test_doctor.Basics", "tests.test_doctor.ConfigChecks",
              "tests.test_doctor.HookChecks", "tests.test_doctor.CodeownersChecks", "tests.test_doctor.RemoteChecks",
              "tests.test_doctor.GitState", "tests.test_doctor"],
@@ -261,6 +263,11 @@ MUTANTS = [
     (AP, '"disable-model-invocation: true\\n"', '"disable-model-invocation: false\\n"', False),
     # --- build_wheel.py (required source integrity) ---
     (BW, "if license_snap is None:", "if False:", False),
+    # --- Interoperability controls (spec_inputs.py & evidence_check.py) ---
+    (SI, "if (sf, u_key) not in mapped_units:", "if False:", False),
+    (SI, '    if lane == "Critical":\n        for risk_file', '    if False:\n        for risk_file', False),
+    (E, "resolve_repo_file(link_target(spec_val), repo_root, revision, lane=lane, return_bundle_info=True)", "resolve_repo_file(link_target(spec_val), repo_root, None, lane=lane, return_bundle_info=True)", False),
+    (E, '_spec_inputs_path = os.path.join(_root_dir, "skills", "spec-first", "scripts", "spec_inputs.py")', '_spec_inputs_path = os.path.join(repo_root or _root_dir, "skills", "spec-first", "scripts", "spec_inputs.py")', False),
 ]
 
 

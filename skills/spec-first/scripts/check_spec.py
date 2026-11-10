@@ -17,10 +17,20 @@ Stdlib only, no network. Python >= 3.8.
 
 import argparse
 import datetime
+import importlib.util
 import json
 import os
 import re
 import sys
+
+_HELPER_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec_inputs_path = os.path.join(_HELPER_DIR, "spec_inputs.py")
+if os.path.isfile(_spec_inputs_path):
+    _spec = importlib.util.spec_from_file_location("spec_inputs", _spec_inputs_path)
+    spec_inputs = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(spec_inputs)
+else:
+    spec_inputs = None
 
 LANES = ("Lite", "Standard", "Critical")
 RANK = {name: i for i, name in enumerate(LANES)}
@@ -113,6 +123,11 @@ def test_path_problem(ref, repo_root):
 
 def check(text, kind, lane, repo_root, require_approved, require_tests_exist):
     """Return (findings, criteria_count). Each finding is (level, line, message)."""
+    if isinstance(text, str) and os.path.isdir(text):
+        if spec_inputs is None:
+            return [("ERROR", 1, "specification helper spec_inputs.py is unavailable")], 0
+        reader = spec_inputs.LocalBundleReader(text)
+        return spec_inputs.validate_bundle(reader, kind, lane, repo_root, require_approved, require_tests_exist)
     findings = []
 
     def add(level, line, message):
@@ -259,16 +274,26 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        if os.path.getsize(args.spec) > MAX_BYTES:
-            sys.stderr.write("check_spec.py: file is larger than %d bytes\n" % MAX_BYTES)
-            return 2
-        with open(args.spec, encoding="utf-8", errors="replace") as handle:
-            text = handle.read()
+        if os.path.isdir(args.spec):
+            if spec_inputs is None:
+                sys.stderr.write("check_spec.py: spec_inputs helper is unavailable\n")
+                return 2
+            reader = spec_inputs.LocalBundleReader(args.spec)
+            findings, count = spec_inputs.validate_bundle(
+                reader, args.kind, args.lane, args.repo_root, args.require_approved, args.require_tests_exist)
+        else:
+            if os.path.getsize(args.spec) > MAX_BYTES:
+                sys.stderr.write("check_spec.py: file is larger than %d bytes\n" % MAX_BYTES)
+                return 2
+            with open(args.spec, encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
+            findings, count = check(text, args.kind, args.lane, args.repo_root, args.require_approved, args.require_tests_exist)
     except OSError as exc:
         sys.stderr.write("check_spec.py: cannot read spec: %s\n" % exc)
         return 2
-
-    findings, count = check(text, args.kind, args.lane, args.repo_root, args.require_approved, args.require_tests_exist)
+    except spec_inputs.BundleError as exc:
+        sys.stderr.write("check_spec.py: bundle error: %s\n" % exc)
+        return 2
     findings.sort(key=lambda f: (f[1], f[0]))
     errors = sum(1 for f in findings if f[0] == "ERROR")
     warnings = sum(1 for f in findings if f[0] == "WARN")

@@ -152,6 +152,29 @@ class TrustedExecution(unittest.TestCase):
         self.prepare(weaken_head=True)
         self.assert_gate_rejected(self.execute(generic=True), "Critical")
 
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
+    def test_generic_candidate_cannot_inject_spec_inputs_helper(self):
+        self.prepare()
+        helper = self.repo / "skills/spec-first/scripts/spec_inputs.py"
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text("raise SystemExit(0)\n", encoding="utf-8")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "candidate injects helper")
+        self.head = self.git("rev-parse", "HEAD")
+        self.assert_gate_rejected(self.execute(generic=True), "Critical")
+
+    @unittest.skipUnless(SH, support.SHELL_REQUIRED)
+    def test_generic_candidate_cannot_replace_base_spec_inputs(self):
+        helper_base = self.repo / "skills/spec-first/scripts/spec_inputs.py"
+        helper_base.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "skills/spec-first/scripts/spec_inputs.py", helper_base)
+        self.prepare()
+        helper_base.write_text("raise SystemExit(0)\n", encoding="utf-8")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "candidate weakens helper")
+        self.head = self.git("rev-parse", "HEAD")
+        self.assert_gate_rejected(self.execute(generic=True), "Critical")
+
 
 class WorkflowContract(unittest.TestCase):
     def test_windows_job_executes_native_install_and_dispatch_contracts(self):
