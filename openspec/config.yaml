@@ -15,15 +15,21 @@ context: |
 
 rules:
   proposal:
-    - "Keep proposals focused on problem statement, proposed solution, and explicit non-goals."
+    - "Keep proposals focused on problem statement, proposed solution, and
+      explicit non-goals."
     - "Clearly define change boundaries and out-of-scope items."
   specs:
-    - "Every requirement MUST have verifiable scenarios using '#### Scenario:' syntax with GIVEN, WHEN, THEN."
-    - "Scenarios must be deterministic and testable without live network or external service calls."
+    - "Every requirement MUST have verifiable scenarios using '#### Scenario:'
+      syntax with GIVEN, WHEN, THEN."
+    - "Scenarios must be deterministic and testable without live network or
+      external service calls."
   design:
-    - "Address context, architectural decisions, risks/tradeoffs, and rollback plans."
-    - "Strictly observe the repository line budget (keep design.md <= 200 lines total)."
-    - "Never invent human reviews, pre-approvals, or accepted-risk justifications."
+    - "Address context, architectural decisions, risks/tradeoffs, and rollback
+      plans."
+    - "Strictly observe the repository line budget (keep design.md <= 200 lines
+      total)."
+    - "Never invent human reviews, pre-approvals, or accepted-risk
+      justifications."
   tasks:
     - "Group tasks into sequenced sections with checkable items (- [ ])."
     - "Enforce failing-first TDD ordering: tests before implementation code."
@@ -31,11 +37,17 @@ rules:
 operations:
   apply:
     guidance:
-      - "Always classify target paths with `sdlc lane --paths <files>` before coding."
-      - "If Critical paths are touched, obtain and record explicit named human approval."
+      - "Always classify target paths with `sdlc lane --paths <files>` before
+        coding."
+      - "If Critical paths are touched, obtain and record explicit named human
+        approval."
       - "Follow red-to-green proof for all bugfixes and behavioral changes."
-      - "Run both Windows and WSL unit test suites in the foreground before completing tasks."
+      - "Run both Windows and WSL unit test suites in the foreground before
+        completing tasks."
   archive:
     guidance:
       - "Confirm all tasks in tasks.md are marked complete [x] before archiving."
-      - "Sync delta specs into main specs and verify with `openspec validate --strict --no-interactive`."
+      - "Sync delta specs into main specs and verify with `openspec validate
+        --strict --no-interactive`."
+githubCopilot:
+  cloudAgent: false
