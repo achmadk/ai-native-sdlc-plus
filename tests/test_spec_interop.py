@@ -32,6 +32,18 @@ except ImportError:
 
 FIXTURES_DIR = os.path.join(ROOT, "tests", "fixtures", "interop")
 
+# Runner variables the gate reacts to. Inheriting GITHUB_ACTIONS appends a
+# workflow annotation after the --json line; the others leak host CI state.
+_HOST_CI_VARS = ("GITHUB_ACTIONS", "GITHUB_EVENT_PATH", "GITHUB_STEP_SUMMARY")
+
+
+def clean_env():
+    """Subprocess environment isolated from the host Git and CI runner state."""
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith("GIT_") and key not in _HOST_CI_VARS}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
 
 class SpecInteropContract(unittest.TestCase):
     def setUp(self):
@@ -421,7 +433,8 @@ class EvidenceInteropContract(unittest.TestCase):
         ]
         if extra_args:
             cmd.extend(extra_args)
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                              env=clean_env())
         return proc.returncode, proc.stdout, proc.stderr
 
     def test_evidence_check_standard_openspec_bundle_passes(self):
