@@ -391,9 +391,11 @@ _HEAD = "${{ github.event.pull_request.head.sha }}"
 _EVENTS = {"opened", "synchronize", "reopened", "edited", "ready_for_review"}
 _GATE_COMMAND = ('python3 -I trusted/scripts/evidence_check.py --ci '
                  '--config trusted/scripts/lane-config.yaml --repo-root change '
-                 '--base="$BASE_SHA" --head="$HEAD_SHA" --event-path "$GITHUB_EVENT_PATH"')
+                 '--base="$BASE_SHA" --head="$HEAD_SHA" --emit-json evidence-manifest.json '
+                 '--event-path "$GITHUB_EVENT_PATH"')
 _CI_NAMES = ("no-pr-target", "trigger", "edited-trigger", "invokes-gate", "fetch-depth",
-             "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions")
+             "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions",
+             "manifest-artifact")
 
 
 def scanner_references():
@@ -468,7 +470,7 @@ def workflow_results(text, scanner=False):
     shape = shape and (set(job) <= {"name", "runs-on", "timeout-minutes", "steps"} and
                        job.get("name", job_id) == ("gitleaks" if scanner else "evidence") and
                        job.get("runs-on") == "ubuntu-latest" and isinstance(steps, list) and
-                       len(steps) == (2 if scanner else 3))
+                       len(steps) == (2 if scanner else 4))
     steps = steps if isinstance(steps, list) else []
     shape = shape and all(isinstance(step, dict) and set(step) <= {"name", "uses", "with", "env", "run"}
                           and ("name" not in step or isinstance(step["name"], str)) for step in steps)
@@ -513,7 +515,7 @@ def workflow_results(text, scanner=False):
     actions = [s.get("uses") for s in steps if isinstance(s, dict) and "uses" in s]
     unpinned = sorted(set(a for a in actions if isinstance(a, str) and
                           not re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", a)))
-    pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)
+    pinned = len(actions) == (2 if scanner else 3) and not unpinned and all(isinstance(a, str) for a in actions)
     add("pinned-actions", pinned, WARN, "all actions pinned to commit SHAs" if pinned else
         "not pinned to a commit SHA: %s" % clip(", ".join(unpinned) or "missing/unsupported action"))
     checkouts = [s for s in steps if isinstance(s, dict) and isinstance(s.get("uses"), str)
@@ -546,7 +548,7 @@ def workflow_results(text, scanner=False):
             if supported_scanner else
             "gitleaks action reference is not approved by trusted scanner-profiles.json: " + clip(scanner_ref))
         return results
-    base, head, gate = (without_name(s) for s in steps)
+    base, head, gate, upload = (without_name(s) for s in steps)
     base_with, head_with = base.get("with"), head.get("with")
     base_ok = (set(base) == {"uses", "with"} and isinstance(base.get("uses"), str) and
                base["uses"].startswith("actions/checkout@") and
@@ -573,6 +575,13 @@ def workflow_results(text, scanner=False):
         "recognized base-branch checkout (trusted/) and explicit candidate checkout" if base_ok and head_ok and gate_ok else
         "tooling/config must run from the base checkout with the explicit candidate revision")
     add("isolated-python", isolated and gate_ok, WARN, "gate must use python3 -I without shell indirection")
+    upload_ok = (set(upload) == {"uses", "with"} and isinstance(upload.get("uses"), str) and
+                 upload["uses"].startswith("actions/upload-artifact@") and
+                 upload.get("with") == {"name": "evidence-manifest", "path": "evidence-manifest.json",
+                                        "if-no-files-found": "error"})
+    add("manifest-artifact", upload_ok, FAIL,
+        "evidence manifest artifact is uploaded from a pinned action" if upload_ok else
+        "requires actions/upload-artifact@<pinned SHA> with the evidence-manifest.json path")
     return results
 
 

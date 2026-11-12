@@ -19,6 +19,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -58,6 +59,8 @@ LINK_KEYS = {
     "spec_link": ("spec", "spec link"),
     "intent_link": ("intent link", "intent"),
 }
+APPROVAL_KEYS = ("approved-by", "approved by")
+_REPO_OK = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 DEFAULT_TESTS = ("test", "tests", "__tests__", "*_test.*", "test_*.*",
                  "*.test.*", "*.spec.*", "evals/**")
@@ -294,8 +297,21 @@ def _matches_any(path, patterns):
     return any(lanelib.compile_pattern(p)(path) for p in patterns)
 
 
-def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
-    """Return {evidence name: (ok, detail)} for every name this lane might need."""
+def _item(ok, detail, status, verified_how):
+    return {"ok": ok, "detail": detail, "status": status, "verified_how": verified_how}
+
+
+def _linked_item(ok, detail):
+    """Classify a resolved link without claiming a URL was verified."""
+    if ok and detail.startswith("URL accepted"):
+        return _item(True, detail, "unverified", "pr-body-section")
+    if ok:
+        return _item(True, detail, "verified", "tracked-blob")
+    return _item(False, detail, "missing", "tracked-blob")
+
+
+def detect_items(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
+    """Return {evidence name: {ok, detail, status, verified_how}} for every name this lane might need."""
     found = {}
     clean = []
     for raw_path in paths:
@@ -308,58 +324,67 @@ def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
     for name, aliases in SECTION_ALIASES.items():
         chars = find_section(sections, aliases)
         if chars is None:
-            found[name] = (False, "no '## %s' section in the PR description" % aliases[0].title())
+            found[name] = _item(False, "no '## %s' section in the PR description" % aliases[0].title(),
+                                "missing", "pr-body-section")
         elif chars < MIN_SECTION_CHARS:
-            found[name] = (False, "section is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS))
+            found[name] = _item(False, "section is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS),
+                                "missing", "pr-body-section")
         else:
-            found[name] = (True, "section present (%d chars)" % chars)
+            found[name] = _item(True, "section present (%d chars)" % chars, "verified", "pr-body-section")
 
     spec_val = find_key_value(body, LINK_KEYS["spec_link"])
     bundle_info = None
     if spec_val is None:
-        found["spec_link"] = (False, "no 'Spec:' line in the PR description")
+        found["spec_link"] = _item(False, "no 'Spec:' line in the PR description", "missing", "pr-body-section")
     else:
         ok, detail, b_info = resolve_repo_file(link_target(spec_val), repo_root, revision, lane=lane, return_bundle_info=True)
-        found["spec_link"] = (ok, detail)
+        found["spec_link"] = _linked_item(ok, detail)
         if ok and b_info:
             bundle_info = b_info
 
     intent_val = find_key_value(body, LINK_KEYS["intent_link"])
     if intent_val is not None:
-        found["intent_link"] = resolve_repo_file(link_target(intent_val), repo_root, revision, lane=lane)
+        found["intent_link"] = _linked_item(*resolve_repo_file(link_target(intent_val), repo_root, revision, lane=lane))
     elif bundle_info and bundle_info.get("profile") == "openspec":
         proposal_rel = (bundle_info["path"].rstrip("/") + "/proposal.md").lstrip("/")
         ok, detail = resolve_repo_file(proposal_rel, repo_root, revision, lane=lane)
         if ok:
-            found["intent_link"] = (True, "resolved to OpenSpec proposal at %s: %s" % (bundle_info["commit"][:12], safe(proposal_rel, 60)))
+            found["intent_link"] = _item(True, "resolved to OpenSpec proposal at %s: %s" % (
+                bundle_info["commit"][:12], safe(proposal_rel, 60)), "verified", "tracked-blob")
         else:
-            found["intent_link"] = (False, detail)
+            found["intent_link"] = _linked_item(ok, detail)
     else:
-        found["intent_link"] = (False, "no 'Intent link:' line in the PR description")
+        found["intent_link"] = _item(False, "no 'Intent link:' line in the PR description", "missing", "pr-body-section")
 
     if lane == "Critical" and bundle_info:
         reader = bundle_info["reader"]
-        if not (found.get("threat_note") and found["threat_note"][0]):
+        if not found["threat_note"]["ok"]:
             if reader.file_exists("threat-note.md"):
                 tn_content = reader.read_text("threat-note.md")
                 chars = spec_inputslib.meaningful_chars(tn_content)
                 if chars >= MIN_SECTION_CHARS:
-                    found["threat_note"] = (True, "verified tracked threat-note.md in bundle (%d chars)" % chars)
+                    found["threat_note"] = _item(True, "verified tracked threat-note.md in bundle (%d chars)" % chars,
+                                                 "verified", "tracked-blob")
                 else:
-                    found["threat_note"] = (False, "threat-note.md in bundle is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS))
+                    found["threat_note"] = _item(False, "threat-note.md in bundle is empty or template filler (%d/%d chars)" % (
+                        chars, MIN_SECTION_CHARS), "missing", "tracked-blob")
             else:
-                found["threat_note"] = (False, "missing required threat-note.md in Critical bundle (and no PR section)")
+                found["threat_note"] = _item(False, "missing required threat-note.md in Critical bundle (and no PR section)",
+                                             "missing", "tracked-blob")
 
-        if not (found.get("rollout_plan") and found["rollout_plan"][0]):
+        if not found["rollout_plan"]["ok"]:
             if reader.file_exists("rollout-plan.md"):
                 rp_content = reader.read_text("rollout-plan.md")
                 chars = spec_inputslib.meaningful_chars(rp_content)
                 if chars >= MIN_SECTION_CHARS:
-                    found["rollout_plan"] = (True, "verified tracked rollout-plan.md in bundle (%d chars)" % chars)
+                    found["rollout_plan"] = _item(True, "verified tracked rollout-plan.md in bundle (%d chars)" % chars,
+                                                  "verified", "tracked-blob")
                 else:
-                    found["rollout_plan"] = (False, "rollout-plan.md in bundle is empty or template filler (%d/%d chars)" % (chars, MIN_SECTION_CHARS))
+                    found["rollout_plan"] = _item(False, "rollout-plan.md in bundle is empty or template filler (%d/%d chars)" % (
+                        chars, MIN_SECTION_CHARS), "missing", "tracked-blob")
             else:
-                found["rollout_plan"] = (False, "missing required rollout-plan.md in Critical bundle (and no PR section)")
+                found["rollout_plan"] = _item(False, "missing required rollout-plan.md in Critical bundle (and no PR section)",
+                                              "missing", "tracked-blob")
 
     tests = rules.get("tests") or list(DEFAULT_TESTS)
     non_exec = rules.get("non_executable") or list(DEFAULT_NON_EXECUTABLE)
@@ -372,21 +397,29 @@ def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
             if meaningful_chars(match.group(1)) >= MIN_WAIVER_CHARS:
                 waived = match.group(1)
             else:
-                found["test_changes"] = (False, "test waiver needs a reason (%d+ chars)" % MIN_WAIVER_CHARS)
+                found["test_changes"] = _item(False, "test waiver needs a reason (%d+ chars)" % MIN_WAIVER_CHARS,
+                                              "missing", "pr-body-section")
     if test_paths:
-        found["test_changes"] = (True, "%d test path(s) changed" % len(test_paths))
+        found["test_changes"] = _item(True, "%d test path(s) changed" % len(test_paths), "verified", "tracked-blob")
     elif waived is not None:
         mark = "WAIVER on a Critical change" if lane == "Critical" else "waived"
-        found["test_changes"] = (True, "%s: %s" % (mark, safe(waived)))
+        found["test_changes"] = _item(True, "%s: %s" % (mark, safe(waived)), "attested", "pr-body-section")
     elif (clean and changes is not None and len(changes) == len(paths)
           and {entry["raw_path"] for entry in changes} == set(paths)
           and lane in ("Lite", "Standard")
           and all(_matches_any(p, non_exec) and lanelib.is_prose(p) for p in clean)
           and all(lanelib.regular_change(entry) for entry in changes)):
-        found["test_changes"] = (True, "waived: only non-executable paths changed")
+        found["test_changes"] = _item(True, "waived: only non-executable paths changed", "verified", "tracked-blob")
     elif "test_changes" not in found:
-        found["test_changes"] = (False, "no test path changed and no 'Tests: none - <reason>' waiver")
+        found["test_changes"] = _item(False, "no test path changed and no 'Tests: none - <reason>' waiver",
+                                      "missing", "tracked-blob")
     return found
+
+
+def detect(body, paths, repo_root, rules, lane, changes=None, revision="HEAD"):
+    """Backward-compatible view: {evidence name: (ok, detail)}."""
+    found = detect_items(body, paths, repo_root, rules, lane, changes, revision)
+    return {name: (entry["ok"], entry["detail"]) for name, entry in found.items()}
 
 
 def declared_lane(body):
@@ -397,6 +430,160 @@ def declared_lane(body):
             if match:
                 return match.group(1).title()
     return None
+
+
+def parse_approvals(body):
+    """Return declared approver logins, or None when no Approved-by line exists."""
+    value = find_key_value(body, APPROVAL_KEYS)
+    if value is None:
+        return None
+    logins = []
+    for token in re.split(r"[\s,;]+", value):
+        login = token.strip().strip("`'\"<>")
+        if login.startswith("@"):
+            login = login[1:]
+        if login and login.lower() not in {existing.lower() for existing in logins}:
+            logins.append(login)
+    return logins
+
+
+def _event_payload(args):
+    path = args.event_path or (os.environ.get("GITHUB_EVENT_PATH") if args.ci else None)
+    if not path:
+        return {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _pr_context(args):
+    payload = _event_payload(args)
+    pull = payload.get("pull_request") or {}
+    author = args.pr_author or ((pull.get("user") or {}).get("login") if isinstance(pull, dict) else None)
+    repo = args.repo or ((payload.get("repository") or {}).get("full_name")) or os.environ.get("GITHUB_REPOSITORY")
+    number = args.pr_number or (pull.get("number") if isinstance(pull, dict) else None) or payload.get("number")
+    return author, repo, str(number) if number is not None else None
+
+
+def _load_github_reviews(repo, number):
+    """Return (state, reviews, detail); state is 'ok' or 'unavailable'."""
+    gh = shutil.which("gh")
+    if gh is None:
+        return "unavailable", None, "gh CLI is not installed"
+    if not isinstance(repo, str) or not _REPO_OK.fullmatch(repo) or not number or not str(number).isdigit():
+        return "unavailable", None, "pull request repository/number unavailable for gh api"
+    try:
+        proc = subprocess.run([gh, "api", "--method", "GET",
+                               "repos/%s/pulls/%s/reviews" % (repo, number)],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return "unavailable", None, "cannot run gh api: %s" % type(exc).__name__
+    if proc.returncode:
+        lines = proc.stderr.decode("utf-8", "replace").strip().splitlines()
+        return "unavailable", None, safe(lines[-1], 120) if lines else "gh api failed"
+    try:
+        data = json.loads(proc.stdout.decode("utf-8"))
+    except (ValueError, UnicodeError):
+        return "unavailable", None, "gh api returned invalid JSON"
+    if not isinstance(data, list):
+        return "unavailable", None, "gh api returned an unexpected reviews payload"
+    return "ok", data, ""
+
+
+def _codeowners_for_paths(repo_root, paths):
+    """Return (direct owner logins, team owner slashes) applicable to the changed paths."""
+    rel = next((name for name in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS")
+                if os.path.isfile(os.path.join(repo_root, name))), None)
+    if rel is None:
+        return set(), set()
+    try:
+        with open(os.path.join(repo_root, rel), encoding="utf-8", errors="replace") as handle:
+            text = handle.read(MAX_BODY_BYTES + 1)
+    except OSError:
+        return set(), set()
+    entries = []
+    for line in text.splitlines():
+        line = re.sub(r"(^|\s)#.*$", "", line).strip()
+        if not line:
+            continue
+        parts = line.split()
+        try:
+            matches = lanelib.compile_pattern(parts[0])
+        except lanelib.ConfigError:
+            continue
+        entries.append((matches, [part[1:].lower() for part in parts[1:] if part.startswith("@")]))
+    owners, teams = set(), set()
+    for path in paths:
+        applicable = []
+        for matches, tokens in entries:  # last matching CODEOWNERS rule wins
+            if matches(path):
+                applicable = tokens
+        for token in applicable:
+            (teams if "/" in token else owners).add(token)
+    return owners, teams
+
+
+def verify_approvals(body, lane, paths, args):
+    """Cross-check Approved-by against hosted reviews. Returns (ok, item)."""
+    required = bool(args.require_approvals)
+    declared = parse_approvals(body)
+    if declared is None:
+        return (False if required else True), _item(
+            False if required else True,
+            "no 'Approved-by:' line in the PR description" + (" (required)" if required else ""),
+            "missing", "api-checked")
+    if not declared:
+        return False, _item(False, "'Approved-by:' is empty", "missing", "api-checked")
+
+    author, repo, number = _pr_context(args)
+    for login in declared:
+        if author and login.lower() == str(author).lower():
+            return False, _item(False, "authors cannot approve their own change: @%s" % safe(login, 40),
+                                "failed", "api-checked")
+
+    state, reviews, detail = _load_github_reviews(repo, number)
+    if state != "ok":
+        return (False if required else True), _item(
+            False if required else True, "approvals unverified: %s" % detail, "unverified", "api-checked")
+
+    approved = []
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        user = review.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        if not isinstance(login, str) or not login:
+            continue
+        if str(review.get("state") or "").upper() != "APPROVED":
+            continue
+        if author and login.lower() == str(author).lower():
+            continue
+        if login.lower() not in {existing.lower() for existing in approved}:
+            approved.append(login)
+
+    missing = [login for login in declared if login.lower() not in {login.lower() for login in approved}]
+    if missing:
+        return False, _item(
+            False, "declared approver @%s has no APPROVED review by a non-author on the pull request" % safe(missing[0], 40),
+            "failed", "api-checked")
+
+    if lane == "Critical":
+        if len(approved) < 2:
+            return False, _item(
+                False, "Critical lane requires at least two distinct non-author approving reviewers (found %d)" % len(approved),
+                "failed", "api-checked")
+        owners, teams = _codeowners_for_paths(args.repo_root, paths)
+        if not any(login.lower() in owners for login in approved):
+            detail = "Critical lane: no approving reviewer matches an applicable CODEOWNERS owner for the changed paths"
+            if teams:
+                detail += " (team owners are not expanded without a separate membership check)"
+            return False, _item(False, detail, "failed", "api-checked")
+
+    return True, _item(True, "approvals verified: %d distinct non-author approving review(s) via GitHub API" % len(approved),
+                       "verified", "api-checked")
 
 
 def check(lane, present):
@@ -476,6 +663,15 @@ def main(argv=None):
                         help="local hooks: check only what the diff can prove (test changes) and list what the "
                              "PR description must carry. Never valid with --ci")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--emit-json", metavar="PATH",
+                        help="write a machine-readable evidence manifest to PATH")
+    parser.add_argument("--check-approvals", action="store_true",
+                        help="cross-check Approved-by: against GitHub PR reviews via the ambient gh CLI (warns when offline)")
+    parser.add_argument("--require-approvals", action="store_true",
+                        help="fail closed when approvals are missing, invalid, or cannot be verified")
+    parser.add_argument("--pr-author", default=None, help="pull request author login (CI event fallback)")
+    parser.add_argument("--pr-number", default=None, help="pull request number (CI event fallback)")
+    parser.add_argument("--repo", default=None, help="owner/repository for gh api (CI event fallback)")
     args = parser.parse_args(argv)
 
     if args.lane is not None and args.lane not in REQUIRED:
@@ -497,7 +693,7 @@ def main(argv=None):
         return 2
 
     try:
-        lane, rows, extra = run(args, auto)
+        lane, rows, extra, _provenance = run(args, auto)
     except (ToolError, lanelib.GitError, lanelib.ConfigError) as exc:
         message = "tooling error: %s" % safe(exc, 200)
         if args.ci:
@@ -537,17 +733,64 @@ def main(argv=None):
     return 0
 
 
+def _resolve_sha(repo_root, ref):
+    """Resolve a ref to a full commit SHA without executing anything from the repository."""
+    if ref is None:
+        return None
+    if not isinstance(ref, str) or not lanelib._REF_OK.fullmatch(ref):
+        raise ToolError("cannot record an unsafe Git revision in the evidence manifest")
+    try:
+        proc = subprocess.run(["git", "-C", repo_root, "rev-parse", "--verify", ref + "^{commit}"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ToolError("cannot resolve Git revision for the evidence manifest: %s" % type(exc).__name__)
+    sha = proc.stdout.strip().decode("ascii", "replace")
+    if proc.returncode or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", sha):
+        raise ToolError("cannot resolve the evaluated Git revision for the evidence manifest")
+    return sha
+
+
+def _write_manifest(args, lane, rule, provenance, notes):
+    if not getattr(args, "emit_json", None):
+        return
+    manifest = {
+        "schema_version": 1,
+        "head_sha": _resolve_sha(args.repo_root, args.head),
+        "base_sha": _resolve_sha(args.repo_root, args.base),
+        "lane": lane,
+        "rule": rule,
+        "evidence": [
+            {"name": name, "status": entry["status"], "verified_how": entry["verified_how"],
+             "detail": entry["detail"]}
+            for name, entry in provenance
+        ],
+        "notes": list(notes),
+    }
+    try:
+        with open(args.emit_json, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+    except OSError as exc:
+        raise ToolError("cannot write the evidence manifest: %s" % type(exc).__name__)
+
+
 def run(args, auto):
-    """Compute (lane, [(name, ok, detail)], notes). Raises ToolError/GitError/ConfigError."""
+    """Compute (lane, [(name, ok, detail)], notes, provenance). Raises ToolError/GitError/ConfigError."""
     notes = []
     floor = args.lane
     if not auto:  # legacy manual mode: lane given, evidence attested
         lane = floor or "Standard"
         present = set(args.present or [])
-        rows = []
+        rows, provenance = [], []
         for name in REQUIRED[lane]:
-            rows.append((name, name in present, "attested by --present, not verified" if name in present else "not attested"))
-        return lane, rows, notes
+            if name in present:
+                item = _item(True, "attested by --present, not verified", "attested", "attested-flag")
+            else:
+                item = _item(False, "not attested", "missing", "attested-flag")
+            rows.append((name, item["ok"], item["detail"]))
+            provenance.append((name, item))
+        _write_manifest(args, lane, "manual lane selection", provenance, notes)
+        return lane, rows, notes, provenance
 
     rules, error = lanelib.load_rules(args.config)
     if rules is None:
@@ -562,13 +805,15 @@ def run(args, auto):
     if args.diff_only:
         lane = lanelib.max_lane(computed, floor)
         notes.append("lane %s (%s)" % (lane, safe(reason, 100)))
-        found = detect("", paths, args.repo_root, rules, lane, changes, args.head)["test_changes"]
-        detail = found[1]
-        if not found[0]:
+        found = detect_items("", paths, args.repo_root, rules, lane, changes, args.head)["test_changes"]
+        detail = found["detail"]
+        if not found["ok"]:
             detail = "no test path changed; if that is intended, add 'Tests: none - <reason>' to the PR description"
         owed = [name for name in REQUIRED[lane] if name != "test_changes"]
         notes.append("the PR description must carry: %s (checked in CI)" % ", ".join(owed))
-        return lane, [("test_changes", found[0], detail)], notes
+        provenance = [("test_changes", found)]
+        _write_manifest(args, lane, reason, provenance, notes)
+        return lane, [("test_changes", found["ok"], detail)], notes, provenance
     body = read_body(args)
     declared = declared_lane(body)
     lane = lanelib.max_lane(computed, declared, floor)
@@ -577,16 +822,26 @@ def run(args, auto):
     if declared and lanelib.RANK[declared] < lanelib.RANK[computed]:
         notes.append("declared lane %s ignored: a change can be escalated, never downgraded" % declared)
 
-    detected = detect(body, paths, args.repo_root, rules, lane, changes, args.head)
+    detected = detect_items(body, paths, args.repo_root, rules, lane, changes, args.head)
     if args.present:
         notes.append("--present attestations merged for local use; not valid in CI")
         for name in args.present:
-            if name in detected and not detected[name][0]:
-                detected[name] = (True, "attested by --present, not verified")
-    rows = [(name, detected[name][0], detected[name][1]) for name in REQUIRED[lane]]
-    if lane == "Critical" and detected["test_changes"][1].startswith("WAIVER"):
+            if name in detected and not detected[name]["ok"]:
+                detected[name] = _item(True, "attested by --present, not verified", "attested", "attested-flag")
+    if args.check_approvals or args.require_approvals:
+        _ok, approval_item = verify_approvals(body, lane, paths, args)
+        detected["approvals"] = approval_item
+        if approval_item["status"] == "unverified":
+            notes.append("approvals %s" % approval_item["detail"])
+    names = list(REQUIRED[lane])
+    if "approvals" in detected and "approvals" not in names:
+        names.append("approvals")
+    rows = [(name, detected[name]["ok"], detected[name]["detail"]) for name in names]
+    provenance = [(name, detected[name]) for name in names]
+    if lane == "Critical" and detected["test_changes"]["detail"].startswith("WAIVER"):
         notes.append("Critical change relies on a test waiver: a human reviewer must confirm the reason")
-    return lane, rows, notes
+    _write_manifest(args, lane, reason, provenance, notes)
+    return lane, rows, notes, provenance
 
 
 if __name__ == "__main__":

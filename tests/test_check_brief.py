@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 if __package__:
     from . import support
@@ -153,6 +154,21 @@ class Links(Base):
             handle.write("x")
         os.symlink(outside, os.path.join(self.repo, "docs", "link.md"))
         self.assertError(brief(decisions=ITEM.replace("docs/adr/12.md", "docs/link.md")), "outside the repository")
+
+    def test_realpath_escape_is_rejected_without_symlinks(self):
+        outside = os.path.join(self.workspace, "outside-realpath.md")
+        with open(outside, "w") as handle:
+            handle.write("x")
+        real_realpath = cb.os.path.realpath
+
+        def fake_realpath(path):
+            text = os.fspath(path).replace("\\", "/")
+            if text.endswith("docs/link.md"):
+                return outside
+            return real_realpath(path)
+
+        with patch.object(cb.os.path, "realpath", side_effect=fake_realpath):
+            self.assertError(brief(decisions=ITEM.replace("docs/adr/12.md", "docs/link.md")), "outside the repository")
 
 
 class Freshness(Base):

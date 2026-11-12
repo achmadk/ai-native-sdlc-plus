@@ -99,7 +99,7 @@ MUTANTS = [
     (D, '"pull_request_target" not in events', "True", False),
     (D, 'and head_with["fetch-depth"] == 0, FAIL', 'and True, FAIL', False),
     (D, 'add("trusted-tooling", base_ok and head_ok and gate_ok, WARN,', 'add("trusted-tooling", True, WARN,', False),
-    (D, "pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)", "pinned = True", False),
+    (D, "pinned = len(actions) == (2 if scanner else 3) and not unpinned and all(isinstance(a, str) for a in actions)", "pinned = True", False),
     (D, "covered = has_owner", "covered = True", False),
     (D, "    if missing:\n", "    if False:\n", False),
     (D, 'ln.strip() and "__pycache__" not in ln and not ln.endswith(".pyc")', "ln.strip()", False),
@@ -119,12 +119,31 @@ MUTANTS = [
     (D, "return 1 if failed else 0", "return 0", False),
     (D, "if os.path.realpath(scripts_dir) == os.path.realpath(HERE):", "if False:", False),
     (D, "    if drifted:\n", "    if False:\n", False),
+    # --- evidence_check.py manifest provenance / verified_how taxonomy ---
+    (E, 'return _item(True, detail, "verified", "tracked-blob")', 'return _item(True, detail, "attested", "tracked-blob")', False),
+    (E, 'return _item(True, detail, "unverified", "pr-body-section")', 'return _item(True, detail, "verified", "pr-body-section")', False),
+    (E, 'if ok and detail.startswith("URL accepted"):', "if False:", False),
+    (E, '_item(True, "attested by --present, not verified", "attested", "attested-flag")', '_item(True, "attested by --present, not verified", "verified", "attested-flag")', False),
+    (E, '"head_sha": _resolve_sha(args.repo_root, args.head)', '"head_sha": None', False),
+    (E, '"base_sha": _resolve_sha(args.repo_root, args.base)', '"base_sha": None', False),
+    (E, 'if name in present:', "if True:", False),
+    (E, 'if not getattr(args, "emit_json", None):', "if True:", False),
+    # --- evidence_check.py approval verification ---
+    (E, 'required = bool(args.require_approvals)', "required = False", False),
+    (E, 'if author and login.lower() == str(author).lower():', "if False:", False),
+    (E, 'if state != "ok":', "if False:", False),
+    (E, 'if missing:', "if False:", False),
+    (E, 'if len(approved) < 2:', "if False:", False),
+    (E, 'if not any(login.lower() in owners for login in approved):', "if False:", False),
+    (E, 'if matches(path):\n                applicable = tokens', "if False:\n                applicable = tokens", False),
+    (E, 'return (False if required else True), _item(\n            False if required else True, "approvals unverified: %s" % detail, "unverified", "api-checked")',
+     'return True, _item(True, "approvals unverified: %s" % detail, "verified", "api-checked")', False),
     # --- evidence_check.py --diff-only ---
     (E, "if args.diff_only and args.ci:", "if False and args.ci:", False),
     (E, "if args.diff_only and not auto:", "if False and not auto:", False),
     (E, "    if args.diff_only:\n        lane = lanelib.max_lane(computed, floor)", "    if False:\n        lane = lanelib.max_lane(computed, floor)", False),
     (E, 'owed = [name for name in REQUIRED[lane] if name != "test_changes"]', "owed = []", False),
-    (E, "        if not found[0]:\n            detail = ", "        if False:\n            detail = ", False),
+    (E, '        if not found["ok"]:\n            detail = ', '        if False:\n            detail = ', False),
     (E, '("diff checks ok for %s (PR description items are checked in CI)" if args.diff_only', '("diff checks ok for %s (PR description items are checked in CI)" if False', False),
     # --- doctor.py hook logic ---
     (D, "    if not os.path.isfile(target):\n", "    if False:\n", False),
@@ -234,6 +253,12 @@ MUTANTS = [
     # Equivalent: resolve() appends "^{commit}" to the ref, and every later git call receives only full SHAs, so an unsafe ref is
     # rejected by git itself even without this check. The check is kept as defence in depth.
     (R, "if not _REF_OK.match(ref or \"\"):", "if False:", True),
+    # --- redgreen.py --junit semantic checks ---
+    (R, 'if red_report["tests"] == 0 or green_report["tests"] == 0:', "if False:", False),
+    (R, 'elif red_report["errors"] and not red_report["failures"]:', "elif False:", False),
+    (R, 'if missing:\n            verdict = "AC_MISMATCH"', 'if False:\n            verdict = "AC_MISMATCH"', False),
+    (R, 'if not any(_test_id_matches(mapped, case) for case in canonical):', "if False:", False),
+    (R, 'text = re.sub(r"\\.(?:py|js|jsx|ts|tsx|go|rb|java|cs|php|rs)\\b", "", text)', "text = text", False),
     # --- ci-generic.sh ---
     (G, '[ "${#sha}" -ge 40 ] ||', '[ "${#sha}" -ge 1 ] ||', False),
     (G, '  case "$sha" in *[!0-9a-f]*) die 2 "not a commit SHA: $sha" ;; esac\n', "", False),

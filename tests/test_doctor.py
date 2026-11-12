@@ -264,7 +264,8 @@ class WorkflowChecks(Install):
 
     def test_shipped_workflow_has_no_failures_and_trusts_base_tooling(self):
         for name in ("ci-no-pr-target", "ci-trigger", "ci-edited-trigger", "ci-invokes-gate", "ci-fetch-depth",
-                     "ci-trusted-tooling", "ci-permissions", "ci-persist-credentials"):
+                     "ci-trusted-tooling", "ci-permissions", "ci-persist-credentials",
+                     "ci-manifest-artifact"):
             self.assertEqual(self.status(name), doctor.OK, name)
 
     def test_pull_request_target_is_a_failure(self):
@@ -809,7 +810,14 @@ jobs:
             --config trusted/scripts/lane-config.yaml \\
             --repo-root change \\
             --base="$BASE_SHA" --head="$HEAD_SHA" \\
+            --emit-json evidence-manifest.json \\
             --event-path "$GITHUB_EVENT_PATH"
+      - name: Upload evidence manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-manifest
+          path: evidence-manifest.json
+          if-no-files-found: error
 """
 
 SCANNER_PROFILE = """name: gitleaks

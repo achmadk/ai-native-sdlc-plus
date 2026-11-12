@@ -48,7 +48,15 @@ jobs:
             --config trusted/scripts/lane-config.yaml \
             --repo-root change \
             --base="$BASE_SHA" --head="$HEAD_SHA" \
+            --emit-json evidence-manifest.json \
             --event-path "$GITHUB_EVENT_PATH"
+
+      - name: Upload evidence manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: evidence-manifest
+          path: evidence-manifest.json
+          if-no-files-found: error
 
 # Branch protection: mark the status check named "evidence" (this job's name; the PR UI may
 # display it as "sdlc-gate / evidence") as required, pinned to the GitHub Actions app, in branch
