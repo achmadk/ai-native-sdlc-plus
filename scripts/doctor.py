@@ -393,6 +393,18 @@ _GATE_COMMAND = ('python3 -I trusted/scripts/evidence_check.py --ci '
                  '--config trusted/scripts/lane-config.yaml --repo-root change '
                  '--base="$BASE_SHA" --head="$HEAD_SHA" --emit-json evidence-manifest.json '
                  '--event-path "$GITHUB_EVENT_PATH"')
+_GATE_PROBE = 'help="$(python3 -I trusted/scripts/evidence_check.py --help)"'
+_GATE_WARNING = ('echo "::warning title=sdlc-gate::trusted base evidence_check.py does not support '
+                 '--emit-json; evidence manifest will not be produced"')
+_GATE_FALLBACK = _GATE_COMMAND.replace(" --emit-json evidence-manifest.json", "")
+_GATE_BLOCK = "\n".join((_GATE_PROBE, 'if [[ "$help" == *"--emit-json"* ]]; then',
+                         _GATE_COMMAND, "else", _GATE_WARNING, _GATE_FALLBACK, "fi"))
+
+
+def _normalize_command(text):
+    return " ".join(text.replace("\\\n", " ").split())
+
+
 _CI_NAMES = ("no-pr-target", "trigger", "edited-trigger", "invokes-gate", "fetch-depth",
              "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions",
              "manifest-artifact")
@@ -557,14 +569,11 @@ def workflow_results(text, scanner=False):
                head["uses"].startswith("actions/checkout@") and
                head_with == {"ref": _HEAD, "path": "change", "fetch-depth": 0, "persist-credentials": False} and
                type(head_with.get("fetch-depth")) is int)
-    command = gate.get("run")
-    command = command.replace("\\\n", " ").strip() if isinstance(command, str) else ""
-    single_command = "\n" not in command and "\r" not in command
-    command = " ".join(command.split())
-    isolated = command == _GATE_COMMAND
+    command = _normalize_command(gate["run"]) if isinstance(gate.get("run"), str) else ""
+    isolated = command in (_GATE_COMMAND, _normalize_command(_GATE_BLOCK))
     legacy = command == _GATE_COMMAND.replace("python3 -I ", "python3 ")
     gate_ok = (set(gate) == {"env", "run"} and gate.get("env") == {"BASE_SHA": _BASE, "HEAD_SHA": _HEAD}
-               and single_command and (isolated or legacy))
+               and (isolated or legacy))
     add("edited-trigger", isinstance(types, list) and set(types) == _EVENTS, WARN,
         "requires open, synchronize, reopen, edited and ready_for_review events; old-event reruns use the old PR body")
     add("invokes-gate", gate_ok, FAIL, "recognized evidence_check.py --ci command with explicit base/head/event" if gate_ok
@@ -578,7 +587,7 @@ def workflow_results(text, scanner=False):
     upload_ok = (set(upload) == {"uses", "with"} and isinstance(upload.get("uses"), str) and
                  upload["uses"].startswith("actions/upload-artifact@") and
                  upload.get("with") == {"name": "evidence-manifest", "path": "evidence-manifest.json",
-                                        "if-no-files-found": "error"})
+                                        "if-no-files-found": "warn"})
     add("manifest-artifact", upload_ok, FAIL,
         "evidence manifest artifact is uploaded from a pinned action" if upload_ok else
         "requires actions/upload-artifact@<pinned SHA> with the evidence-manifest.json path")

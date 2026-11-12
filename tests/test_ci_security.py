@@ -1,11 +1,13 @@
 """Exercise the actual gate entry points without executing candidate tooling."""
 
+import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import textwrap
 import unittest
 
 if __package__:
@@ -15,6 +17,7 @@ else:
 
 ROOT = Path(__file__).resolve().parents[1]
 SH = support.find_shell()
+BASH = support.find_shell("bash")
 RUNNER = ROOT / "skills/ai-sdlc/assets/ci-generic.sh"
 GATE_WORKFLOW = ROOT / ".github/workflows/sdlc-gate.yml"
 SCAN_WORKFLOW = ROOT / ".github/workflows/gitleaks.yml"
@@ -25,7 +28,7 @@ class TrustedExecution(unittest.TestCase):
         self.directory = support.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.repo = self.root / "candidate"
+        self.repo = self.root / "change"
         self.repo.mkdir()
         self.git("init", "-q", "-b", "main")
         scripts = self.repo / "scripts"
@@ -43,9 +46,26 @@ class TrustedExecution(unittest.TestCase):
                                 check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return result.stdout.decode().strip()
 
-    def prepare(self, module=None, weaken_head=False):
+    def prepare(self, module=None, weaken_head=False, legacy=False):
         if module:
             (self.repo / "scripts" / (module + ".py")).write_text("raise SystemExit(0)\n", encoding="utf-8")
+        if legacy:
+            checker = self.repo / "scripts/evidence_check.py"
+            checker.rename(self.repo / "scripts/evidence_check_impl.py")
+            checker.write_text(textwrap.dedent("""\
+                import os
+                import runpy
+                import sys
+
+                if "--help" in sys.argv:
+                    print("usage: evidence_check.py --ci --config --repo-root --base --head --event-path --json")
+                    raise SystemExit(0)
+                if "--emit-json" in sys.argv:
+                    sys.stderr.write("unrecognized arguments: --emit-json evidence-manifest.json\\n")
+                    raise SystemExit(2)
+                runpy.run_path(os.path.join(os.path.dirname(__file__), "evidence_check_impl.py"),
+                               run_name="__main__")
+                """), encoding="utf-8")
         self.git("add", ".")
         self.git("commit", "-q", "-m", "trusted baseline")
         self.base = self.git("rev-parse", "HEAD")
@@ -95,6 +115,25 @@ class TrustedExecution(unittest.TestCase):
                         "--pr-body-file", str(self.body)]
         return subprocess.run(command, cwd=self.repo, env=env, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, text=True, timeout=30)
+
+    def execute_workflow(self):
+        workflow = GATE_WORKFLOW.read_text(encoding="utf-8")
+        block = re.search(r"(?m)^        run: \|\n((?:          .*\n|\n)+)", workflow)
+        self.assertIsNotNone(block, "the actual evidence gate run block must be exercised")
+        event = self.root / "event.json"
+        event.write_text(json.dumps({"pull_request": {"body": self.body.read_text(encoding="utf-8")}}),
+                         encoding="utf-8")
+        env = support.shell_environment(self.root / "shell-bin")
+        env.pop("GITHUB_STEP_SUMMARY", None)
+        env.update(BASE_SHA=self.base, HEAD_SHA=self.head, GITHUB_EVENT_PATH=support.shell_path(event))
+        return subprocess.run([BASH, "-e", "-o", "pipefail", "-c", textwrap.dedent(block.group(1))],
+                              cwd=self.root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, timeout=30)
+
+    def valid_body(self):
+        self.body.write_text("## Intent\nCorrect the documented command without changing executable behavior.\n"
+                             "\n## Trace\nUsed the trusted base checker and kept the documentation change focused.\n",
+                             encoding="utf-8")
 
     def assert_gate_rejected(self, result, lane="Lite"):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
@@ -146,6 +185,65 @@ class TrustedExecution(unittest.TestCase):
     def test_github_candidate_cannot_replace_base_checker_or_policy(self):
         self.prepare(weaken_head=True)
         self.assert_gate_rejected(self.execute(), "Critical")
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_supports_legacy_checker_without_manifest(self):
+        self.prepare(legacy=True)
+        self.valid_body()
+        result = self.execute_workflow()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("evidence ok for Lite", result.stdout)
+        self.assertIn("::warning title=sdlc-gate::", result.stdout)
+        self.assertIn("does not support --emit-json", result.stdout)
+        self.assertFalse((self.root / "evidence-manifest.json").exists())
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_legacy_checker_still_fails_closed(self):
+        self.prepare(legacy=True)
+        self.assert_gate_rejected(self.execute_workflow())
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_current_checker_emits_manifest(self):
+        self.prepare()
+        self.valid_body()
+        result = self.execute_workflow()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        manifest = json.loads((self.root / "evidence-manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual((manifest["base_sha"], manifest["head_sha"], manifest["lane"]),
+                         (self.base, self.head, "Lite"))
+        self.assertNotIn("::warning title=sdlc-gate::", result.stdout)
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_never_probes_or_executes_candidate_checker(self):
+        self.prepare(legacy=True, weaken_head=True)
+        marker = self.root / "candidate-executed"
+        (self.repo / "scripts/evidence_check.py").write_text(
+            "from pathlib import Path\nPath(%r).touch()\nprint('FORGED-GREEN --emit-json')\n" % str(marker),
+            encoding="utf-8")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "candidate advertises manifest support")
+        self.head = self.git("rev-parse", "HEAD")
+        self.assert_gate_rejected(self.execute_workflow(), "Critical")
+        self.assertFalse(marker.exists(), "candidate tooling must not run, even for capability detection")
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_manifest_write_failure_is_not_ignored(self):
+        self.prepare()
+        self.valid_body()
+        (self.root / "evidence-manifest.json").mkdir()
+        result = self.execute_workflow()
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertIn("cannot write the evidence manifest", result.stdout)
+
+    @unittest.skipUnless(BASH, support.SHELL_REQUIRED)
+    def test_github_workflow_failed_capability_probe_aborts(self):
+        self.prepare()
+        (self.trusted / "scripts/evidence_check.py").write_text(
+            "import sys\nif '--help' in sys.argv: raise SystemExit(23)\nprint('FORGED-GREEN')\n",
+            encoding="utf-8")
+        result = self.execute_workflow()
+        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
+        self.assertNotIn("FORGED-GREEN", result.stdout)
 
     @unittest.skipUnless(SH, support.SHELL_REQUIRED)
     def test_generic_candidate_cannot_replace_base_checker_or_policy(self):
@@ -238,6 +336,11 @@ class WorkflowContract(unittest.TestCase):
         self.assertIn("--config trusted/scripts/lane-config.yaml", gate)
         self.assertIn(' --head="$HEAD_SHA"', gate)
         self.assertRegex(gate, r"timeout-minutes:\s*5\b")
+
+    def test_manifest_upload_warns_when_trusted_base_lacks_support(self):
+        text = GATE_WORKFLOW.read_text(encoding="utf-8")
+        upload = text.split("      - name: Upload evidence manifest\n", 1)[1]
+        self.assertIn("if-no-files-found: warn", upload)
 
 
 if __name__ == "__main__":

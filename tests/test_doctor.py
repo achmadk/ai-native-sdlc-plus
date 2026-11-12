@@ -806,18 +806,28 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 -I trusted/scripts/evidence_check.py --ci \\
-            --config trusted/scripts/lane-config.yaml \\
-            --repo-root change \\
-            --base="$BASE_SHA" --head="$HEAD_SHA" \\
-            --emit-json evidence-manifest.json \\
-            --event-path "$GITHUB_EVENT_PATH"
+          help="$(python3 -I trusted/scripts/evidence_check.py --help)"
+          if [[ "$help" == *"--emit-json"* ]]; then
+            python3 -I trusted/scripts/evidence_check.py --ci \\
+              --config trusted/scripts/lane-config.yaml \\
+              --repo-root change \\
+              --base="$BASE_SHA" --head="$HEAD_SHA" \\
+              --emit-json evidence-manifest.json \\
+              --event-path "$GITHUB_EVENT_PATH"
+          else
+            echo "::warning title=sdlc-gate::trusted base evidence_check.py does not support --emit-json; evidence manifest will not be produced"
+            python3 -I trusted/scripts/evidence_check.py --ci \\
+              --config trusted/scripts/lane-config.yaml \\
+              --repo-root change \\
+              --base="$BASE_SHA" --head="$HEAD_SHA" \\
+              --event-path "$GITHUB_EVENT_PATH"
+          fi
       - name: Upload evidence manifest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: evidence-manifest
           path: evidence-manifest.json
-          if-no-files-found: error
+          if-no-files-found: warn
 """
 
 SCANNER_PROFILE = """name: gitleaks
