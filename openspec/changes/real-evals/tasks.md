@@ -1,0 +1,50 @@
+# Tasks
+
+## 1. Critical Scope and Frozen Registrations
+
+- [x] 1.1 Re-read the change artifacts, classify the complete planned path set with `sdlc lane --paths`, record the implementation baseline, and obtain fresh named human approval for the Critical apply scope; verify no code or live evaluation starts without that recorded approval and leave unrelated active-change tasks untouched. Evidence: baseline `638ca4be756eb28b9ed463ff8f965ec11dc9e5f1`; Critical via built-in `scripts/**`; approved by Achmad Kurnianto (`@achmadk`) in this apply request.
+- [x] 1.2 Add failing-first contract tests for selection/task registration schemas, minimum case counts, ten-skill coverage, unique IDs, development/held-out separation, expected/allowed/forbidden labels, repetitions, finite limits, catalog hashes, external provenance, and commit-before-transcript ancestry; run the focused tests and record assertion-based RED failures before validator code. RED: `python -B -m unittest tests.test_model_eval -v` produced five named assertion failures for the missing registrations, catalogs, and validator, with no import or environment error.
+- [x] 1.3 Implement the standard-library registration validator and author `evals/selection-cases.json`, `evals/task-cases.json`, the baseline product catalog, pinned OpenSpec/Superpowers distractor catalog, and fixed criteria; verify focused tests pass, all source/license/revision hashes resolve, at least 30 trigger and 30 near-miss selection cases exist, and all 30 task cases have condition-independent assertions. Evidence: six focused tests pass on Windows and WSL; validator summary is 60 selection cases, 30 paired task cases, 10 product skills, and 24 pinned distractors with matching content hashes.
+- [ ] 1.4 Obtain explicit commit authorization, commit the registrations and baseline catalogs before any provider run or description edit, and record the registration commit SHA; verify `git show` reproduces every registered byte/hash and no transcript predates that commit.
+
+## 2. Provider Boundary, Selection Scoring, and Offline Replay
+
+- [ ] 2.1 Add failing-first tests in a focused model-eval test module using local process doubles for JSON-argv parsing, `shell=False` execution, minimal environment plus explicit credential names, malformed/oversized responses, request and monetary caps, missing cost, secret redaction, full-catalog selection, exact label scoring, repeat completeness, transcript provenance, and replay with no provider; run and record meaningful RED assertions.
+- [ ] 2.2 Implement the versioned provider JSONL protocol and `scripts/model_eval.py` record/replay paths for selection, including normalized transcript fields, source hashes, confusion pairs, per-case outcomes, split summaries, deterministic JSON, fail-closed validation, and atomic persistence; verify the focused suite passes on Windows and WSL without network access.
+- [ ] 2.3 Add targeted mutations for cap bypass, shell execution, provider invocation during replay, unknown selections, missing repeats, hash bypass, and secret persistence; run the focused mutation observers and confirm every non-equivalent mutant is killed.
+- [ ] 2.4 Document the provider-wrapper protocol, replay boundary, cost-accounting limits, and distinction between catalog selection, loader discovery, and skill invocation in the evaluation guidance; verify examples work with the local process double and make no live network request.
+
+## 3. Registered Description Experiment
+
+- [ ] 3.1 Obtain separate authorization for provider command, credentials, model, finite spend, and development-only execution, then record the baseline development split against the committed catalog for at least three repeats; verify request/cost caps, transcript completeness, redaction, registration SHA, and model/provider usage before inspecting results.
+- [ ] 3.2 Replace the template test that requires literal `Triggers:` text with failing-first tests for ten canonical skills, at most two description sentences, at most one natural-language scope sentence, no fixture-specific hobby-word exclusion list, and unchanged skill discovery membership; run against baseline descriptions and record the intended RED failures.
+- [ ] 3.3 Rewrite only the ten frontmatter descriptions from development confusion evidence, preserving skill names and bodies, then run structural/discovery tests and an authorized candidate development run using the same provider settings and repeats; verify every edit maps to a recorded confusion and publish any development regression instead of retuning cases.
+- [ ] 3.4 Rename the old trigger metric to `lexical overlap` in current summaries and limitations while preserving its dated corpus/results, and add regression tests that reject presenting it as model selection; verify historical files remain identifiable and no old score is merged into the new result.
+
+## 4. Replayable With-Skill Task Evaluations
+
+- [ ] 4.1 Add failing-first tests for paired baseline/with-skill request construction, order randomization, deterministic assertions, equal provider/model settings, complete repeats, token/time/cost capture, negative-delta retention, optional judge calibration/caveats, sampled human spot-check records, and transcript hash rejection; run and record assertion-based RED failures.
+- [ ] 4.2 Extend `scripts/model_eval.py` to record and replay paired task cases through the same provider envelope, scoring deterministic assertions first and bounded judge records only when registered; verify focused tests pass and replay reproduces `k/n`, spread, usage, caveats, and verdicts without provider access.
+- [ ] 4.3 Obtain explicit live-run and spend authorization, execute all registered baseline/with-skill task cases on the candidate revision, and commit only redacted complete transcripts with authorization; verify all 30 cases and repetitions are present, condition order is balanced, and missing or negative outcomes remain visible.
+- [ ] 4.4 Generate the current task-eval report from replay, including tested SHA, provider/model, repetitions, assertion `k/n`, token/time/cost deltas, judge/human evidence, and every negative result; verify rerunning offline produces the same scored report and historical manual reports remain dated rather than overwritten.
+
+## 5. Aggregate Verification Receipt and Claim Drift
+
+- [ ] 5.1 Add failing-first tests for fixed trusted unit/mutation/doctor/footprint stages, argv isolation, per-stage timeouts/status/counts, dirty-tree provenance, failed/skipped-stage honesty, output digests, actual-loader validation, exact-byte fallback, and atomic receipt replacement; run and record RED before adding the orchestrator.
+- [ ] 5.2 Implement `scripts/verify_all.py` and backward-compatible structured stage output where needed, writing a versioned `evals/results/latest.json` receipt with tested SHA, relevant input hashes, environment, commands, counts, limitations, and overall status; verify success, deterministic failure, interruption, and dirty-tree fixtures pass without shell or network use.
+- [ ] 5.3 Add failing-first tests for bounded current-claim markers in `README.md`, `LIMITATIONS.md`, and `PATCH-NOTES.md`, covering value/unit/status/revision mismatches, missing receipt paths, stale relevant input hashes, duplicate markers, and preservation of unmarked dated history; run and record RED failures.
+- [ ] 5.4 Implement current-claim validation and add markers only to claims intended to describe the latest receipt; verify each marked claim resolves exactly, a deliberate one-digit change fails, and historical test/mutation/version numbers remain unchanged.
+- [ ] 5.5 Add targeted mutations for hidden verification failures, dirty-state suppression, fabricated zero/unverified footprint values, partial receipt publication, claim-marker bypass, and stale-input acceptance; run observers and confirm zero surviving non-equivalent mutants for this group.
+
+## 6. Held-Out Evaluation and Integration Evidence
+
+- [ ] 6.1 Freeze the candidate descriptions, obtain final provider/spend authorization, and execute the held-out baseline-versus-candidate selection run once with randomized catalog order and at least three repeats; verify no held-out-driven edit follows, all transcripts match the registration, and misses/confusion pairs are published.
+- [ ] 6.2 Obtain authorized actual-loader/token-accounting records for Lite, Standard, and Critical checkpoints, including unexpected/repeated content, then validate them against catalog/router/body hashes; verify the receipt reports description, body, and maximum per-lane token values or leave acceptance explicitly incomplete rather than substituting estimates.
+- [ ] 6.3 Generate final selection/task/footprint reports and update marked current claims from the verified receipt only; verify offline replay regenerates the results, all negatives and unverified fields remain present, and selection results are not described as live loader behavior.
+- [ ] 6.4 Run focused suites, full foreground unit discovery on Windows and WSL, full `python -B tests/mutate.py`, doctor-on-self, ShellCheck when available, and `python -B scripts/verify_all.py`; verify zero test failures, zero surviving non-equivalent mutants, recorded skips/capability gaps, and a valid revision-bound receipt without claiming unrun platforms or hosted services.
+- [ ] 6.5 With an explicitly authorized committed candidate, run canonical repeated `sdlc test redgreen` proof for the focused model-eval and verification contracts, validate `real-evals` with `openspec validate --strict --no-interactive`, run the Critical evidence check, and record two independent human review notes plus threat/rollout verification; leave the task open if any approval, committed revision, provider run, loader record, or review is missing.
+
+## Workflow follow-up
+
+- Sync the `verify-evals` and `governance` deltas only after implementation and review evidence are complete.
+- Archive `real-evals` after every tracked task is complete and the final validation remains green.

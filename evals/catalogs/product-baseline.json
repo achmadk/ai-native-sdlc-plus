@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "catalog_id": "real-evals-product-baseline-v1",
+  "captured_revision": "638ca4be756eb28b9ed463ff8f965ec11dc9e5f1",
+  "skills": [
+    {
+      "id": "ai-readiness-and-metrics",
+      "source_path": "skills/ai-readiness-and-metrics/SKILL.md",
+      "source_sha256": "248149d8872a08a50e0adc2274c82f6334a2c3211b4b5380824fbac56e9cdf49",
+      "description": "Score an engineering org's AI readiness from observable evidence and pick metrics beyond velocity. Use when someone asks whether a team is ready for agents, wants a maturity or readiness score, an adoption backlog, which metrics to track for AI-assisted development, or how to reinvest AI time savings. Triggers: readiness score, maturity assessment, system of record gap, metrics beyond velocity, measure AI impact, Goodhart, reinvest dividend."
+    },
+    {
+      "id": "ai-sdlc",
+      "source_path": "skills/ai-sdlc/SKILL.md",
+      "source_sha256": "48c69b6319aa057b39950a0b84ab613660aa7a550b0647107f837189fd86ebbe",
+      "description": "Route any change to its risk lane and next skill, and say what evidence the lane owes at merge. Use when starting a change, choosing how much process a change needs, writing or fixing a PR description for the sdlc-gate, or when the gate fails. Not for: swim, workout, butterfly, road trip, breakfast, plant, kayak, aliens. Triggers: classify change, which lane, Lite Standard Critical, route change, what evidence do I need, sdlc-gate failing, PR evidence, init repo, doctor check, onboard repo."
+    },
+    {
+      "id": "autonomy-policy",
+      "source_path": "skills/autonomy-policy/SKILL.md",
+      "source_sha256": "7e31ae637793b80766ba4fbe0d0e9b2aa69c6c8b550e069a0df3856f6b4786d0",
+      "description": "Set trust tiers and decide what agents may do unattended, per risk lane. Use when defining or reviewing an agent autonomy policy, deciding what needs human approval, writing escalation rules, planning a phased rollout, or after an agent incident. Triggers: autonomy policy, trust tiers, what can agents do without approval, unattended actions, agent permissions, escalation rules, human in the loop, phased rollout, demote autonomy."
+    },
+    {
+      "id": "context-pack",
+      "source_path": "skills/context-pack/SKILL.md",
+      "source_sha256": "4b0c56fd797921851eaeaffe4ba79a51d3a7f9ec8c1546a216788c86140bfb35",
+      "description": "Build a compact, sourced brief of the organizational context an agent cannot see: prior decisions, incidents, standards, security rules, ticket acceptance criteria. Use before building or reviewing when the right answer depends on history, when an agent keeps missing a team convention, or to refresh a stale brief. Not for: lunch, bread, pizza, suitcase, picnic, concert, playlist, fashion. Triggers: context brief, context pack, prior decisions, past incidents, standards doc, acceptance criteria, staleness check, what do I need to know before changing this."
+    },
+    {
+      "id": "decision-trace",
+      "source_path": "skills/decision-trace/SKILL.md",
+      "source_sha256": "88d6b7ae0710912865a354110e4dbc92164fbb77de2019b69f2cf8cd58e4ee43",
+      "description": "Leave a reconstructible reasoning record as a by-product of the PR, so someone can explain months later what changed, why, and what was rejected. Use when writing the Trace section of a PR, recording why a change was made, reading history, or testing whether reasoning can be reconstructed. Triggers: trace block, decision record, why was this changed, reconstruct reasoning, provenance, ADR."
+    },
+    {
+      "id": "learning-mode",
+      "source_path": "skills/learning-mode/SKILL.md",
+      "source_sha256": "0456e1aaa2a031cbd5807ed4555000b10993ba5d4f9b1bf3b2f16889b77b60ca",
+      "description": "Pair with a newer engineer so they understand AI-generated code instead of only shipping it. Use when onboarding or mentoring, when someone wants to be able to explain a change in review, or when someone says they do not understand code. Not for: trivia, cat, dog, museum, juggle, fasting, horoscope. Triggers: learning mode, teach me, walk me through, explain like I am new, pair with me, guided questions, I do not understand this change, ramp up."
+    },
+    {
+      "id": "review-by-intent",
+      "source_path": "skills/review-by-intent/SKILL.md",
+      "source_sha256": "72e4901eb139ee22b4f53b7cf5cc1e61a7dcd25f3499d6e0c3dba81f20e1394d",
+      "description": "Review a change against its intent and risk instead of reading line by line. Use when reviewing AI-generated changes, checking whether code matches the spec, or writing review notes for the PR. Triggers: review change, check intent, intent mismatch, review notes, failure checklist, explain-back, second reviewer."
+    },
+    {
+      "id": "ship-and-observe",
+      "source_path": "skills/ship-and-observe/SKILL.md",
+      "source_sha256": "8e75ed7509978670cee97fa7bc58f94bf2e5cb5db4211ce3b8d2f834faa08768",
+      "description": "Ship AI-assisted changes safely, make them attributable in production, and handle unplanned loops such as incidents, security findings, test failures, and flaky builds. Use when planning a rollout or rollback, deciding how much release process a change needs, monitoring agents, or responding to an incident. Triggers: rollout plan, rollback, staged rollout, canary, agent visibility, incident, flaky build, break glass."
+    },
+    {
+      "id": "spec-first",
+      "source_path": "skills/spec-first/SKILL.md",
+      "source_sha256": "feb0cc2b5def49a3cb0b441f3782d8368590e688cb9a938c15994a9a879906a1",
+      "description": "Turn a vague request into intent, acceptance criteria, and test expectations before any code is written. Use when starting work, writing or reviewing a spec, defining what done means, or when a request is too vague to build. Not for: speech, diet, wedding, cake, novel, garden, vacation. Triggers: write a spec, define done, acceptance criteria, intent statement, test expectations, vague request, what should this do, spec-driven development."
+    },
+    {
+      "id": "verify-and-evals",
+      "source_path": "skills/verify-and-evals/SKILL.md",
+      "source_sha256": "7ceb267091df4d04f1de9c29bcefe80a412a311e9e9d86939df765a9d36a82c6",
+      "description": "Prove a change works with failing-first tests, and measure AI behavior with pre-registered evals. Use when verifying a fix or feature, showing red-to-green evidence, writing evals, using an LLM as a judge, or turning an incident into a regression test. Triggers: red to green, test first, failing test, prove it works, eval plan, LLM judge, regression eval, incident to eval."
+    }
+  ]
+}
