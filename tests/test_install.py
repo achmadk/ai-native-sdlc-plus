@@ -24,7 +24,6 @@ else:
 
 ROOT = Path(__file__).resolve().parents[1]
 SH = support.find_shell()
-SHELLCHECK = shutil.which("shellcheck")
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
@@ -79,6 +78,22 @@ HELPERS = {
     "check_brief.py": "skills/context-pack/scripts/check_brief.py",
     "redgreen.py": "skills/verify-and-evals/scripts/redgreen.py",
 }
+
+
+def find_shellcheck():
+    executable = shutil.which("shellcheck")
+    if not executable:
+        return None
+    try:
+        result = subprocess.run(
+            [executable, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return executable if result.returncode == 0 else None
+
+
+SHELLCHECK = find_shellcheck()
 
 
 def clean_env(**extra):
