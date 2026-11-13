@@ -1,6 +1,6 @@
 ---
 name: learning-mode
-description: "Pair with a newer engineer so they understand AI-generated code instead of only shipping it. Use when onboarding or mentoring, when someone wants to be able to explain a change in review, or when someone says they do not understand code. Not for: trivia, cat, dog, museum, juggle, fasting, horoscope. Triggers: learning mode, teach me, walk me through, explain like I am new, pair with me, guided questions, I do not understand this change, ramp up."
+description: "Run an opt-in, psychologically safe pairing session that helps an engineer predict, verify, and explain AI-generated code in their own words. Use it when someone wants guided understanding or mentoring, not a direct review verdict or a concise answer."
 ---
 
 # learning-mode — speed plus understanding

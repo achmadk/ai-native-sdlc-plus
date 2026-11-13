@@ -3,10 +3,12 @@
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -30,6 +32,8 @@ PRODUCT_SKILLS = {
     "spec-first",
     "verify-and-evals",
 }
+REGISTRATION_COMMIT = "569eec7a51e8b8f7ee78c26601560dfd15d3b866"
+CURRENT_HEAD = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
 
 
 def load_json(path):
@@ -44,6 +48,10 @@ def load_json(path):
 
 def sha256_bytes(value):
     return hashlib.sha256(value).hexdigest()
+
+
+def sha256_file(path):
+    return sha256_bytes(Path(path).read_bytes().replace(b"\r\n", b"\n"))
 
 
 def assert_sha256(test, value, label):
@@ -76,8 +84,8 @@ class RegistrationContract(unittest.TestCase):
         catalogs = data.get("catalogs", {})
         self.assertEqual(catalogs.get("product", {}).get("path"), "evals/catalogs/product-baseline.json")
         self.assertEqual(catalogs.get("external", {}).get("path"), "evals/catalogs/external-distractors.json")
-        self.assertEqual(catalogs["product"].get("sha256"), sha256_bytes(PRODUCT_CATALOG.read_bytes()))
-        self.assertEqual(catalogs["external"].get("sha256"), sha256_bytes(EXTERNAL_CATALOG.read_bytes()))
+        self.assertEqual(catalogs["product"].get("sha256"), sha256_file(PRODUCT_CATALOG))
+        self.assertEqual(catalogs["external"].get("sha256"), sha256_file(EXTERNAL_CATALOG))
         self.assertEqual({item["id"] for item in product["skills"]}, PRODUCT_SKILLS)
         self.assertTrue({item["family"] for item in external["skills"]} >= {"OpenSpec", "Superpowers"})
 
@@ -217,6 +225,289 @@ class RegistrationContract(unittest.TestCase):
                 timeout=10,
             )
             self.assertEqual(result.returncode, 0, "%s does not descend from its registration" % path)
+
+
+class EvalGuidanceContract(unittest.TestCase):
+    def test_provider_record_and_replay_boundary_is_documented(self):
+        guidance = (ROOT / "skills/verify-and-evals/SKILL.md").read_text(encoding="utf-8")
+        plan = (ROOT / "skills/verify-and-evals/assets/eval-plan-template.md").read_text(encoding="utf-8")
+        for fragment in (
+            "SDLC_EVAL_PROVIDER_CMD",
+            "SDLC_EVAL_PROVIDER_ENV",
+            "scripts/model_eval.py record",
+            "scripts/model_eval.py replay",
+            "--max-request-cost",
+            "shell=False",
+            "never invokes the provider",
+            "Catalog selection is not loader discovery",
+        ):
+            self.assertIn(fragment, guidance)
+        for fragment in (
+            "Provider command JSON argv:",
+            "Allowed provider environment names:",
+            "Maximum request cost:",
+            "Replay transcript:",
+            "Selection, discovery, or invocation claim:",
+        ):
+            self.assertIn(fragment, plan)
+        self.assertLessEqual(len(guidance.splitlines()), 120)
+
+
+class ProviderAndReplayContract(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="sdlc-model-eval-")
+        self.addCleanup(self.temp_dir.cleanup)
+        self.work = Path(self.temp_dir.name)
+        self.provider = self.work / "provider fixture.py"
+        self.provider.write_text(
+            """import json
+import os
+from pathlib import Path
+import sys
+
+request = json.loads(sys.stdin.readline())
+mode = os.environ.get("PROVIDER_MODE", "ok")
+counter = os.environ.get("PROVIDER_COUNT_FILE")
+if counter:
+    path = Path(counter)
+    count = int(path.read_text(encoding="utf-8")) if path.exists() else 0
+    path.write_text(str(count + 1), encoding="utf-8")
+if mode == "malformed":
+    print("not-json")
+    raise SystemExit(0)
+if mode == "oversized":
+    print(json.dumps({"padding": "x" * 10000}))
+    raise SystemExit(0)
+
+selected = json.loads(os.environ.get("PROVIDER_SELECTION", '["ai-sdlc"]'))
+if mode == "env_check":
+    clean = os.environ.get("VISIBLE_TOKEN") == "visible-fixture-token" and "HIDDEN_TOKEN" not in os.environ
+    selected = selected if clean else ["environment-leaked"]
+usage = {"input_tokens": 10, "output_tokens": 2}
+if mode != "missing_cost":
+    usage["cost_usd"] = float(os.environ.get("PROVIDER_COST", "0.01"))
+response = {
+    "version": 1,
+    "provider": "fixture-provider",
+    "model": "fixture-model-v1",
+    "selected": selected,
+    "usage": usage,
+}
+if mode == "echo_secret":
+    response["raw_text"] = os.environ.get("VISIBLE_TOKEN")
+print(json.dumps(response))
+""",
+            encoding="utf-8",
+        )
+
+    def provider_env(self, mode="ok", selected=None, cost="0.01"):
+        marker = self.work / "shell-marker"
+        marker_code = "from pathlib import Path; Path(%r).touch()" % str(marker)
+        command = [
+            sys.executable, "-I", "-B", str(self.provider),
+            "&", sys.executable, "-I", "-B", "-c", marker_code,
+        ]
+        env = dict(os.environ)
+        env.update(
+            PYTHONDONTWRITEBYTECODE="1",
+            SDLC_EVAL_PROVIDER_CMD=json.dumps(command),
+            SDLC_EVAL_PROVIDER_ENV=(
+                "VISIBLE_TOKEN,PROVIDER_MODE,PROVIDER_SELECTION,PROVIDER_COST,PROVIDER_COUNT_FILE"
+            ),
+            VISIBLE_TOKEN="visible-fixture-token",
+            HIDDEN_TOKEN="must-not-reach-provider",
+            PROVIDER_MODE=mode,
+            PROVIDER_SELECTION=json.dumps(["ai-sdlc"] if selected is None else selected),
+            PROVIDER_COST=cost,
+        )
+        return env, marker
+
+    def run_cli(self, *args, env=None):
+        return subprocess.run(
+            [sys.executable, "-I", "-B", str(MODEL_EVAL)] + list(args),
+            cwd=str(ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+
+    def record(self, *extra, case_id="sel-ai-sdlc-s-d1", catalog="baseline",
+               recorded_revision=CURRENT_HEAD, env=None):
+        output = self.work / (case_id + ".json")
+        result = self.run_cli(
+            "record",
+            "--root", str(ROOT),
+            "--kind", "selection",
+            "--case", case_id,
+            "--catalog", catalog,
+            "--registration-commit", REGISTRATION_COMMIT,
+            "--recorded-revision", recorded_revision,
+            "--out", str(output),
+            "--max-response-bytes", "4096",
+            "--max-request-cost", "0.10",
+            "--json",
+            *extra,
+            env=env,
+        )
+        return result, output
+
+    def assert_recorded(self, *extra, case_id="sel-ai-sdlc-s-d1", catalog="baseline",
+                        recorded_revision=CURRENT_HEAD, env=None):
+        result, output = self.record(
+            *extra, case_id=case_id, catalog=catalog,
+            recorded_revision=recorded_revision, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(output.is_file(), result.stdout + result.stderr)
+        return json.loads(output.read_text(encoding="utf-8")), output
+
+    def replay(self, transcript, env=None):
+        return self.run_cli(
+            "replay", "--root", str(ROOT), "--transcript", str(transcript), "--json", env=env
+        )
+
+    def test_record_uses_json_argv_full_catalog_and_explicit_environment(self):
+        env, marker = self.provider_env(mode="env_check")
+        transcript, _ = self.assert_recorded(env=env)
+        self.assertFalse(marker.exists(), "provider argv must never be interpreted by a shell")
+        self.assertEqual(transcript["catalog"]["skill_count"], 34)
+        self.assertEqual(len(transcript["records"]), 3)
+        self.assertTrue(all(record["selected"] == ["ai-sdlc"] for record in transcript["records"]))
+        self.assertNotIn("visible-fixture-token", json.dumps(transcript))
+        self.assertNotIn("must-not-reach-provider", json.dumps(transcript))
+
+    def test_candidate_catalog_comes_from_the_recorded_revision(self):
+        env, _ = self.provider_env()
+        transcript, _ = self.assert_recorded(catalog="candidate", env=env)
+        self.assertEqual(transcript["catalog"]["id"], "candidate")
+        self.assertEqual(transcript["catalog"]["skill_count"], 34)
+        self.assertEqual(transcript["recorded_revision"], CURRENT_HEAD)
+
+    def test_invalid_provider_argv_is_rejected(self):
+        env, _ = self.provider_env()
+        env["SDLC_EVAL_PROVIDER_CMD"] = "not-json"
+        result, output = self.record(env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("provider command", (result.stdout + result.stderr).lower())
+        self.assertFalse(output.exists())
+
+    def test_unknown_provider_selection_is_rejected(self):
+        env, _ = self.provider_env(selected=["not-in-the-catalog"])
+        result, output = self.record(env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown skill", (result.stdout + result.stderr).lower())
+        self.assertFalse(output.exists())
+
+    def test_malformed_and_oversized_provider_responses_are_rejected(self):
+        for mode, expected in (("malformed", "json"), ("oversized", "response")):
+            with self.subTest(mode=mode):
+                env, _ = self.provider_env(mode=mode)
+                result, output = self.record(env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected, (result.stdout + result.stderr).lower())
+                self.assertFalse(output.exists())
+
+    def test_request_cap_stops_before_the_third_repeat(self):
+        env, _ = self.provider_env()
+        counter = self.work / "request-count"
+        env["PROVIDER_COUNT_FILE"] = str(counter)
+        result, output = self.record("--request-cap", "2", env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(counter.is_file(), "provider should run exactly twice before request-cap refusal")
+        self.assertEqual(counter.read_text(encoding="utf-8"), "2")
+        self.assertFalse(output.exists())
+        self.assertIn("request cap", (result.stdout + result.stderr).lower())
+
+    def test_monetary_cap_stops_before_the_next_possible_charge(self):
+        env, _ = self.provider_env(cost="0.02")
+        counter = self.work / "cost-count"
+        env["PROVIDER_COUNT_FILE"] = str(counter)
+        result, output = self.record(
+            "--cost-cap", "0.03", "--max-request-cost", "0.02", env=env
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(counter.is_file(), "provider should run once before cost-cap refusal")
+        self.assertEqual(counter.read_text(encoding="utf-8"), "1")
+        self.assertFalse(output.exists())
+        self.assertIn("cost cap", (result.stdout + result.stderr).lower())
+
+    def test_missing_cost_is_recorded_as_unverified_and_nonpassing(self):
+        env, _ = self.provider_env(mode="missing_cost")
+        result, output = self.record(env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(output.is_file(), result.stdout + result.stderr)
+        transcript = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(transcript["cost_status"], "unverified")
+        self.assertEqual(transcript["status"], "incomplete")
+        self.assertTrue(all(record["usage"]["cost_usd"] is None for record in transcript["records"]))
+
+    def test_zero_cost_provider_is_verified_not_treated_as_missing(self):
+        env, _ = self.provider_env(cost="0")
+        transcript, _ = self.assert_recorded(env=env)
+        self.assertEqual(transcript["cost_status"], "verified")
+        self.assertTrue(all(record["usage"]["cost_usd"] == 0 for record in transcript["records"]))
+
+    def test_secret_echo_is_never_persisted(self):
+        env, _ = self.provider_env(mode="echo_secret")
+        result, output = self.record(env=env)
+        self.assertNotEqual(result.returncode, 0)
+        if output.exists():
+            self.assertNotIn("visible-fixture-token", output.read_text(encoding="utf-8"))
+        self.assertIn("secret", (result.stdout + result.stderr).lower())
+
+    def test_forbidden_selection_is_preserved_as_a_negative_result(self):
+        env, _ = self.provider_env(selected=["ai-sdlc"])
+        transcript, _ = self.assert_recorded(case_id="sel-ai-sdlc-n-d1", env=env)
+        self.assertEqual(transcript["status"], "complete")
+        self.assertEqual(transcript["summary"]["verdict"], "fail")
+        self.assertEqual(transcript["summary"]["forbidden_selections"], 3)
+        self.assertTrue(all(record["outcome"]["forbidden_selected"] == ["ai-sdlc"]
+                            for record in transcript["records"]))
+
+    def test_replay_is_deterministic_and_never_invokes_provider(self):
+        env, _ = self.provider_env()
+        transcript, path = self.assert_recorded(env=env)
+        counter = self.work / "replay-count"
+        env["PROVIDER_COUNT_FILE"] = str(counter)
+        env["SDLC_EVAL_PROVIDER_CMD"] = json.dumps(["command-that-must-not-run"])
+        result = self.replay(path, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        replayed = json.loads(result.stdout)
+        self.assertEqual(replayed["summary"], transcript["summary"])
+        self.assertEqual(replayed["records"], transcript["records"])
+        self.assertFalse(counter.exists(), "replay must not invoke the configured provider")
+
+    def test_replay_rejects_missing_repeats(self):
+        env, _ = self.provider_env()
+        transcript, path = self.assert_recorded(env=env)
+        transcript["records"].pop()
+        path.write_text(json.dumps(transcript), encoding="utf-8")
+        result = self.replay(path, env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("repeat", (result.stdout + result.stderr).lower())
+
+    def test_replay_rejects_provenance_hash_tampering(self):
+        env, _ = self.provider_env()
+        original, path = self.assert_recorded(env=env)
+        fields = (
+            ("registration_sha256",),
+            ("catalog", "sha256"),
+            ("records", 0, "request_sha256"),
+        )
+        for field_path in fields:
+            with self.subTest(field_path=field_path):
+                transcript = json.loads(json.dumps(original))
+                target = transcript
+                for key in field_path[:-1]:
+                    target = target[key]
+                target[field_path[-1]] = "0" * 64
+                path.write_text(json.dumps(transcript), encoding="utf-8")
+                result = self.replay(path, env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("hash", (result.stdout + result.stderr).lower())
 
 
 if __name__ == "__main__":

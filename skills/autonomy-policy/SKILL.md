@@ -1,6 +1,6 @@
 ---
 name: autonomy-policy
-description: "Set trust tiers and decide what agents may do unattended, per risk lane. Use when defining or reviewing an agent autonomy policy, deciding what needs human approval, writing escalation rules, planning a phased rollout, or after an agent incident. Triggers: autonomy policy, trust tiers, what can agents do without approval, unattended actions, agent permissions, escalation rules, human in the loop, phased rollout, demote autonomy."
+description: "Define lane-capped trust tiers, approval boundaries, enforcement controls, escalation, and demotion rules for agent actions. Use it when deciding what agents may do unattended or planning a phased autonomy rollout after reviewing readiness evidence."
 ---
 
 # autonomy-policy — govern what agents may do alone

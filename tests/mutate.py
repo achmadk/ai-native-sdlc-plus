@@ -22,7 +22,7 @@ H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/c
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
 SI = "skills/spec-first/scripts/spec_inputs.py"
 FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
-LT, CB = "scripts/lite.py", "scripts/ceremony_benchmark.py"
+LT, CB, ME = "scripts/lite.py", "scripts/ceremony_benchmark.py", "scripts/model_eval.py"
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
          E: ["tests.test_evidence_check", "tests.test_spec_interop", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
@@ -43,7 +43,8 @@ TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", 
               "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
          BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"],
          LT: ["tests.test_lite"],
-         CB: ["tests.test_ceremony_benchmark"]}
+          CB: ["tests.test_ceremony_benchmark"],
+          ME: ["tests.test_model_eval.ProviderAndReplayContract"]}
 
 MUTANTS = [
     (L, '    "openspec/config.yaml",\n', "", False),
@@ -53,6 +54,20 @@ MUTANTS = [
     (LT, "if args.redgreen:", "if False:", False),
     (CB, "if reg_err:", "if False:", False),
     (CB, 'if not data.get("registration_id"):', "if False:", False),
+    # --- model_eval.py provider and replay trust boundary ---
+    (ME, "if len(records) >= request_cap:", "if False:", False),
+    (ME, "if spent + max_request_cost > cost_cap:", "if False:", False),
+    (ME, "            shell=False,\n", "            shell=True,\n", False),
+    (ME, 'def replay_selection(bundle, args):\n    transcript = _read_json_path',
+     'def replay_selection(bundle, args):\n    argv, child_env, _, credential_values = _provider_configuration()\n    _provider_response({}, argv, child_env, credential_values, 1024, 1, set())\n    transcript = _read_json_path', False),
+    (ME, "all(isinstance(item, str) and item in catalog_ids for item in selected)",
+     "all(isinstance(item, str) for item in selected)", False),
+    (ME, "_eval_require(seen == expected, \"transcript repeat coverage is incomplete\")",
+     "_eval_require(True, \"transcript repeat coverage is incomplete\")", False),
+    (ME, 'transcript.get("registration_sha256") == frozen["selection registration"]', "True", False),
+    (ME, 'transcript_catalog.get("sha256") == catalog["sha256"]', "True", False),
+    (ME, 'record.get("request_sha256") == _sha256(_canonical_json(request))', "True", False),
+    (ME, "if value in text:", "if False:", False),
     (L, "top = max(per_path", "top = min(per_path", False),
     (L, 'return "Standard", None', 'return "Lite", None', False),
     (L, 'compile_pattern(pattern, name == "critical")', "compile_pattern(pattern, False)", False),
@@ -306,12 +321,24 @@ def run_tests(tree, modules=None):
     return proc.returncode == 0
 
 
+def attach_readonly_git_history(tree):
+    """Expose committed objects to provenance tests without copying or mutating .git."""
+    git_dir = subprocess.check_output(
+        ["git", "-C", ROOT, "rev-parse", "--absolute-git-dir"],
+        stderr=subprocess.STDOUT,
+    ).decode("utf-8", "replace").strip()
+    with open(os.path.join(tree, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: %s\n" % git_dir.replace("\\", "/"))
+
+
 def try_mutant(number, mutant):
     rel, old, new, is_equiv = mutant
     tree = tempfile.mkdtemp()
     try:
         shutil.copytree(ROOT, tree, dirs_exist_ok=True, symlinks=True, ignore_dangling_symlinks=True,
                         ignore=shutil.ignore_patterns("__pycache__", ".git", ".codegraph", ".omo", "*.pyc"))
+        if rel == ME:
+            attach_readonly_git_history(tree)
         path = os.path.join(tree, rel)
         with open(path) as handle:
             source = handle.read()

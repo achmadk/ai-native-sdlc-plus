@@ -1,6 +1,6 @@
 ---
 name: spec-first
-description: "Turn a vague request into intent, acceptance criteria, and test expectations before any code is written. Use when starting work, writing or reviewing a spec, defining what done means, or when a request is too vague to build. Not for: speech, diet, wedding, cake, novel, garden, vacation. Triggers: write a spec, define done, acceptance criteria, intent statement, test expectations, vague request, what should this do, spec-driven development."
+description: "Turn an ambiguous request into bounded intent, observable acceptance criteria, assumptions, and failing-before test expectations before implementation. Use it when planning or revising what a change must do, not when executing an approved plan or proving its tests."
 ---
 
 # spec-first — intent before code

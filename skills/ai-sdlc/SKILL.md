@@ -1,6 +1,6 @@
 ---
 name: ai-sdlc
-description: "Route any change to its risk lane and next skill, and say what evidence the lane owes at merge. Use when starting a change, choosing how much process a change needs, writing or fixing a PR description for the sdlc-gate, or when the gate fails. Not for: swim, workout, butterfly, road trip, breakfast, plant, kayak, aliens. Triggers: classify change, which lane, Lite Standard Critical, route change, what evidence do I need, sdlc-gate failing, PR evidence, init repo, doctor check, onboard repo."
+description: "Classify a repository change into Lite, Standard, or Critical and route it to the next workflow with the evidence owed at merge. Use it when starting or onboarding a change, diagnosing SDLC gate evidence failures, or checking repository enforcement readiness."
 ---
 
 # ai-sdlc — router and lane selector
