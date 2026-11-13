@@ -133,6 +133,10 @@ class RegistrationContract(unittest.TestCase):
         self.assertGreater(limits.get("requests", 0), 0)
         self.assertGreater(limits.get("input_tokens", 0), 0)
         self.assertTrue(math.isfinite(limits.get("cost_usd", float("inf"))))
+        judge = protocol.get("judge", {})
+        self.assertFalse(judge.get("enabled_by_default"))
+        self.assertGreaterEqual(judge.get("human_calibration_samples", 0), 24)
+        self.assertGreaterEqual(judge.get("human_spotcheck_fraction", 0), 0.2)
 
         cases = data.get("cases", [])
         self.assertEqual(len(cases), 30)
@@ -253,6 +257,27 @@ class EvalGuidanceContract(unittest.TestCase):
         self.assertLessEqual(len(guidance.splitlines()), 120)
 
 
+class LegacyLexicalClaims(unittest.TestCase):
+    def test_old_keyword_scores_are_never_presented_as_model_selection(self):
+        paths = [
+            ROOT / "README.md",
+            ROOT / "LIMITATIONS.md",
+            ROOT / "docs" / "OVERVIEW.md",
+            EVALS / "results-summary.md",
+            EVALS / "results-trigger.md",
+            EVALS / "mutation-security.md",
+            EVALS / "slice-learnings.md",
+        ]
+        texts = {path: path.read_text(encoding="utf-8") for path in paths}
+        for path, text in texts.items():
+            self.assertIn("lexical overlap", text.lower(), str(path))
+            self.assertNotRegex(text.lower(), r"\btrigger (?:precision|recall|score|scores)\b", str(path))
+        report = texts[EVALS / "results-trigger.md"]
+        self.assertIn("measured 2026-10-15", report)
+        self.assertIn("| OVERALL | 77 | 3 | 78 | 2 | 0.97 | 0.96 |", report)
+        self.assertIn("not actual agent skill selection", report.lower())
+
+
 class ProviderAndReplayContract(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory(prefix="sdlc-model-eval-")
@@ -279,10 +304,6 @@ if mode == "oversized":
     print(json.dumps({"padding": "x" * 10000}))
     raise SystemExit(0)
 
-selected = json.loads(os.environ.get("PROVIDER_SELECTION", '["ai-sdlc"]'))
-if mode == "env_check":
-    clean = os.environ.get("VISIBLE_TOKEN") == "visible-fixture-token" and "HIDDEN_TOKEN" not in os.environ
-    selected = selected if clean else ["environment-leaked"]
 usage = {"input_tokens": 10, "output_tokens": 2}
 if mode != "missing_cost":
     usage["cost_usd"] = float(os.environ.get("PROVIDER_COST", "0.01"))
@@ -290,9 +311,23 @@ response = {
     "version": 1,
     "provider": "fixture-provider",
     "model": "fixture-model-v1",
-    "selected": selected,
     "usage": usage,
 }
+if request.get("kind") == "task":
+    response["response"] = os.environ.get(
+        "PROVIDER_TASK_RESPONSE",
+        "Standard unmatched path defaults to Standard Spec: spec-first test changes ## Trace ## Review notes",
+    )
+    if mode == "task_negative" and request.get("condition") == "with_skill":
+        response["response"] = "Standard"
+    if mode == "model_drift" and request.get("condition") == "with_skill":
+        response["model"] = "fixture-model-drifted"
+else:
+    selected = json.loads(os.environ.get("PROVIDER_SELECTION", '["ai-sdlc"]'))
+    if mode == "env_check":
+        clean = os.environ.get("VISIBLE_TOKEN") == "visible-fixture-token" and "HIDDEN_TOKEN" not in os.environ
+        selected = selected if clean else ["environment-leaked"]
+    response["selected"] = selected
 if mode == "echo_secret":
     response["raw_text"] = os.environ.get("VISIBLE_TOKEN")
 print(json.dumps(response))
@@ -300,7 +335,7 @@ print(json.dumps(response))
             encoding="utf-8",
         )
 
-    def provider_env(self, mode="ok", selected=None, cost="0.01"):
+    def provider_env(self, mode="ok", selected=None, cost="0.01", task_response=None):
         marker = self.work / "shell-marker"
         marker_code = "from pathlib import Path; Path(%r).touch()" % str(marker)
         command = [
@@ -312,7 +347,8 @@ print(json.dumps(response))
             PYTHONDONTWRITEBYTECODE="1",
             SDLC_EVAL_PROVIDER_CMD=json.dumps(command),
             SDLC_EVAL_PROVIDER_ENV=(
-                "VISIBLE_TOKEN,PROVIDER_MODE,PROVIDER_SELECTION,PROVIDER_COST,PROVIDER_COUNT_FILE"
+                "VISIBLE_TOKEN,PROVIDER_MODE,PROVIDER_SELECTION,PROVIDER_TASK_RESPONSE,"
+                "PROVIDER_COST,PROVIDER_COUNT_FILE"
             ),
             VISIBLE_TOKEN="visible-fixture-token",
             HIDDEN_TOKEN="must-not-reach-provider",
@@ -320,6 +356,8 @@ print(json.dumps(response))
             PROVIDER_SELECTION=json.dumps(["ai-sdlc"] if selected is None else selected),
             PROVIDER_COST=cost,
         )
+        if task_response is not None:
+            env["PROVIDER_TASK_RESPONSE"] = task_response
         return env, marker
 
     def run_cli(self, *args, env=None):
@@ -369,6 +407,31 @@ print(json.dumps(response))
             "replay", "--root", str(ROOT), "--transcript", str(transcript), "--json", env=env
         )
 
+    def record_task(self, *extra, case_id="task-ai-sdlc-ic", env=None):
+        output = self.work / (case_id + "-paired.json")
+        result = self.run_cli(
+            "record",
+            "--root", str(ROOT),
+            "--kind", "task",
+            "--case", case_id,
+            "--catalog", "candidate",
+            "--registration-commit", REGISTRATION_COMMIT,
+            "--recorded-revision", CURRENT_HEAD,
+            "--out", str(output),
+            "--max-response-bytes", "4096",
+            "--max-request-cost", "0.10",
+            "--json",
+            *extra,
+            env=env,
+        )
+        return result, output
+
+    def assert_task_recorded(self, *extra, case_id="task-ai-sdlc-ic", env=None):
+        result, output = self.record_task(*extra, case_id=case_id, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(output.is_file(), result.stdout + result.stderr)
+        return json.loads(output.read_text(encoding="utf-8")), output
+
     def test_record_uses_json_argv_full_catalog_and_explicit_environment(self):
         env, marker = self.provider_env(mode="env_check")
         transcript, _ = self.assert_recorded(env=env)
@@ -385,6 +448,54 @@ print(json.dumps(response))
         self.assertEqual(transcript["catalog"]["id"], "candidate")
         self.assertEqual(transcript["catalog"]["skill_count"], 34)
         self.assertEqual(transcript["recorded_revision"], CURRENT_HEAD)
+
+    def test_paired_catalog_selection_is_balanced_and_replayable(self):
+        env, _ = self.provider_env(selected=["ai-sdlc"])
+        transcript, path = self.assert_recorded(
+            case_id="sel-ai-sdlc-s-h", catalog="paired", env=env)
+        self.assertEqual(transcript["kind"], "selection-comparison")
+        self.assertEqual(set(transcript["catalogs"]), {"baseline", "candidate"})
+        self.assertNotEqual(transcript["catalogs"]["baseline"]["sha256"],
+                            transcript["catalogs"]["candidate"]["sha256"])
+        self.assertEqual(len(transcript["records"]), 6)
+        for repeat in (1, 2, 3):
+            scoped = [record for record in transcript["records"] if record["repeat"] == repeat]
+            self.assertEqual({record["catalog_id"] for record in scoped}, {"baseline", "candidate"})
+        first = [record["catalog_id"] for record in transcript["records"] if record["order_index"] == 1]
+        self.assertLessEqual(abs(first.count("baseline") - first.count("candidate")), 1)
+        env["SDLC_EVAL_PROVIDER_CMD"] = json.dumps(["comparison-provider-that-must-not-run"])
+        replayed = self.replay(path, env=env)
+        self.assertEqual(replayed.returncode, 0, replayed.stdout + replayed.stderr)
+        result = json.loads(replayed.stdout)
+        self.assertEqual(result["summaries"], transcript["summaries"])
+        self.assertEqual(result["records"], transcript["records"])
+
+    def test_selection_comparison_report_is_deterministic_and_bounded(self):
+        env, _ = self.provider_env(selected=["ai-sdlc"])
+        _, transcript = self.assert_recorded(
+            case_id="sel-ai-sdlc-s-h", catalog="paired", env=env)
+        report = self.work / "selection-comparison.md"
+        command = (
+            "replay", "--root", str(ROOT), "--transcript", str(transcript),
+            "--report", str(report), "--json",
+        )
+        first = self.run_cli(*command, env=env)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        first_bytes = report.read_bytes()
+        second = self.run_cli(*command, env=env)
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertEqual(report.read_bytes(), first_bytes)
+        text = first_bytes.decode("utf-8")
+        for fragment in (
+            "# Final held-out skill selection comparison",
+            "Baseline",
+            "Candidate",
+            "sel-ai-sdlc-s-h",
+            "fixture-provider",
+            "fixture-model-v1",
+            "Catalog selection is not live loader discovery",
+        ):
+            self.assertIn(fragment, text)
 
     def test_invalid_provider_argv_is_rejected(self):
         env, _ = self.provider_env()
@@ -508,6 +619,104 @@ print(json.dumps(response))
                 result = self.replay(path, env=env)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("hash", (result.stdout + result.stderr).lower())
+
+    def test_task_record_pairs_balanced_conditions_and_scores_assertions(self):
+        env, _ = self.provider_env()
+        transcript, _ = self.assert_task_recorded(env=env)
+        self.assertEqual(len(transcript["records"]), 6)
+        for repeat in (1, 2, 3):
+            scoped = [record for record in transcript["records"] if record["repeat"] == repeat]
+            self.assertEqual({record["condition"] for record in scoped}, {"baseline", "with_skill"})
+        first_conditions = [
+            next(record["condition"] for record in transcript["records"] if record["repeat"] == repeat)
+            for repeat in (1, 2, 3)
+        ]
+        self.assertLessEqual(abs(first_conditions.count("baseline") - first_conditions.count("with_skill")), 1)
+        self.assertTrue(all(record["assertions"]["passed"] == 2 for record in transcript["records"]))
+        self.assertTrue(all(record["assertions"]["registered"] == 2 for record in transcript["records"]))
+        self.assertTrue(all(record["duration_ms"] >= 0 for record in transcript["records"]))
+        self.assertEqual(transcript["summary"]["conditions"]["baseline"]["passed"], 6)
+        self.assertEqual(transcript["summary"]["conditions"]["with_skill"]["passed"], 6)
+        self.assertFalse(transcript["summary"]["judge"]["used"])
+        self.assertIn("supporting evidence", transcript["summary"]["judge"]["caveat"])
+
+    def test_task_record_rejects_provider_or_model_drift(self):
+        env, _ = self.provider_env(mode="model_drift")
+        result, output = self.record_task(env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("identity changed", (result.stdout + result.stderr).lower())
+        self.assertFalse(output.exists())
+
+    def test_task_negative_delta_is_retained(self):
+        env, _ = self.provider_env(mode="task_negative")
+        transcript, _ = self.assert_task_recorded(env=env)
+        self.assertEqual(transcript["status"], "complete")
+        self.assertEqual(transcript["summary"]["conditions"]["baseline"]["passed"], 6)
+        self.assertEqual(transcript["summary"]["conditions"]["with_skill"]["passed"], 0)
+        self.assertEqual(transcript["summary"]["negative_deltas"][0]["case_id"], "task-ai-sdlc-ic")
+        self.assertLess(transcript["summary"]["negative_deltas"][0]["delta"], 0)
+
+    def test_task_replay_is_deterministic_and_provider_free(self):
+        env, _ = self.provider_env()
+        transcript, path = self.assert_task_recorded(env=env)
+        counter = self.work / "task-replay-count"
+        env["PROVIDER_COUNT_FILE"] = str(counter)
+        env["SDLC_EVAL_PROVIDER_CMD"] = json.dumps(["task-provider-that-must-not-run"])
+        result = self.replay(path, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        replayed = json.loads(result.stdout)
+        self.assertEqual(replayed["records"], transcript["records"])
+        self.assertEqual(replayed["summary"], transcript["summary"])
+        self.assertFalse(counter.exists())
+
+    def test_task_replay_rejects_missing_repeats_and_hash_tampering(self):
+        env, _ = self.provider_env()
+        original, path = self.assert_task_recorded(env=env)
+        transcript = json.loads(json.dumps(original))
+        transcript["records"].pop()
+        path.write_text(json.dumps(transcript), encoding="utf-8")
+        result = self.replay(path, env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("repeat", (result.stdout + result.stderr).lower())
+
+        transcript = json.loads(json.dumps(original))
+        transcript["records"][0]["request_sha256"] = "0" * 64
+        path.write_text(json.dumps(transcript), encoding="utf-8")
+        result = self.replay(path, env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("hash", (result.stdout + result.stderr).lower())
+
+    def test_task_report_is_deterministic_and_preserves_historical_reports(self):
+        env, _ = self.provider_env(mode="task_negative")
+        _, transcript = self.assert_task_recorded(env=env)
+        report = self.work / "task-report.md"
+        historical = [EVALS / "results-full.md", EVALS / "results-router-spec-first.md"]
+        before = {path: sha256_file(path) for path in historical}
+        command = (
+            "replay", "--root", str(ROOT), "--transcript", str(transcript),
+            "--report", str(report), "--json",
+        )
+        first = self.run_cli(*command, env=env)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        first_bytes = report.read_bytes()
+        second = self.run_cli(*command, env=env)
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertEqual(report.read_bytes(), first_bytes)
+        text = first_bytes.decode("utf-8")
+        for fragment in (
+            "# Current paired task evaluation",
+            CURRENT_HEAD,
+            "fixture-provider",
+            "fixture-model-v1",
+            "Baseline",
+            "With skill",
+            "task-ai-sdlc-ic",
+            "-100.0 pp",
+            "supporting evidence only",
+            "Historical manual reports remain dated",
+        ):
+            self.assertIn(fragment, text)
+        self.assertEqual({path: sha256_file(path) for path in historical}, before)
 
 
 if __name__ == "__main__":

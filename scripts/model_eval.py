@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -387,6 +388,7 @@ def _verify_frozen_inputs(bundle, registration_commit, recorded_revision):
     blobs = {}
     for label, path in (
         ("selection registration", bundle["selection_path"]),
+        ("task registration", bundle["tasks_path"]),
         ("product catalog", bundle["product_path"]),
         ("external catalog", bundle["external_path"]),
     ):
@@ -505,7 +507,8 @@ def _scan_provider_output(raw, credential_values):
             raise EvaluationError("provider response contains a possible secret (%s)" % label)
 
 
-def _provider_response(request, argv, child_env, credential_values, max_bytes, timeout, catalog_ids):
+def _provider_response(request, argv, child_env, credential_values, max_bytes, timeout, catalog_ids=None):
+    started = time.monotonic()
     try:
         result = subprocess.run(
             argv,
@@ -518,13 +521,18 @@ def _provider_response(request, argv, child_env, credential_values, max_bytes, t
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise EvaluationError("provider process failed: %s" % exc)
+    duration_ms = round((time.monotonic() - started) * 1000, 3)
     if len(result.stdout) > max_bytes:
         raise EvaluationError("provider response exceeds %d bytes" % max_bytes)
     if len(result.stderr) > max_bytes:
         raise EvaluationError("provider stderr exceeds %d bytes" % max_bytes)
     _scan_provider_output(result.stdout + b"\n" + result.stderr, credential_values)
     if result.returncode != 0:
-        raise EvaluationError("provider process exited with status %d" % result.returncode)
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        if len(detail) > 1000:
+            detail = detail[-1000:]
+        suffix = ": %s" % detail if detail else ""
+        raise EvaluationError("provider process exited with status %d%s" % (result.returncode, suffix))
     try:
         response = json.loads(result.stdout.decode("utf-8"), parse_constant=_reject_constant)
     except (UnicodeError, ValueError) as exc:
@@ -535,11 +543,6 @@ def _provider_response(request, argv, child_env, credential_values, max_bytes, t
     model = response.get("model")
     _eval_require(isinstance(provider, str) and 0 < len(provider) <= 200, "provider response requires provider identity")
     _eval_require(isinstance(model, str) and 0 < len(model) <= 200, "provider response requires model identity")
-    selected = response.get("selected")
-    _eval_require(isinstance(selected, list) and len(selected) == len(set(selected)),
-                  "provider selected must be an array of unique skill IDs")
-    _eval_require(all(isinstance(item, str) and item in catalog_ids for item in selected),
-                  "provider selected an unknown skill ID")
     usage = response.get("usage")
     _eval_require(isinstance(usage, dict), "provider response requires usage")
     for key in ("input_tokens", "output_tokens"):
@@ -552,16 +555,33 @@ def _provider_response(request, argv, child_env, credential_values, max_bytes, t
                       math.isfinite(cost) and cost >= 0,
                       "provider usage cost_usd must be a nonnegative finite number")
         cost = float(cost)
-    return {
+    normalized = {
         "provider": provider,
         "model": model,
-        "selected": sorted(selected),
+        "duration_ms": duration_ms,
         "usage": {
             "input_tokens": usage["input_tokens"],
             "output_tokens": usage["output_tokens"],
             "cost_usd": cost,
         },
     }
+    if request.get("kind") == "selection":
+        selected = response.get("selected")
+        _eval_require(isinstance(selected, list) and len(selected) == len(set(selected)),
+                      "provider selected must be an array of unique skill IDs")
+        _eval_require(all(isinstance(item, str) and item in catalog_ids for item in selected),
+                      "provider selected an unknown skill ID")
+        normalized["selected"] = sorted(selected)
+    elif request.get("kind") == "task":
+        task_response = response.get("response")
+        _eval_require(isinstance(task_response, str) and task_response.strip(),
+                      "provider task response must be non-empty text")
+        _eval_require(len(task_response.encode("utf-8")) <= max_bytes,
+                      "provider task response exceeds %d bytes" % max_bytes)
+        normalized["response"] = task_response
+    else:
+        raise EvaluationError("provider request kind is unsupported")
+    return normalized
 
 
 def _money(value, label, allow_zero=False):
@@ -683,6 +703,33 @@ def _atomic_json(path, value):
         os.replace(temp_path, path)
     except OSError as exc:
         raise EvaluationError("cannot write transcript atomically: %s" % exc)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+
+def _atomic_text(path, value):
+    path = os.path.abspath(path)
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent):
+        raise EvaluationError("report output parent does not exist: %s" % parent)
+    if os.path.islink(path):
+        raise EvaluationError("report output must not be a symlink")
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", newline="\n", dir=parent,
+                prefix=".%s." % os.path.basename(path), suffix=".tmp", delete=False) as handle:
+            temp_path = handle.name
+            handle.write(value.rstrip() + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    except OSError as exc:
+        raise EvaluationError("cannot write report atomically: %s" % exc)
     finally:
         if temp_path and os.path.exists(temp_path):
             try:
@@ -814,8 +861,188 @@ def record_selection(bundle, args):
     return transcript, 0
 
 
-def replay_selection(bundle, args):
-    transcript = _read_json_path(args.transcript, "selection transcript", max_bytes=4 * MAX_JSON_BYTES)
+def _catalog_condition_order(case_id, repeat):
+    seed = int(_sha256((case_id + ":catalog-order").encode("utf-8"))[:8], 16) % 2
+    first = (seed + repeat - 1) % 2
+    catalogs = ["baseline", "candidate"]
+    return [catalogs[first], catalogs[1 - first]]
+
+
+def _selection_comparison(cases, records, criteria):
+    summaries = {
+        catalog_id: _selection_summary(
+            cases, [record for record in records if record["catalog_id"] == catalog_id], criteria)
+        for catalog_id in ("baseline", "candidate")
+    }
+    changed = []
+    regressions = []
+    for case in cases:
+        counts = {}
+        for catalog_id in ("baseline", "candidate"):
+            counts[catalog_id] = sum(
+                record["outcome"]["status"] == "pass"
+                for record in records
+                if record["case_id"] == case["id"] and record["catalog_id"] == catalog_id)
+        delta = counts["candidate"] - counts["baseline"]
+        if delta:
+            item = {
+                "case_id": case["id"],
+                "baseline_passed": counts["baseline"],
+                "candidate_passed": counts["candidate"],
+                "delta": delta,
+            }
+            changed.append(item)
+            if delta < 0:
+                regressions.append(item)
+    comparison = {
+        "passed_record_delta": (
+            summaries["candidate"]["passed_records"] - summaries["baseline"]["passed_records"]),
+        "changed_cases": changed,
+        "regressions": regressions,
+        "verdict": "pass" if summaries["candidate"]["verdict"] == "pass" and not regressions else "fail",
+    }
+    return summaries, comparison
+
+
+def _build_selection_comparison_transcript(bundle, catalogs, cases, records,
+                                           registration_commit, recorded_revision,
+                                           registration_hash, environment_names,
+                                           status, cost_status):
+    summaries, comparison = _selection_comparison(
+        cases, records, bundle["selection"]["pass_criteria"])
+    if status != "complete":
+        comparison["verdict"] = "unverified"
+    providers = sorted({record["provider"] for record in records})
+    models = sorted({record["model"] for record in records})
+    return {
+        "version": 1,
+        "kind": "selection-comparison",
+        "mode": "record",
+        "status": status,
+        "cost_status": cost_status,
+        "registration_id": bundle["selection"]["registration_id"],
+        "registration_commit": registration_commit,
+        "registration_sha256": registration_hash,
+        "recorded_revision": recorded_revision,
+        "recorded_at": _utc_timestamp(),
+        "catalogs": {
+            catalog_id: {
+                "id": catalog["id"],
+                "sha256": catalog["sha256"],
+                "source_sha256": catalog["source_sha256"],
+                "skill_count": catalog["skill_count"],
+            }
+            for catalog_id, catalog in sorted(catalogs.items())
+        },
+        "case_ids": [case["id"] for case in cases],
+        "repetitions": bundle["selection"]["protocol"]["repetitions"],
+        "provider": providers[0] if len(providers) == 1 else providers,
+        "model": models[0] if len(models) == 1 else models,
+        "provider_environment_names": environment_names,
+        "records": records,
+        "summaries": summaries,
+        "comparison": comparison,
+    }
+
+
+def record_selection_comparison(bundle, args):
+    registration_commit, recorded_revision, frozen = _verify_frozen_inputs(
+        bundle, args.registration_commit, args.recorded_revision)
+    catalogs = {
+        "baseline": _selection_catalog(bundle, "baseline", recorded_revision),
+        "candidate": _selection_catalog(bundle, "candidate", recorded_revision),
+    }
+    catalog_ids = {item["id"] for item in catalogs["baseline"]["skills"]}
+    _eval_require(catalog_ids == {item["id"] for item in catalogs["candidate"]["skills"]},
+                  "paired catalogs must contain the same skill IDs")
+    cases = bundle["selection"]["cases"]
+    if args.case:
+        cases = [case for case in cases if case["id"] == args.case]
+        _eval_require(bool(cases), "selection case not found: %s" % args.case)
+    elif args.split != "all":
+        cases = [case for case in cases if case["split"] == args.split]
+    _eval_require(bool(cases), "no selection cases matched the requested scope")
+
+    protocol = bundle["selection"]["protocol"]
+    registered_request_cap = protocol["limits"]["requests"]
+    request_cap = args.request_cap if args.request_cap is not None else registered_request_cap
+    _eval_require(isinstance(request_cap, int) and 0 < request_cap <= registered_request_cap,
+                  "request cap must be positive and no greater than the registration")
+    registered_cost_cap = _money(protocol["limits"]["cost_usd"], "registered cost cap")
+    cost_cap = _money(args.cost_cap, "cost cap") if args.cost_cap is not None else registered_cost_cap
+    _eval_require(cost_cap <= registered_cost_cap, "cost cap must not exceed the registration")
+    max_request_cost = _money(args.max_request_cost, "maximum request cost")
+    _eval_require(max_request_cost <= cost_cap, "maximum request cost must not exceed the cost cap")
+    _eval_require(isinstance(args.max_response_bytes, int) and 0 < args.max_response_bytes <= MAX_JSON_BYTES,
+                  "maximum provider response must be 1..%d bytes" % MAX_JSON_BYTES)
+    _eval_require(isinstance(args.provider_timeout, int) and 0 < args.provider_timeout <= 600,
+                  "provider timeout must be 1..600 seconds")
+
+    argv, child_env, environment_names, credential_values = _provider_configuration()
+    records = []
+    spent = Decimal("0")
+    input_tokens = 0
+    provider_identity = None
+    repetitions = protocol["repetitions"]
+    registration_hash = frozen["selection registration"]
+    for case in cases:
+        for repeat in range(1, repetitions + 1):
+            for order_index, catalog_id in enumerate(_catalog_condition_order(case["id"], repeat), 1):
+                if len(records) >= request_cap:
+                    raise EvaluationError("request cap would be exceeded before comparison repeat %d" % repeat)
+                if spent + max_request_cost > cost_cap:
+                    raise EvaluationError("cost cap would be exceeded before comparison repeat %d" % repeat)
+                catalog = catalogs[catalog_id]
+                request = _selection_request(case, repeat, catalog)
+                response = _provider_response(
+                    request, argv, child_env, credential_values, args.max_response_bytes,
+                    args.provider_timeout, catalog_ids)
+                identity = (response["provider"], response["model"])
+                if provider_identity is None:
+                    provider_identity = identity
+                _eval_require(identity == provider_identity, "provider or model identity changed during recording")
+                input_tokens += response["usage"]["input_tokens"]
+                _eval_require(input_tokens <= protocol["limits"]["input_tokens"],
+                              "input token cap was exceeded")
+                record = {
+                    "case_id": case["id"],
+                    "split": case["split"],
+                    "repeat": repeat,
+                    "catalog_id": catalog_id,
+                    "order_index": order_index,
+                    "request_sha256": _sha256(_canonical_json(request)),
+                    "catalog_sha256": catalog["sha256"],
+                    "registration_sha256": registration_hash,
+                    "provider": response["provider"],
+                    "model": response["model"],
+                    "selected": response["selected"],
+                    "usage": response["usage"],
+                    "outcome": _score_selection(case, response["selected"]),
+                }
+                records.append(record)
+                cost = response["usage"]["cost_usd"]
+                if cost is None:
+                    transcript = _build_selection_comparison_transcript(
+                        bundle, catalogs, cases, records, registration_commit,
+                        recorded_revision, registration_hash, environment_names,
+                        "incomplete", "unverified")
+                    _atomic_json(args.out, transcript)
+                    return transcript, 4
+                actual_cost = _money(cost, "provider request cost", allow_zero=True)
+                _eval_require(actual_cost <= max_request_cost,
+                              "provider request cost exceeded the declared maximum")
+                spent += actual_cost
+                _eval_require(spent <= cost_cap, "provider cost cap was exceeded")
+    transcript = _build_selection_comparison_transcript(
+        bundle, catalogs, cases, records, registration_commit,
+        recorded_revision, registration_hash, environment_names, "complete", "verified")
+    _atomic_json(args.out, transcript)
+    return transcript, 0
+
+
+def replay_selection(bundle, args, transcript=None):
+    transcript = transcript or _read_json_path(
+        args.transcript, "selection transcript", max_bytes=4 * MAX_JSON_BYTES)
     _eval_require(transcript.get("version") == 1 and transcript.get("kind") == "selection",
                   "selection transcript schema is invalid")
     _eval_require(transcript.get("status") == "complete", "selection transcript is incomplete")
@@ -887,6 +1114,681 @@ def replay_selection(bundle, args):
     }
 
 
+def replay_selection_comparison(bundle, transcript):
+    _eval_require(transcript.get("version") == 1 and transcript.get("kind") == "selection-comparison",
+                  "selection comparison transcript schema is invalid")
+    _eval_require(transcript.get("status") == "complete", "selection comparison transcript is incomplete")
+    registration_commit, recorded_revision, frozen = _verify_frozen_inputs(
+        bundle, transcript.get("registration_commit"), transcript.get("recorded_revision"))
+    _eval_require(transcript.get("registration_sha256") == frozen["selection registration"],
+                  "selection comparison registration hash mismatch")
+    _eval_require(transcript.get("registration_id") == bundle["selection"]["registration_id"],
+                  "selection comparison registration id mismatch")
+    catalogs = {
+        "baseline": _selection_catalog(bundle, "baseline", recorded_revision),
+        "candidate": _selection_catalog(bundle, "candidate", recorded_revision),
+    }
+    transcript_catalogs = transcript.get("catalogs")
+    _eval_require(isinstance(transcript_catalogs, dict) and set(transcript_catalogs) == set(catalogs),
+                  "selection comparison catalogs are invalid")
+    for catalog_id, catalog in catalogs.items():
+        saved = transcript_catalogs[catalog_id]
+        _eval_require(saved.get("sha256") == catalog["sha256"],
+                      "%s comparison catalog hash mismatch" % catalog_id)
+        _eval_require(saved.get("source_sha256") == catalog["source_sha256"],
+                      "%s comparison catalog source hash mismatch" % catalog_id)
+        _eval_require(saved.get("skill_count") == catalog["skill_count"],
+                      "%s comparison catalog skill count mismatch" % catalog_id)
+    catalog_ids = {item["id"] for item in catalogs["baseline"]["skills"]}
+    cases_by_id = {case["id"]: case for case in bundle["selection"]["cases"]}
+    case_ids = transcript.get("case_ids")
+    _eval_require(isinstance(case_ids, list) and case_ids and len(case_ids) == len(set(case_ids)),
+                  "selection comparison case ids are invalid")
+    _eval_require(all(case_id in cases_by_id for case_id in case_ids),
+                  "selection comparison references an unknown case")
+    repetitions = bundle["selection"]["protocol"]["repetitions"]
+    _eval_require(transcript.get("repetitions") == repetitions,
+                  "selection comparison repeat count mismatch")
+    records = transcript.get("records")
+    _eval_require(isinstance(records, list), "selection comparison records must be an array")
+    seen = set()
+    rescored = []
+    for record in records:
+        _eval_require(isinstance(record, dict), "selection comparison records must be objects")
+        key = (record.get("case_id"), record.get("repeat"), record.get("catalog_id"))
+        _eval_require(key not in seen, "selection comparison has duplicate catalog repeats")
+        seen.add(key)
+        case = cases_by_id.get(record.get("case_id"))
+        _eval_require(case is not None and case["id"] in case_ids,
+                      "selection comparison record references an unknown case")
+        repeat = record.get("repeat")
+        catalog_id = record.get("catalog_id")
+        _eval_require(isinstance(repeat, int) and 1 <= repeat <= repetitions,
+                      "selection comparison repeat is invalid")
+        _eval_require(catalog_id in catalogs, "selection comparison catalog id is invalid")
+        expected_order = _catalog_condition_order(case["id"], repeat)
+        _eval_require(record.get("order_index") == expected_order.index(catalog_id) + 1,
+                      "selection comparison catalog order is invalid")
+        catalog = catalogs[catalog_id]
+        request = _selection_request(case, repeat, catalog)
+        _eval_require(record.get("request_sha256") == _sha256(_canonical_json(request)),
+                      "selection comparison request hash mismatch")
+        _eval_require(record.get("catalog_sha256") == catalog["sha256"],
+                      "selection comparison record catalog hash mismatch")
+        _eval_require(record.get("registration_sha256") == frozen["selection registration"],
+                      "selection comparison record registration hash mismatch")
+        selected = record.get("selected")
+        _eval_require(isinstance(selected, list) and len(selected) == len(set(selected)) and
+                      all(item in catalog_ids for item in selected),
+                      "selection comparison selected skills are invalid")
+        outcome = _score_selection(case, selected)
+        _eval_require(record.get("outcome") == outcome,
+                      "selection comparison outcome does not match exact labels")
+        rescored.append(record)
+    expected = {
+        (case_id, repeat, catalog_id)
+        for case_id in case_ids
+        for repeat in range(1, repetitions + 1)
+        for catalog_id in catalogs
+    }
+    _eval_require(seen == expected, "selection comparison repeat coverage is incomplete")
+    cases = [cases_by_id[case_id] for case_id in case_ids]
+    summaries, comparison = _selection_comparison(
+        cases, rescored, bundle["selection"]["pass_criteria"])
+    _eval_require(transcript.get("summaries") == summaries,
+                  "selection comparison summaries do not match replay")
+    _eval_require(transcript.get("comparison") == comparison,
+                  "selection comparison result does not match replay")
+    return {
+        "version": 1,
+        "kind": "selection-comparison",
+        "mode": "replay",
+        "status": "complete",
+        "cost_status": transcript.get("cost_status"),
+        "registration_id": transcript.get("registration_id"),
+        "registration_commit": registration_commit,
+        "recorded_revision": recorded_revision,
+        "recorded_at": transcript.get("recorded_at"),
+        "catalogs": transcript_catalogs,
+        "case_ids": case_ids,
+        "repetitions": repetitions,
+        "provider": transcript.get("provider"),
+        "model": transcript.get("model"),
+        "records": rescored,
+        "summaries": summaries,
+        "comparison": comparison,
+    }
+
+
+def _task_skill(bundle, revision, skill_id):
+    path = "skills/%s/SKILL.md" % skill_id
+    blob = _git_command(bundle["root"], ["show", "%s:%s" % (revision, path)],
+                        "cannot resolve task skill")
+    name, _ = _skill_description(blob, path)
+    _eval_require(name == skill_id, "%s name does not match its directory" % path)
+    try:
+        text = blob.decode("utf-8")
+    except UnicodeError as exc:
+        raise EvaluationError("%s is not UTF-8: %s" % (path, exc))
+    return {
+        "id": skill_id,
+        "source_path": path,
+        "source_sha256": _sha256(blob.replace(b"\r\n", b"\n")),
+        "content": text,
+    }
+
+
+def _task_condition_order(case_id, repeat):
+    seed = int(_sha256((case_id + ":condition-order").encode("utf-8"))[:8], 16) % 2
+    first = (seed + repeat - 1) % 2
+    conditions = ["baseline", "with_skill"]
+    return [conditions[first], conditions[1 - first]]
+
+
+def _task_request(case, repeat, condition, skill):
+    return {
+        "version": 1,
+        "kind": "task",
+        "case_id": case["id"],
+        "role": case["role"],
+        "repeat": repeat,
+        "condition": condition,
+        "prompt": case["prompt"],
+        "skill": None if condition == "baseline" else {
+            "id": skill["id"],
+            "source_sha256": skill["source_sha256"],
+            "content": skill["content"],
+        },
+        "response_schema": {
+            "version": 1,
+            "response": "plain-text answer to the task",
+            "usage": "input_tokens, output_tokens, and cost_usd",
+        },
+    }
+
+
+def _json_has_field(value, dotted):
+    current = value
+    for part in dotted.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+def _score_task_assertions(case, response):
+    folded = response.casefold()
+    try:
+        parsed = json.loads(response)
+    except ValueError:
+        parsed = None
+    results = []
+    for assertion in case["assertions"]:
+        values = assertion["values"]
+        kind = assertion["kind"]
+        if kind == "contains_all":
+            passed = all(value.casefold() in folded for value in values)
+        elif kind == "contains_any":
+            passed = any(value.casefold() in folded for value in values)
+        elif kind == "excludes_all":
+            passed = all(value.casefold() not in folded for value in values)
+        else:
+            passed = parsed is not None and all(_json_has_field(parsed, value) for value in values)
+        results.append({"id": assertion["id"], "kind": kind, "passed": bool(passed)})
+    return {
+        "passed": sum(1 for result in results if result["passed"]),
+        "registered": len(results),
+        "results": results,
+    }
+
+
+def _task_summary(cases, records, protocol):
+    conditions = {
+        condition: {
+            "records": 0,
+            "passed": 0,
+            "registered": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0,
+            "duration_ms": 0.0,
+        }
+        for condition in ("baseline", "with_skill")
+    }
+    by_case = {}
+    for record in records:
+        totals = conditions[record["condition"]]
+        totals["records"] += 1
+        totals["passed"] += record["assertions"]["passed"]
+        totals["registered"] += record["assertions"]["registered"]
+        totals["input_tokens"] += record["usage"]["input_tokens"]
+        totals["output_tokens"] += record["usage"]["output_tokens"]
+        totals["cost_usd"] += record["usage"]["cost_usd"] or 0.0
+        totals["duration_ms"] += record["duration_ms"]
+        case_totals = by_case.setdefault(record["case_id"], {
+            "skill": record["skill"],
+            "baseline": {"passed": 0, "registered": 0},
+            "with_skill": {"passed": 0, "registered": 0},
+        })
+        bucket = case_totals[record["condition"]]
+        bucket["passed"] += record["assertions"]["passed"]
+        bucket["registered"] += record["assertions"]["registered"]
+    for totals in conditions.values():
+        totals["pass_rate"] = totals["passed"] / totals["registered"] if totals["registered"] else 0.0
+        totals["duration_ms"] = round(totals["duration_ms"], 3)
+        totals["cost_usd"] = round(totals["cost_usd"], 12)
+
+    negative_deltas = []
+    by_skill = {}
+    for case_id, totals in sorted(by_case.items()):
+        baseline = totals["baseline"]
+        with_skill = totals["with_skill"]
+        baseline["pass_rate"] = baseline["passed"] / baseline["registered"] if baseline["registered"] else 0.0
+        with_skill["pass_rate"] = with_skill["passed"] / with_skill["registered"] if with_skill["registered"] else 0.0
+        delta = with_skill["pass_rate"] - baseline["pass_rate"]
+        totals["delta"] = delta
+        if delta < 0:
+            negative_deltas.append({"case_id": case_id, "skill": totals["skill"], "delta": delta})
+        skill = by_skill.setdefault(totals["skill"], {"improved_cases": 0, "regressed_cases": 0, "case_deltas": {}})
+        skill["case_deltas"][case_id] = delta
+        if delta >= 0.15:
+            skill["improved_cases"] += 1
+        if delta < -0.10:
+            skill["regressed_cases"] += 1
+    for totals in by_skill.values():
+        totals["verdict"] = (
+            "pass" if totals["improved_cases"] >= 2 and totals["regressed_cases"] == 0 else "fail")
+    complete_corpus = len(cases) == 30
+    verdict = "unverified"
+    if complete_corpus:
+        verdict = "pass" if all(item["verdict"] == "pass" for item in by_skill.values()) else "fail"
+    judge = protocol.get("judge", {})
+    return {
+        "conditions": conditions,
+        "by_case": by_case,
+        "by_skill": dict(sorted(by_skill.items())),
+        "negative_deltas": negative_deltas,
+        "judge": {
+            "used": False,
+            "enabled_by_default": bool(judge.get("enabled_by_default")),
+            "human_calibration_samples": judge.get("human_calibration_samples"),
+            "human_spotcheck_fraction": judge.get("human_spotcheck_fraction"),
+            "caveat": "Automated judge scores are supporting evidence only and were not used for deterministic assertions.",
+        },
+        "verdict": verdict,
+    }
+
+
+def _build_task_transcript(bundle, catalog, cases, records, registration_commit,
+                           recorded_revision, registration_hash, source_hash,
+                           environment_names, status, cost_status):
+    providers = sorted({record["provider"] for record in records})
+    models = sorted({record["model"] for record in records})
+    summary = _task_summary(cases, records, bundle["tasks"]["protocol"])
+    if status != "complete":
+        summary["verdict"] = "unverified"
+    return {
+        "version": 1,
+        "kind": "task",
+        "mode": "record",
+        "status": status,
+        "cost_status": cost_status,
+        "registration_id": bundle["tasks"]["registration_id"],
+        "registration_commit": registration_commit,
+        "registration_sha256": registration_hash,
+        "recorded_revision": recorded_revision,
+        "recorded_at": _utc_timestamp(),
+        "catalog": {"id": catalog["id"], "source_sha256": source_hash},
+        "case_ids": [case["id"] for case in cases],
+        "repetitions": bundle["tasks"]["protocol"]["repetitions"],
+        "conditions": ["baseline", "with_skill"],
+        "provider": providers[0] if len(providers) == 1 else providers,
+        "model": models[0] if len(models) == 1 else models,
+        "provider_environment_names": environment_names,
+        "records": records,
+        "summary": summary,
+    }
+
+
+def record_tasks(bundle, args):
+    registration_commit, recorded_revision, frozen = _verify_frozen_inputs(
+        bundle, args.registration_commit, args.recorded_revision)
+    _eval_require(args.catalog == "candidate", "paired task evaluation requires the committed candidate catalog")
+    catalog = _selection_catalog(bundle, "candidate", recorded_revision)
+    cases = bundle["tasks"]["cases"]
+    if args.case:
+        cases = [case for case in cases if case["id"] == args.case]
+        _eval_require(bool(cases), "task case not found: %s" % args.case)
+    _eval_require(bool(cases), "no task cases matched the requested scope")
+    skills = {
+        skill_id: _task_skill(bundle, recorded_revision, skill_id)
+        for skill_id in sorted({case["skill"] for case in cases})
+    }
+    source_hash = _sha256(_canonical_json([
+        {"id": skill_id, "sha256": skills[skill_id]["source_sha256"]}
+        for skill_id in sorted(skills)
+    ]))
+
+    protocol = bundle["tasks"]["protocol"]
+    registered_request_cap = protocol["limits"]["requests"]
+    request_cap = args.request_cap if args.request_cap is not None else registered_request_cap
+    _eval_require(isinstance(request_cap, int) and 0 < request_cap <= registered_request_cap,
+                  "request cap must be positive and no greater than the registration")
+    registered_cost_cap = _money(protocol["limits"]["cost_usd"], "registered cost cap")
+    cost_cap = _money(args.cost_cap, "cost cap") if args.cost_cap is not None else registered_cost_cap
+    _eval_require(cost_cap <= registered_cost_cap, "cost cap must not exceed the registration")
+    max_request_cost = _money(args.max_request_cost, "maximum request cost")
+    _eval_require(max_request_cost <= cost_cap, "maximum request cost must not exceed the cost cap")
+    _eval_require(isinstance(args.max_response_bytes, int) and 0 < args.max_response_bytes <= MAX_JSON_BYTES,
+                  "maximum provider response must be 1..%d bytes" % MAX_JSON_BYTES)
+    _eval_require(isinstance(args.provider_timeout, int) and 0 < args.provider_timeout <= 600,
+                  "provider timeout must be 1..600 seconds")
+
+    argv, child_env, environment_names, credential_values = _provider_configuration()
+    records = []
+    spent = Decimal("0")
+    input_tokens = 0
+    provider_identity = None
+    repetitions = protocol["repetitions"]
+    registration_hash = frozen["task registration"]
+    for case in cases:
+        skill = skills[case["skill"]]
+        for repeat in range(1, repetitions + 1):
+            for order_index, condition in enumerate(_task_condition_order(case["id"], repeat), 1):
+                if len(records) >= request_cap:
+                    raise EvaluationError("request cap would be exceeded before task repeat %d" % repeat)
+                if spent + max_request_cost > cost_cap:
+                    raise EvaluationError("cost cap would be exceeded before task repeat %d" % repeat)
+                request = _task_request(case, repeat, condition, skill)
+                response = _provider_response(
+                    request, argv, child_env, credential_values, args.max_response_bytes,
+                    args.provider_timeout)
+                identity = (response["provider"], response["model"])
+                if provider_identity is None:
+                    provider_identity = identity
+                _eval_require(identity == provider_identity, "provider or model identity changed during recording")
+                input_tokens += response["usage"]["input_tokens"]
+                _eval_require(input_tokens <= protocol["limits"]["input_tokens"],
+                              "input token cap was exceeded")
+                cost = response["usage"]["cost_usd"]
+                record = {
+                    "case_id": case["id"],
+                    "skill": case["skill"],
+                    "role": case["role"],
+                    "repeat": repeat,
+                    "condition": condition,
+                    "order_index": order_index,
+                    "request_sha256": _sha256(_canonical_json(request)),
+                    "registration_sha256": registration_hash,
+                    "skill_source_sha256": skill["source_sha256"],
+                    "provider": response["provider"],
+                    "model": response["model"],
+                    "response": response["response"],
+                    "usage": response["usage"],
+                    "duration_ms": response["duration_ms"],
+                    "assertions": _score_task_assertions(case, response["response"]),
+                }
+                records.append(record)
+                if cost is None:
+                    transcript = _build_task_transcript(
+                        bundle, catalog, cases, records, registration_commit,
+                        recorded_revision, registration_hash, source_hash,
+                        environment_names, "incomplete", "unverified")
+                    _atomic_json(args.out, transcript)
+                    return transcript, 4
+                actual_cost = _money(cost, "provider request cost", allow_zero=True)
+                _eval_require(actual_cost <= max_request_cost,
+                              "provider request cost exceeded the declared maximum")
+                spent += actual_cost
+                _eval_require(spent <= cost_cap, "provider cost cap was exceeded")
+
+    transcript = _build_task_transcript(
+        bundle, catalog, cases, records, registration_commit,
+        recorded_revision, registration_hash, source_hash,
+        environment_names, "complete", "verified")
+    _atomic_json(args.out, transcript)
+    return transcript, 0
+
+
+def replay_tasks(bundle, args, transcript):
+    _eval_require(transcript.get("version") == 1 and transcript.get("kind") == "task",
+                  "task transcript schema is invalid")
+    _eval_require(transcript.get("status") == "complete", "task transcript is incomplete")
+    registration_commit, recorded_revision, frozen = _verify_frozen_inputs(
+        bundle, transcript.get("registration_commit"), transcript.get("recorded_revision"))
+    _eval_require(transcript.get("registration_sha256") == frozen["task registration"],
+                  "task registration hash mismatch")
+    _eval_require(transcript.get("registration_id") == bundle["tasks"]["registration_id"],
+                  "task registration id mismatch")
+    transcript_catalog = transcript.get("catalog")
+    _eval_require(isinstance(transcript_catalog, dict) and transcript_catalog.get("id") == "candidate",
+                  "task catalog id is invalid")
+    cases_by_id = {case["id"]: case for case in bundle["tasks"]["cases"]}
+    case_ids = transcript.get("case_ids")
+    _eval_require(isinstance(case_ids, list) and case_ids and len(case_ids) == len(set(case_ids)),
+                  "task transcript case ids are invalid")
+    _eval_require(all(case_id in cases_by_id for case_id in case_ids),
+                  "task transcript references an unknown case")
+    cases = [cases_by_id[case_id] for case_id in case_ids]
+    skills = {
+        skill_id: _task_skill(bundle, recorded_revision, skill_id)
+        for skill_id in sorted({case["skill"] for case in cases})
+    }
+    source_hash = _sha256(_canonical_json([
+        {"id": skill_id, "sha256": skills[skill_id]["source_sha256"]}
+        for skill_id in sorted(skills)
+    ]))
+    _eval_require(transcript_catalog.get("source_sha256") == source_hash,
+                  "task skill source hash mismatch")
+    repetitions = bundle["tasks"]["protocol"]["repetitions"]
+    _eval_require(transcript.get("repetitions") == repetitions, "task transcript repeat count mismatch")
+    records = transcript.get("records")
+    _eval_require(isinstance(records, list), "task transcript records must be an array")
+    seen = set()
+    rescored = []
+    for record in records:
+        _eval_require(isinstance(record, dict), "task transcript records must be objects")
+        key = (record.get("case_id"), record.get("repeat"), record.get("condition"))
+        _eval_require(key not in seen, "task transcript contains duplicate condition repeats")
+        seen.add(key)
+        case = cases_by_id.get(record.get("case_id"))
+        _eval_require(case is not None and case["id"] in case_ids,
+                      "task transcript record references an unknown case")
+        repeat = record.get("repeat")
+        condition = record.get("condition")
+        _eval_require(isinstance(repeat, int) and 1 <= repeat <= repetitions,
+                      "task transcript repeat is invalid")
+        _eval_require(condition in ("baseline", "with_skill"), "task transcript condition is invalid")
+        expected_order = _task_condition_order(case["id"], repeat)
+        _eval_require(record.get("order_index") == expected_order.index(condition) + 1,
+                      "task condition order does not match registration")
+        skill = skills[case["skill"]]
+        request = _task_request(case, repeat, condition, skill)
+        _eval_require(record.get("request_sha256") == _sha256(_canonical_json(request)),
+                      "task request hash mismatch")
+        _eval_require(record.get("registration_sha256") == frozen["task registration"],
+                      "task record registration hash mismatch")
+        _eval_require(record.get("skill_source_sha256") == skill["source_sha256"],
+                      "task skill source hash mismatch")
+        _eval_require(isinstance(record.get("response"), str) and record["response"].strip(),
+                      "task response is invalid")
+        _eval_require(isinstance(record.get("duration_ms"), (int, float)) and record["duration_ms"] >= 0,
+                      "task duration is invalid")
+        assertions = _score_task_assertions(case, record["response"])
+        _eval_require(record.get("assertions") == assertions,
+                      "task assertions do not match deterministic replay")
+        rescored.append(record)
+    expected = {
+        (case_id, repeat, condition)
+        for case_id in case_ids
+        for repeat in range(1, repetitions + 1)
+        for condition in ("baseline", "with_skill")
+    }
+    _eval_require(seen == expected, "task transcript repeat coverage is incomplete")
+    summary = _task_summary(cases, rescored, bundle["tasks"]["protocol"])
+    _eval_require(transcript.get("summary") == summary, "task transcript summary does not match replay")
+    return {
+        "version": 1,
+        "kind": "task",
+        "mode": "replay",
+        "status": "complete",
+        "cost_status": transcript.get("cost_status"),
+        "registration_id": transcript.get("registration_id"),
+        "registration_commit": registration_commit,
+        "recorded_revision": recorded_revision,
+        "recorded_at": transcript.get("recorded_at"),
+        "catalog": transcript_catalog,
+        "case_ids": case_ids,
+        "repetitions": repetitions,
+        "provider": transcript.get("provider"),
+        "model": transcript.get("model"),
+        "records": rescored,
+        "summary": summary,
+    }
+
+
+def replay_evaluation(bundle, args):
+    transcript = _read_json_path(args.transcript, "evaluation transcript", max_bytes=8 * MAX_JSON_BYTES)
+    if transcript.get("kind") == "selection":
+        return replay_selection(bundle, args, transcript)
+    if transcript.get("kind") == "selection-comparison":
+        return replay_selection_comparison(bundle, transcript)
+    if transcript.get("kind") == "task":
+        return replay_tasks(bundle, args, transcript)
+    raise EvaluationError("evaluation transcript kind is unsupported")
+
+
+def _format_number(value):
+    return ("%.3f" % value).rstrip("0").rstrip(".")
+
+
+def _signed_number(value):
+    return ("+" if value > 0 else "") + _format_number(value)
+
+
+def render_task_report(result):
+    summary = result["summary"]
+    conditions = summary["conditions"]
+    labels = (("baseline", "Baseline"), ("with_skill", "With skill"))
+    lines = [
+        "# Current paired task evaluation",
+        "",
+        "- Tested revision: `%s`" % result["recorded_revision"],
+        "- Registration: `%s` at `%s`" % (result["registration_id"], result["registration_commit"]),
+        "- Provider/model: `%s` / `%s`" % (result["provider"], result["model"]),
+        "- Cases/repetitions: %d cases, %d repeats, baseline and with-skill conditions" % (
+            len(result["case_ids"]), result["repetitions"]),
+        "- Recorded at: `%s`; cost status: `%s`" % (result["recorded_at"], result["cost_status"]),
+        "- Overall registered verdict: **%s**" % summary["verdict"].upper(),
+        "",
+        "## Conditions",
+        "",
+        "| Condition | Assertions | Pass rate | Input tokens | Output/reasoning tokens | Time (s) | Cost (USD) | Per-response spread |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    rates = {condition: [] for condition, _ in labels}
+    for record in result["records"]:
+        assertions = record["assertions"]
+        rates[record["condition"]].append(
+            assertions["passed"] / assertions["registered"] if assertions["registered"] else 0.0)
+    for condition, label in labels:
+        values = conditions[condition]
+        spread = "%s%% to %s%%" % (
+            _format_number(min(rates[condition]) * 100),
+            _format_number(max(rates[condition]) * 100),
+        )
+        lines.append("| %s | %d/%d | %s%% | %d | %d | %s | %s | %s |" % (
+            label,
+            values["passed"], values["registered"],
+            _format_number(values["pass_rate"] * 100),
+            values["input_tokens"], values["output_tokens"],
+            _format_number(values["duration_ms"] / 1000),
+            _format_number(values["cost_usd"]), spread,
+        ))
+    baseline = conditions["baseline"]
+    with_skill = conditions["with_skill"]
+    lines.extend([
+        "",
+        "With-skill minus baseline: **%s percentage points**, **%+d input tokens**, "
+        "**%+d output/reasoning tokens**, **%s seconds**, **%s USD**." % (
+            _format_number((with_skill["pass_rate"] - baseline["pass_rate"]) * 100),
+            with_skill["input_tokens"] - baseline["input_tokens"],
+            with_skill["output_tokens"] - baseline["output_tokens"],
+            _signed_number((with_skill["duration_ms"] - baseline["duration_ms"]) / 1000),
+            _signed_number(with_skill["cost_usd"] - baseline["cost_usd"]),
+        ),
+        "",
+        "## Per-skill registered verdicts",
+        "",
+        "| Skill | Improved cases | Regressed cases | Verdict |",
+        "|---|---:|---:|---|",
+    ])
+    for skill, values in sorted(summary["by_skill"].items()):
+        lines.append("| %s | %d | %d | %s |" % (
+            skill, values["improved_cases"], values["regressed_cases"], values["verdict"].upper()))
+    lines.extend(["", "## Negative deltas", ""])
+    if summary["negative_deltas"]:
+        lines.extend(["| Case | Skill | Delta |", "|---|---|---:|"])
+        for item in summary["negative_deltas"]:
+            lines.append("| %s | %s | %.1f pp |" % (
+                item["case_id"], item["skill"], item["delta"] * 100))
+    else:
+        lines.append("No registered negative deltas.")
+    judge = summary["judge"]
+    lines.extend([
+        "",
+        "## Judge and human evidence",
+        "",
+        "- Automated judge used: `%s`." % str(judge["used"]).lower(),
+        "- Registered human calibration samples: `%s`; spot-check fraction: `%s`." % (
+            judge["human_calibration_samples"], judge["human_spotcheck_fraction"]),
+        "- Caveat: %s" % judge["caveat"],
+        "",
+        "## Evidence boundary",
+        "",
+        "Deterministic string/JSON assertions are narrow supporting evidence only. They do not establish overall response quality, human approval, live loader behavior, or causation. Historical manual reports remain dated and unchanged.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def render_selection_comparison_report(result):
+    summaries = result["summaries"]
+    records = result["records"]
+    lines = [
+        "# Final held-out skill selection comparison",
+        "",
+        "- Tested revision: `%s`" % result["recorded_revision"],
+        "- Registration: `%s` at `%s`" % (result["registration_id"], result["registration_commit"]),
+        "- Provider/model: `%s` / `%s`" % (result["provider"], result["model"]),
+        "- Cases/repetitions: %d held-out cases, two catalogs, %d repeats" % (
+            len(result["case_ids"]), result["repetitions"]),
+        "- Recorded at: `%s`; cost status: `%s`" % (result["recorded_at"], result["cost_status"]),
+        "- Comparison verdict: **%s**" % result["comparison"]["verdict"].upper(),
+        "",
+        "## Catalog outcomes",
+        "",
+        "| Catalog | Exact-label records | Precision | Recall | Input tokens | Output/reasoning tokens | Cost (USD) | Verdict |",
+        "|---|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for catalog_id, label in (("baseline", "Baseline"), ("candidate", "Candidate")):
+        summary = summaries[catalog_id]
+        scoped = [record for record in records if record["catalog_id"] == catalog_id]
+        lines.append("| %s | %d/%d | %s%% | %s%% | %d | %d | %s | %s |" % (
+            label,
+            summary["passed_records"], summary["records"],
+            _format_number(summary["aggregate"]["precision"] * 100),
+            _format_number(summary["aggregate"]["recall"] * 100),
+            sum(record["usage"]["input_tokens"] for record in scoped),
+            sum(record["usage"]["output_tokens"] for record in scoped),
+            _format_number(sum(record["usage"]["cost_usd"] or 0 for record in scoped)),
+            summary["verdict"].upper(),
+        ))
+    lines.extend([
+        "",
+        "Candidate minus baseline exact-label records: **%+d**." % result["comparison"]["passed_record_delta"],
+        "",
+        "## Per-case comparison",
+        "",
+        "| Case | Baseline | Candidate | Delta |",
+        "|---|---:|---:|---:|",
+    ])
+    for case_id in result["case_ids"]:
+        counts = {}
+        for catalog_id in ("baseline", "candidate"):
+            counts[catalog_id] = sum(
+                record["outcome"]["status"] == "pass"
+                for record in records
+                if record["case_id"] == case_id and record["catalog_id"] == catalog_id)
+        lines.append("| %s | %d/%d | %d/%d | %+d |" % (
+            case_id, counts["baseline"], result["repetitions"],
+            counts["candidate"], result["repetitions"],
+            counts["candidate"] - counts["baseline"],
+        ))
+    lines.extend(["", "## Preserved misses and confusions", ""])
+    failed = [record for record in records if record["outcome"]["status"] == "fail"]
+    if not failed:
+        lines.append("No exact-label misses were recorded.")
+    else:
+        lines.extend(["| Catalog | Case | Repeat | Selected | Missing | Forbidden | Unexpected |",
+                      "|---|---|---:|---|---|---|---|"])
+        for record in failed:
+            outcome = record["outcome"]
+            lines.append("| %s | %s | %d | %s | %s | %s | %s |" % (
+                record["catalog_id"], record["case_id"], record["repeat"],
+                ", ".join(record["selected"]) or "none",
+                ", ".join(outcome["missing_expected"]) or "none",
+                ", ".join(outcome["forbidden_selected"]) or "none",
+                ", ".join(outcome["unexpected_selected"]) or "none",
+            ))
+    lines.extend([
+        "",
+        "## Evidence boundary",
+        "",
+        "Catalog selection is not live loader discovery, automatic skill invocation, loaded-context measurement, task quality, or human approval. The held-out results were inspected only after descriptions were frozen, and no description edit follows this report.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
 def _add_registration_args(parser):
     parser.add_argument("--root", default=DEFAULT_ROOT)
     parser.add_argument("--selection")
@@ -914,10 +1816,10 @@ def build_parser():
 
     record = sub.add_parser("record", help="record an explicitly authorized provider run")
     _add_registration_args(record)
-    record.add_argument("--kind", choices=("selection",), required=True)
+    record.add_argument("--kind", choices=("selection", "task"), required=True)
     record.add_argument("--case")
     record.add_argument("--split", choices=("development", "held_out", "all"), default="development")
-    record.add_argument("--catalog", choices=("baseline", "candidate"), default="baseline")
+    record.add_argument("--catalog", choices=("baseline", "candidate", "paired"), default="baseline")
     record.add_argument("--registration-commit", required=True)
     record.add_argument("--recorded-revision", required=True)
     record.add_argument("--out", required=True)
@@ -931,6 +1833,7 @@ def build_parser():
     replay = sub.add_parser("replay", help="replay and rescore a committed transcript offline")
     _add_registration_args(replay)
     replay.add_argument("--transcript", required=True)
+    replay.add_argument("--report")
     replay.add_argument("--json", action="store_true")
     return parser
 
@@ -948,10 +1851,24 @@ def run(argv=None):
             exit_code = 0
         elif args.command == "record":
             bundle = _load_bundle(args.root, args)
-            result, exit_code = record_selection(bundle, args)
+            if args.kind == "selection":
+                if args.catalog == "paired":
+                    result, exit_code = record_selection_comparison(bundle, args)
+                else:
+                    result, exit_code = record_selection(bundle, args)
+            else:
+                result, exit_code = record_tasks(bundle, args)
         else:
             bundle = _load_bundle(args.root, args)
-            result = replay_selection(bundle, args)
+            result = replay_evaluation(bundle, args)
+            if args.report:
+                if result["kind"] == "task":
+                    report = render_task_report(result)
+                elif result["kind"] == "selection-comparison":
+                    report = render_selection_comparison_report(result)
+                else:
+                    raise EvaluationError("Markdown reports require task or selection-comparison transcripts")
+                _atomic_text(args.report, report)
             exit_code = 0
     except (RegistrationError, EvaluationError) as exc:
         if args.json:
@@ -965,9 +1882,9 @@ def run(argv=None):
         print("registrations valid: %d selection cases, %d task cases" % (
             result["selection_cases"], result["task_cases"]))
     elif args.command == "record":
-        print("recorded %d selection responses to %s" % (len(result["records"]), args.out))
+        print("recorded %d %s responses to %s" % (len(result["records"]), result["kind"], args.out))
     else:
-        print("replayed %d selection responses" % len(result["records"]))
+        print("replayed %d %s responses" % (len(result["records"]), result["kind"]))
     return exit_code
 
 

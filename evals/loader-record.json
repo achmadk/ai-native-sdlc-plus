@@ -1,0 +1,107 @@
+{
+  "accounting": {
+    "attempts": 15,
+    "cost_usd": 0.0,
+    "input_tokens": 417216,
+    "limitations": [
+      "Catalog tokens are the exact initial-input delta between matched empty-skill prompts.",
+      "Body tokens are the observed incremental model input after each Kilo skill tool result, including its loader wrapper and tool-call transcript.",
+      "Lane totals report product catalog plus product skill loads, not the host agent's unrelated base system context."
+    ],
+    "method": "kilo-skill-tool-step-token-delta",
+    "model": "agentrouterr/gpt-5.6-sol",
+    "output_tokens": 853,
+    "probe_evidence_sha256": "7110972ae5f710da46545bbad6a68512d934b0c51048c017afd99fa8bea192d6",
+    "provider": "Agent Router"
+  },
+  "catalog": {
+    "sha256": "7d849fe534ee7c85a470ac93a6b221abce00c08cc1697f7d751ea61f6e873550",
+    "tokens": 1039
+  },
+  "lanes": {
+    "Critical": {
+      "loaded_paths": [
+        "skills/ai-sdlc/SKILL.md",
+        "skills/spec-first/SKILL.md",
+        "skills/verify-and-evals/SKILL.md"
+      ],
+      "loaded_tokens": 4140,
+      "repeated_paths": [],
+      "total_tokens": 5179,
+      "unexpected_paths": []
+    },
+    "Lite": {
+      "loaded_paths": [
+        "skills/ai-sdlc/SKILL.md"
+      ],
+      "loaded_tokens": 1552,
+      "repeated_paths": [],
+      "total_tokens": 2591,
+      "unexpected_paths": []
+    },
+    "Standard": {
+      "loaded_paths": [
+        "skills/ai-sdlc/SKILL.md",
+        "skills/spec-first/SKILL.md"
+      ],
+      "loaded_tokens": 2810,
+      "repeated_paths": [],
+      "total_tokens": 3849,
+      "unexpected_paths": []
+    }
+  },
+  "recorded_revision": "e692000a16984e824c759dc7bd09a5c150eb990b",
+  "skill_bodies": [
+    {
+      "path": "skills/ai-readiness-and-metrics/SKILL.md",
+      "sha256": "6274f1b9944470e4a0369d329fec874a9ca3292d9b24bc42f684452dc690afd8",
+      "tokens": 827
+    },
+    {
+      "path": "skills/ai-sdlc/SKILL.md",
+      "sha256": "c3f7fde29deaadd936c7e84e39a2055712305a6a99480ee9b2771267bb6592bb",
+      "tokens": 1548
+    },
+    {
+      "path": "skills/autonomy-policy/SKILL.md",
+      "sha256": "28d6d12511b7034c1123c5e06e2f8c08281ae314a60125f3c38a8a98900b18ac",
+      "tokens": 1095
+    },
+    {
+      "path": "skills/context-pack/SKILL.md",
+      "sha256": "a7c475b81e764d4f9078be179587357e8b4c2f7ff762a664f4d20aeedfc8678c",
+      "tokens": 1047
+    },
+    {
+      "path": "skills/decision-trace/SKILL.md",
+      "sha256": "f707cf23b28777d9e28afad9bbbb193a0c5c4edca5f192fd2eb7c053f3b3bfde",
+      "tokens": 754
+    },
+    {
+      "path": "skills/learning-mode/SKILL.md",
+      "sha256": "79bed0cf00b1a637e0c9e60f5c9472cc57c6b8df0ba080f8e426531a6b0244a6",
+      "tokens": 1253
+    },
+    {
+      "path": "skills/review-by-intent/SKILL.md",
+      "sha256": "90c3990821c462dc0ce0f1cc667146cdffa27e2f74df11ffb50078093431cffa",
+      "tokens": 912
+    },
+    {
+      "path": "skills/ship-and-observe/SKILL.md",
+      "sha256": "b428f0fe9861fac2ee572d0f7d02f4abe25cfe7f94881c21270b3015faa1a3d9",
+      "tokens": 849
+    },
+    {
+      "path": "skills/spec-first/SKILL.md",
+      "sha256": "3bc1fd89e06344f5cbcff50baa42d0445dd7cb8c63c32c8b29fcba66850f65d9",
+      "tokens": 1287
+    },
+    {
+      "path": "skills/verify-and-evals/SKILL.md",
+      "sha256": "f8c8bbf591efbff1024000cd72083179db65f65f19ec496440e5451001b37278",
+      "tokens": 1357
+    }
+  ],
+  "version": 1
+}

@@ -190,7 +190,11 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 - **Pinned Workflow Actions:** All CI actions pinned to immutable 40-character commit SHAs.
 - **Integrated Secret Scanning:** Multi-layer secret regex scanning in all brief/spec parsers plus [Gitleaks action](.github/workflows/gitleaks.yml) in CI.
 - **Cross-Platform Pre-Push Hooks:** Advisory dispatch with supported interpreter discovery and managed LF rules that survive Git checkout. Windows Python 3.8/3.13 CI runs focused native installer/Git-dispatch tests and a separate full suite; a configured job or skipped test is not a passing execution result.
-- **Reproducible Verification:** Run `python3 -m unittest discover -s tests -v`, `python3 tests/mutate.py`, and the ShellCheck command in `.github/workflows/ci.yml` against the revision being evaluated. Historical counts in `evals/` and `PATCH-NOTES.md` do not attest a newer revision. Trigger scores measure lexical matching, not actual agent skill selection.
+- **Reproducible Verification:** Run `python3 -m unittest discover -s tests -v`, `python3 tests/mutate.py`, and the ShellCheck command in `.github/workflows/ci.yml` against the revision being evaluated. Historical counts in `evals/` and `PATCH-NOTES.md` do not attest a newer revision. `Lexical overlap` scores from the old keyword harness are not actual agent skill selection.
+
+<!-- verify-all:start {"id":"readme-unit-tests","label":"unit tests","status_path":"stages.unit.status","unit":"tests","value_path":"stages.unit.counts.tests"} -->
+Current measured unit tests: `802 tests`; status `fail`; tested revision `9054870abd657ac6f8c49842eacde8999e1a1333`.
+<!-- verify-all:end readme-unit-tests -->
 
 Gitleaks receives the generated read-only `GITHUB_TOKEN` explicitly and has PR commenting disabled. Organization repositories additionally require `GITLEAKS_LICENSE`; fork-event secret availability can prevent scanning. Missing credentials, licensing, or API access must fail as setup errors, not be bypassed or reported as a clean scan. Hosted scanner verification is separate from local workflow-contract tests.
 

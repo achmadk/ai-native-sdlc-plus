@@ -22,7 +22,8 @@ H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/c
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
 SI = "skills/spec-first/scripts/spec_inputs.py"
 FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
-LT, CB, ME = "scripts/lite.py", "scripts/ceremony_benchmark.py", "scripts/model_eval.py"
+LT, CB, ME, VA = ("scripts/lite.py", "scripts/ceremony_benchmark.py",
+                  "scripts/model_eval.py", "scripts/verify_all.py")
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
          E: ["tests.test_evidence_check", "tests.test_spec_interop", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
@@ -44,7 +45,14 @@ TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", 
          BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"],
          LT: ["tests.test_lite"],
           CB: ["tests.test_ceremony_benchmark"],
-          ME: ["tests.test_model_eval.ProviderAndReplayContract"]}
+          ME: ["tests.test_model_eval.ProviderAndReplayContract"],
+          VA: [
+              "tests.test_verify_all.VerifyAllContract.test_subprocess_stage_uses_argv_hashes_output_and_reports_timeout",
+              "tests.test_verify_all.VerifyAllContract.test_git_provenance_marks_relevant_dirty_paths_but_excludes_receipt",
+              "tests.test_verify_all.VerifyAllContract.test_footprint_reports_exact_bytes_and_unverified_tokens_without_loader_record",
+              "tests.test_verify_all.VerifyAllContract.test_atomic_receipt_keeps_previous_file_when_replace_fails",
+              "tests.test_verify_all.VerifyAllContract.test_claim_value_status_revision_and_stale_inputs_fail_closed",
+          ]}
 
 MUTANTS = [
     (L, '    "openspec/config.yaml",\n', "", False),
@@ -58,8 +66,8 @@ MUTANTS = [
     (ME, "if len(records) >= request_cap:", "if False:", False),
     (ME, "if spent + max_request_cost > cost_cap:", "if False:", False),
     (ME, "            shell=False,\n", "            shell=True,\n", False),
-    (ME, 'def replay_selection(bundle, args):\n    transcript = _read_json_path',
-     'def replay_selection(bundle, args):\n    argv, child_env, _, credential_values = _provider_configuration()\n    _provider_response({}, argv, child_env, credential_values, 1024, 1, set())\n    transcript = _read_json_path', False),
+    (ME, 'def replay_evaluation(bundle, args):\n    transcript = _read_json_path',
+     'def replay_evaluation(bundle, args):\n    argv, child_env, _, credential_values = _provider_configuration()\n    _provider_response({}, argv, child_env, credential_values, 1024, 1, set())\n    transcript = _read_json_path', False),
     (ME, "all(isinstance(item, str) and item in catalog_ids for item in selected)",
      "all(isinstance(item, str) for item in selected)", False),
     (ME, "_eval_require(seen == expected, \"transcript repeat coverage is incomplete\")",
@@ -68,6 +76,16 @@ MUTANTS = [
     (ME, 'transcript_catalog.get("sha256") == catalog["sha256"]', "True", False),
     (ME, 'record.get("request_sha256") == _sha256(_canonical_json(request))', "True", False),
     (ME, "if value in text:", "if False:", False),
+    # --- verify_all.py receipt and claim trust boundary ---
+    (VA, 'status = "pass" if exit_code == 0 else "fail"', 'status = "pass"', False),
+    (VA, '"state": "dirty" if changed else "clean",', '"state": "clean",', False),
+    (VA, '"tokens": None,', '"tokens": 0,', False),
+    (VA, '"max_lane_tokens": None,', '"max_lane_tokens": 0,', False),
+    (VA, "        replace(temporary, path)\n", "        os.remove(path)\n        replace(temporary, path)\n", False),
+    (VA, '_require(actual == expected, "claim block is stale or malformed: %s" % claim_id)',
+     '_require(True, "claim block is stale or malformed: %s" % claim_id)', False),
+    (VA, '_require(actual == expected, "verification input hash is stale: %s" % relative)',
+     '_require(True, "verification input hash is stale: %s" % relative)', False),
     (L, "top = max(per_path", "top = min(per_path", False),
     (L, 'return "Standard", None', 'return "Lite", None', False),
     (L, 'compile_pattern(pattern, name == "critical")', "compile_pattern(pattern, False)", False),
