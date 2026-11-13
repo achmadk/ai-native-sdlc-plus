@@ -96,9 +96,18 @@ class VerifyAllContract(unittest.TestCase):
             "mutation", b"", b"[+] Mutation score: 17/17 killed, 0 survived, 0 infrastructure error(s), 1 equivalent\n")
         self.assertEqual(mutation, {"killed": 17, "total": 17, "survived": 0,
                                     "infrastructure_errors": 0, "equivalent": 1})
+        current_mutation = module.parse_counts(
+            "mutation", b"killed 181 / 181 non-equivalent mutants; 0 equivalent survivor(s) documented\n", b"")
+        self.assertEqual(current_mutation, {"killed": 181, "total": 181, "survived": 0,
+                                            "infrastructure_errors": 0, "equivalent": 0})
         doctor_data = [{"id": "one", "status": "OK"}, {"id": "two", "status": "WARN"}]
         doctor = module.parse_counts("doctor", json.dumps(doctor_data).encode("utf-8"), b"")
         self.assertEqual(doctor, {"OK": 1, "WARN": 1, "FAIL": 0})
+        doctor_summary = {"version": "0.3.0", "failed": False,
+                          "summary": {"verified": 32, "WARN": 3, "info": 1, "unverified": 2, "FAIL": 0},
+                          "results": []}
+        doctor = module.parse_counts("doctor", json.dumps(doctor_summary).encode("utf-8"), b"")
+        self.assertEqual(doctor, doctor_summary["summary"])
 
     def test_git_provenance_marks_relevant_dirty_paths_but_excludes_receipt(self):
         module = self.module()

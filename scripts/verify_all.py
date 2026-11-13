@@ -123,16 +123,28 @@ def parse_counts(name, stdout, stderr):
         match = re.search(
             r"Mutation score:\s*(\d+)/(\d+) killed,\s*(\d+) survived,\s*"
             r"(\d+) infrastructure error\(s\),\s*(\d+) equivalent", combined)
-        if not match:
-            return {"killed": 0, "total": 0, "survived": 0,
-                    "infrastructure_errors": 0, "equivalent": 0}
-        values = [int(value) for value in match.groups()]
-        return dict(zip(("killed", "total", "survived", "infrastructure_errors", "equivalent"), values))
+        if match:
+            values = [int(value) for value in match.groups()]
+            return dict(zip(("killed", "total", "survived", "infrastructure_errors", "equivalent"), values))
+        current = re.search(
+            r"killed\s+(\d+)\s*/\s*(\d+)\s+non-equivalent mutants;\s*"
+            r"(\d+)\s+equivalent survivor\(s\) documented", combined)
+        if current:
+            killed, total, equivalent = [int(value) for value in current.groups()]
+            return {"killed": killed, "total": total, "survived": total - killed,
+                    "infrastructure_errors": 0, "equivalent": equivalent}
+        return {"killed": 0, "total": 0, "survived": 0,
+                "infrastructure_errors": 0, "equivalent": 0}
     if name == "doctor":
         try:
             data = json.loads(stdout_text)
         except ValueError:
             return {"OK": 0, "WARN": 0, "FAIL": 0}
+        if isinstance(data, dict) and isinstance(data.get("summary"), dict):
+            summary = data["summary"]
+            _require(all(isinstance(value, int) and value >= 0 for value in summary.values()),
+                     "doctor summary counts must be nonnegative integers")
+            return dict(sorted(summary.items()))
         if isinstance(data, dict):
             data = data.get("results", data.get("checks", []))
         counts = {"OK": 0, "WARN": 0, "FAIL": 0}
