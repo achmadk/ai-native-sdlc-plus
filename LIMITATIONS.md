@@ -43,8 +43,8 @@ Specialist secret scanning beyond the included Gitleaks workflow (`.github/workf
 
 - The recorded `lexical overlap` experiment reports 0.97 precision and 0.96 recall (see `evals/results-trigger.md`). It does not measure selection by real agents or generalize beyond that corpus. `[measured here]`
 
-<!-- verify-all:start {"id":"limitations-max-lane","label":"maximum lane load","status_path":"footprint.status","unit":"tokens","value_path":"footprint.max_lane_tokens"} -->
-Current measured maximum lane load: `unverified tokens`; status `skipped`; tested revision `9054870abd657ac6f8c49842eacde8999e1a1333`.
+<!-- verify-all:start {"id":"limitations-max-lane","label":"maximum lane load","status_path":"overall_status","unit":"tokens","value_path":"footprint.max_lane_tokens"} -->
+Current measured maximum lane load: `5179 tokens`; status `pass`; tested revision `8341fe4df5a0319d3894c2c455069b032c7dd114`.
 <!-- verify-all:end limitations-max-lane -->
 
 ## Adoption positions
