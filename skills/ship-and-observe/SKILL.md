@@ -1,6 +1,6 @@
 ---
 name: ship-and-observe
-description: "Ship AI-assisted changes safely, make them attributable in production, and handle unplanned loops such as incidents, security findings, test failures, and flaky builds. Use when planning a rollout or rollback, deciding how much release process a change needs, monitoring agents, or responding to an incident. Triggers: rollout plan, rollback, staged rollout, canary, agent visibility, incident, flaky build, break glass."
+description: "Plan and observe safe delivery with staged rollout, signals, abort thresholds, rollback, attribution, and incident or flaky-test loops. Use it when releasing a change or responding to production or test instability, not when defining agent permission tiers."
 ---
 
 # ship-and-observe — the right of code

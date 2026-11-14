@@ -282,6 +282,77 @@ class PortablePaths(unittest.TestCase):
                          ["git", "--literal-pathspecs", "-C", "fixture", "checkout", "HEAD", "--", raw])
 
 
+class JunitReports(Repo):
+    """A reporter writes the same JUnit path inside each throwaway worktree."""
+
+    RED_FAILURE = ('<testsuite tests="1" failures="1" errors="0">'
+                   '<testcase name="test_add" classname="tests.test_calc.T">'
+                   '<failure message="-1 != 5"/></testcase></testsuite>')
+    GREEN_PASS = ('<testsuite tests="1" failures="0" errors="0">'
+                  '<testcase name="test_add" classname="tests.test_calc.T"/></testsuite>')
+
+    def reporter(self, base_xml, head_xml, base_rc=1, head_rc=0):
+        script = (
+            "import sys\n"
+            "fixed = 'return a + b' in open('src/calc.py').read()\n"
+            "open('junit.xml', 'w').write(%r if fixed else %r)\n"
+            "sys.exit(%d if fixed else %d)\n" % (head_xml, base_xml, head_rc, base_rc)
+        )
+        self.put("tests/emit_report.py", script)
+        self.put("src/calc.py", FIXED)
+        self.commit("fix + junit reporter")
+
+    def junit_prove(self, *extra, **kw):
+        return self.prove("--junit", "junit.xml", *extra,
+                          cmd=support.command_text([sys.executable, "tests/emit_report.py"]), **kw)
+
+    def test_collection_crash_is_not_a_valid_red_failure(self):
+        collection = ('<testsuite tests="1" failures="0" errors="1">'
+                      '<testcase name="test_add" classname="tests.test_calc.T">'
+                      '<error message="ImportError: cannot import name add"/></testcase></testsuite>')
+        self.reporter(collection, self.GREEN_PASS)
+        code, out, _ = self.junit_prove()
+        self.assertEqual(code, 1, out)
+        self.assertIn("COLLECTION_ERROR", out)
+        self.assertIn("collection", out.lower())
+
+    def test_zero_tests_on_head_is_rejected_even_when_exit_code_is_zero(self):
+        self.reporter(self.RED_FAILURE, '<testsuite tests="0" failures="0" errors="0"/>', head_rc=0)
+        code, out, _ = self.junit_prove()
+        self.assertEqual(code, 1, out)
+        self.assertIn("NO_TESTS", out)
+
+    def test_declared_acceptance_criteria_tests_must_execute(self):
+        self.reporter(self.RED_FAILURE, self.GREEN_PASS)
+        self.put("tasks.md", "- AC1 -> tests/test_calc.py::T::test_add | fails-before: buggy add returns -1\n")
+        self.commit("map the acceptance criterion")
+        code, out, _ = self.junit_prove("--ac-map", "tasks.md")
+        self.assertEqual(code, 0, out)
+        self.assertIn("verdict: PASS", out)
+
+    def test_missing_mapped_test_is_an_ac_mismatch(self):
+        self.reporter(self.RED_FAILURE, self.GREEN_PASS)
+        self.put("tasks.md", "- AC1 -> tests/test_calc.py::T::test_missing | fails-before: never ran\n")
+        self.commit("map a test that does not run")
+        code, out, _ = self.junit_prove("--ac-map", "tasks.md")
+        self.assertEqual(code, 1, out)
+        self.assertIn("AC_MISMATCH", out)
+        self.assertIn("test_missing", out)
+
+    def test_missing_or_invalid_junit_report_is_a_tooling_error(self):
+        self.reporter(self.RED_FAILURE, self.GREEN_PASS)
+        code, out, _ = self.prove("--junit", "missing.xml",
+                                  cmd=support.command_text([sys.executable, "tests/emit_report.py"]))
+        self.assertEqual(code, 3, out)
+        self.assertIn("JUnit", out)
+        self.put("tests/emit_report.py", "open('junit.xml', 'w').write('not xml')\n")
+        self.put("src/calc.py", FIXED)
+        self.commit("invalid report")
+        code, out, _ = self.prove("--junit", "junit.xml",
+                                  cmd=support.command_text([sys.executable, "tests/emit_report.py"]))
+        self.assertEqual(code, 3, out)
+
+
 class Failures(Repo):
     def test_a_missing_command_is_an_error_not_a_red(self):
         self.fix_with_test()

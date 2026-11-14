@@ -391,9 +391,23 @@ _HEAD = "${{ github.event.pull_request.head.sha }}"
 _EVENTS = {"opened", "synchronize", "reopened", "edited", "ready_for_review"}
 _GATE_COMMAND = ('python3 -I trusted/scripts/evidence_check.py --ci '
                  '--config trusted/scripts/lane-config.yaml --repo-root change '
-                 '--base="$BASE_SHA" --head="$HEAD_SHA" --event-path "$GITHUB_EVENT_PATH"')
+                 '--base="$BASE_SHA" --head="$HEAD_SHA" --emit-json evidence-manifest.json '
+                 '--event-path "$GITHUB_EVENT_PATH"')
+_GATE_PROBE = 'help="$(python3 -I trusted/scripts/evidence_check.py --help)"'
+_GATE_WARNING = ('echo "::warning title=sdlc-gate::trusted base evidence_check.py does not support '
+                 '--emit-json; evidence manifest will not be produced"')
+_GATE_FALLBACK = _GATE_COMMAND.replace(" --emit-json evidence-manifest.json", "")
+_GATE_BLOCK = "\n".join((_GATE_PROBE, 'if [[ "$help" == *"--emit-json"* ]]; then',
+                         _GATE_COMMAND, "else", _GATE_WARNING, _GATE_FALLBACK, "fi"))
+
+
+def _normalize_command(text):
+    return " ".join(text.replace("\\\n", " ").split())
+
+
 _CI_NAMES = ("no-pr-target", "trigger", "edited-trigger", "invokes-gate", "fetch-depth",
-             "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions")
+             "trusted-tooling", "isolated-python", "permissions", "persist-credentials", "pinned-actions",
+             "manifest-artifact")
 
 
 def scanner_references():
@@ -468,7 +482,7 @@ def workflow_results(text, scanner=False):
     shape = shape and (set(job) <= {"name", "runs-on", "timeout-minutes", "steps"} and
                        job.get("name", job_id) == ("gitleaks" if scanner else "evidence") and
                        job.get("runs-on") == "ubuntu-latest" and isinstance(steps, list) and
-                       len(steps) == (2 if scanner else 3))
+                       len(steps) == (2 if scanner else 4))
     steps = steps if isinstance(steps, list) else []
     shape = shape and all(isinstance(step, dict) and set(step) <= {"name", "uses", "with", "env", "run"}
                           and ("name" not in step or isinstance(step["name"], str)) for step in steps)
@@ -513,7 +527,7 @@ def workflow_results(text, scanner=False):
     actions = [s.get("uses") for s in steps if isinstance(s, dict) and "uses" in s]
     unpinned = sorted(set(a for a in actions if isinstance(a, str) and
                           not re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", a)))
-    pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)
+    pinned = len(actions) == (2 if scanner else 3) and not unpinned and all(isinstance(a, str) for a in actions)
     add("pinned-actions", pinned, WARN, "all actions pinned to commit SHAs" if pinned else
         "not pinned to a commit SHA: %s" % clip(", ".join(unpinned) or "missing/unsupported action"))
     checkouts = [s for s in steps if isinstance(s, dict) and isinstance(s.get("uses"), str)
@@ -546,7 +560,7 @@ def workflow_results(text, scanner=False):
             if supported_scanner else
             "gitleaks action reference is not approved by trusted scanner-profiles.json: " + clip(scanner_ref))
         return results
-    base, head, gate = (without_name(s) for s in steps)
+    base, head, gate, upload = (without_name(s) for s in steps)
     base_with, head_with = base.get("with"), head.get("with")
     base_ok = (set(base) == {"uses", "with"} and isinstance(base.get("uses"), str) and
                base["uses"].startswith("actions/checkout@") and
@@ -555,14 +569,11 @@ def workflow_results(text, scanner=False):
                head["uses"].startswith("actions/checkout@") and
                head_with == {"ref": _HEAD, "path": "change", "fetch-depth": 0, "persist-credentials": False} and
                type(head_with.get("fetch-depth")) is int)
-    command = gate.get("run")
-    command = command.replace("\\\n", " ").strip() if isinstance(command, str) else ""
-    single_command = "\n" not in command and "\r" not in command
-    command = " ".join(command.split())
-    isolated = command == _GATE_COMMAND
+    command = _normalize_command(gate["run"]) if isinstance(gate.get("run"), str) else ""
+    isolated = command in (_GATE_COMMAND, _normalize_command(_GATE_BLOCK))
     legacy = command == _GATE_COMMAND.replace("python3 -I ", "python3 ")
     gate_ok = (set(gate) == {"env", "run"} and gate.get("env") == {"BASE_SHA": _BASE, "HEAD_SHA": _HEAD}
-               and single_command and (isolated or legacy))
+               and (isolated or legacy))
     add("edited-trigger", isinstance(types, list) and set(types) == _EVENTS, WARN,
         "requires open, synchronize, reopen, edited and ready_for_review events; old-event reruns use the old PR body")
     add("invokes-gate", gate_ok, FAIL, "recognized evidence_check.py --ci command with explicit base/head/event" if gate_ok
@@ -573,6 +584,13 @@ def workflow_results(text, scanner=False):
         "recognized base-branch checkout (trusted/) and explicit candidate checkout" if base_ok and head_ok and gate_ok else
         "tooling/config must run from the base checkout with the explicit candidate revision")
     add("isolated-python", isolated and gate_ok, WARN, "gate must use python3 -I without shell indirection")
+    upload_ok = (set(upload) == {"uses", "with"} and isinstance(upload.get("uses"), str) and
+                 upload["uses"].startswith("actions/upload-artifact@") and
+                 upload.get("with") == {"name": "evidence-manifest", "path": "evidence-manifest.json",
+                                        "if-no-files-found": "warn"})
+    add("manifest-artifact", upload_ok, FAIL,
+        "evidence manifest artifact is uploaded from a pinned action" if upload_ok else
+        "requires actions/upload-artifact@<pinned SHA> with the evidence-manifest.json path")
     return results
 
 
@@ -609,7 +627,11 @@ def check_hook(root):
         return [("hook-active", UNVERIFIED, "could not ask git where pre-push hooks live")]
     target = out.strip()
     target = target if os.path.isabs(target) else os.path.join(root, target)
-    shown = os.path.relpath(target, root)
+    try:
+        shown = os.path.relpath(target, root)
+    except ValueError:
+        # A linked worktree can share hooks on another Windows volume.
+        shown = target
     if not os.path.isfile(target):
         return [("hook-active", WARN,
                  "git would run %s and nothing is there (git only runs a file named exactly 'pre-push', so hooks/pre-push.sh alone is "

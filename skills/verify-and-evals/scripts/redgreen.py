@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 
 DEFAULT_TEST_GLOBS = ("test", "tests", "__tests__", "*_test.*", "test_*.*", "*.test.*", "*.spec.*", "evals")
 TAIL_LINES = 15
@@ -157,7 +158,76 @@ def classify(runs):
     return "FLAKY"
 
 
-def prove(root, base, head, command, globs, setup, repeat, timeout):
+def parse_junit(path):
+    """Read a JUnit XML report and count executed cases, failures and errors."""
+    try:
+        tree = ET.parse(path)
+    except OSError as exc:
+        raise ToolError("cannot read JUnit report %s: %s" % (path, exc))
+    except ET.ParseError as exc:
+        raise ToolError("cannot parse JUnit report %s: %s" % (path, exc))
+    cases = []
+    for node in tree.getroot().iter("testcase"):
+        cases.append({"name": node.get("name") or "",
+                      "classname": node.get("classname") or "",
+                      "failed": node.find("failure") is not None,
+                      "errored": node.find("error") is not None})
+    return {"path": path, "tests": len(cases),
+            "failures": sum(1 for case in cases if case["failed"]),
+            "errors": sum(1 for case in cases if case["errored"]),
+            "cases": cases}
+
+
+def _canonical_test(identifier):
+    text = identifier.strip().strip("`'\"").lower().replace("\\", "/")
+    text = re.sub(r"\.(?:py|js|jsx|ts|tsx|go|rb|java|cs|php|rs)\b", "", text)
+    text = text.replace("::", "/").replace(".", "/")
+    return re.sub(r"/+", "/", text).strip("/")
+
+
+def _test_id_matches(mapped, case_canonical):
+    if not mapped or not case_canonical:
+        return False
+    if mapped == case_canonical or case_canonical.endswith("/" + mapped):
+        return True
+    mapped_parts, case_parts = mapped.split("/"), case_canonical.split("/")
+    if mapped_parts[-1] != case_parts[-1]:
+        return False
+    if len(mapped_parts) == 1:
+        return True
+    return case_parts[:len(mapped_parts) - 1] == mapped_parts[:-1]
+
+
+def parse_ac_map(path):
+    """Extract mapped test identifiers (file.py::Class::test or test-only ids) from a markdown file."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            text = handle.read(1000000)
+    except OSError as exc:
+        raise ToolError("cannot read acceptance-criteria mapping %s: %s" % (path, exc))
+    identifiers = []
+    for line in text.splitlines():
+        if "->" not in line or "|" not in line:
+            continue
+        target = line.split("->", 1)[1].split("|", 1)[0]
+        for match in re.findall(r"[A-Za-z0-9_./\\-]+::[A-Za-z0-9_.:\\-]+", target):
+            if match not in identifiers:
+                identifiers.append(match)
+    return identifiers
+
+
+def missing_ac_tests(identifiers, report):
+    """Return mapped test identifiers that did not appear in the executed report."""
+    canonical = [_canonical_test(case["classname"] + "::" + case["name"]) for case in report["cases"]]
+    missing = []
+    for identifier in identifiers:
+        mapped = _canonical_test(identifier)
+        if not any(_test_id_matches(mapped, case) for case in canonical):
+            missing.append(identifier)
+    return missing
+
+
+def prove(root, base, head, command, globs, setup, repeat, timeout, junit=None, ac_map=None):
     """Run the proof. Returns a result dict. Raises ToolError for tooling failures."""
     head_sha = resolve(root, head)
     base_sha = resolve(root, base)
@@ -168,6 +238,11 @@ def prove(root, base, head, command, globs, setup, repeat, timeout):
     tests = changed_test_files(root, start, head_sha, globs)
     result = {"command": command, "base": base, "head": head, "start": start, "head_sha": head_sha, "tests": tests,
               "repeat": repeat, "red": [], "green": [], "verdict": None}
+    identifiers = None
+    if ac_map:
+        map_path = ac_map if os.path.isabs(ac_map) else os.path.join(root, ac_map)
+        identifiers = parse_ac_map(map_path)
+        result["ac_map"] = {"path": ac_map, "identifiers": identifiers, "missing": []}
     if not tests:
         result["verdict"] = "NO_TESTS"
         return result
@@ -193,6 +268,12 @@ def prove(root, base, head, command, globs, setup, repeat, timeout):
                     raise ToolError("--setup failed in the %s worktree: %s" % (label, done["error"] or ("exit %s: %s" % (done["rc"], done["tail"][-120:]))))
         result["red"] = [run_command(command, red_dir, timeout) for _ in range(repeat)]
         result["green"] = [run_command(command, green_dir, timeout) for _ in range(repeat)]
+        if junit:
+            reports = {}
+            for label, directory in (("red", red_dir), ("green", green_dir)):
+                report_path = junit if os.path.isabs(junit) else os.path.join(directory, junit)
+                reports[label] = parse_junit(report_path)
+            result["junit"] = reports
     finally:
         for path in made:
             git(root, "worktree", "remove", "--force", path)
@@ -211,6 +292,21 @@ def prove(root, base, head, command, globs, setup, repeat, timeout):
         verdict = "NOT_GREEN"
     else:
         verdict = "PASS"
+    if "junit" in result:
+        red_report, green_report = result["junit"]["red"], result["junit"]["green"]
+        if red_report["tests"] == 0 or green_report["tests"] == 0:
+            verdict = "NO_TESTS"
+        elif red_report["errors"] and not red_report["failures"]:
+            verdict = "COLLECTION_ERROR"
+        elif green_report["errors"] and not green_report["failures"]:
+            verdict = "COLLECTION_ERROR"
+        elif green_report["failures"] or green_report["errors"]:
+            verdict = "NOT_GREEN"
+    if verdict == "PASS" and identifiers is not None:
+        missing = missing_ac_tests(identifiers, result["junit"]["green"])
+        result["ac_map"]["missing"] = missing
+        if missing:
+            verdict = "AC_MISMATCH"
     result["verdict"] = verdict
     return result
 
@@ -227,6 +323,18 @@ def evidence(result):
         lines += ["- RED (base code + head's tests): exit %s" % ", ".join(codes), "```", result["red"][-1]["tail"], "```"]
         codes = [str(run["rc"]) for run in result["green"]]
         lines += ["- GREEN (head): exit %s" % ", ".join(codes), "```", result["green"][-1]["tail"], "```"]
+    if "junit" in result:
+        red_report, green_report = result["junit"]["red"], result["junit"]["green"]
+        lines.append("- junit: red tests=%d failures=%d errors=%d; green tests=%d failures=%d errors=%d" % (
+            red_report["tests"], red_report["failures"], red_report["errors"],
+            green_report["tests"], green_report["failures"], green_report["errors"]))
+    if "ac_map" in result:
+        mapped = result["ac_map"]
+        if mapped["missing"]:
+            lines.append("- AC mapping: %d of %d mapped test(s) did not execute: %s" % (
+                len(mapped["missing"]), len(mapped["identifiers"]), ", ".join(mapped["missing"])))
+        else:
+            lines.append("- AC mapping: all %d mapped test(s) executed" % len(mapped["identifiers"]))
     lines.append("- verdict: %s%s" % (result["verdict"], ". Read the RED output: it must fail for the stated reason, not a typo or a missing dependency."
                                       if result["verdict"] == "PASS" else ""))
     return "\n".join(lines)
@@ -242,6 +350,8 @@ def main(argv=None):
     parser.add_argument("--setup", help="command to run in each worktree first, e.g. \"npm ci\"")
     parser.add_argument("--repeat", type=int, default=1, help="runs per phase; use 3 for anything flaky (max %d)" % MAX_REPEAT)
     parser.add_argument("--timeout", type=int, default=300, help="seconds per run")
+    parser.add_argument("--junit", help="JUnit XML report produced inside each worktree (relative path or absolute)")
+    parser.add_argument("--ac-map", help="markdown file mapping acceptance criteria to test ids (e.g. tasks.md); requires --junit")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -256,10 +366,13 @@ def main(argv=None):
     if not 1 <= args.repeat <= MAX_REPEAT or args.timeout < 1:
         sys.stderr.write("redgreen.py: --repeat must be 1-%d and --timeout >= 1\n" % MAX_REPEAT)
         return 2
+    if args.ac_map and not args.junit:
+        sys.stderr.write("redgreen.py: --ac-map requires --junit (there is no executed report to cross-check)\n")
+        return 2
 
     try:
         result = prove(args.repo_root, args.base, args.head, command, tuple(args.test_glob or DEFAULT_TEST_GLOBS),
-                       setup, args.repeat, args.timeout)
+                       setup, args.repeat, args.timeout, args.junit, args.ac_map)
     except ToolError as exc:
         if args.json:
             print(json.dumps({"verdict": "ERROR", "error": str(exc)}, sort_keys=True))

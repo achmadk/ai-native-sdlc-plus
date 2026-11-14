@@ -32,3 +32,18 @@ Committed before any eval run. If a result misses, report it and fix the design;
 
 - Total always-loaded tokens (names plus descriptions) reported; per-SKILL.md size limit 250 lines enforced.
 - Pass if total stays under 4000 tokens and every SKILL.md is under the line limit.
+
+## WS6 selection registration
+
+- Freeze `selection-cases.json`, both catalogs, three repeats, and these criteria in Git before any provider call or description rewrite.
+- Require at least 30 should-trigger and 30 semantic near-miss cases spanning all ten product skills, with development and held-out cases reported separately.
+- Primary selection thresholds are overall precision >= 0.85 and recall >= 0.95. Always publish per-skill confusion counts, every repeat, and every miss even when the aggregate passes.
+- Score only preregistered expected, allowed, and forbidden IDs. Do not use a model judge or edit labels after seeing results.
+- Run held-out cases once after descriptions are frozen. A held-out-driven edit invalidates the comparison and requires a new registration rather than relabeling the old run.
+
+## WS6 paired task registration
+
+- Freeze exactly three cases per product skill (leader, IC, edge), their condition-independent assertions, three repeats, condition randomization, and the judge policy before recording outputs.
+- Pass if the with-skill assertion rate exceeds baseline by at least 15 points on two of three cases per skill, with no case regressing more than 10 points.
+- Provider request, input-token, and monetary caps are hard pre-call limits. Missing token, time, or cost evidence is `unverified`, never zero or `chars/4`.
+- Persist negative deltas and incomplete runs. A model judge must use a different model family, a fixed rubric, 24 human-rated calibration samples with kappa >= 0.60, and a 20% human spot-check.

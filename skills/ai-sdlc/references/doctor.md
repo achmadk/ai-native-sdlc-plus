@@ -1,8 +1,9 @@
 # doctor reference
 
-`python3 scripts/doctor.py [--root DIR] [--strict] [--json] [--check-branch-protection] [--require-enforcement] [--check-name NAME]`
+`python3 scripts/sdlc.py doctor [--root DIR] [--strict] [--json] [--raw] [--check-branch-protection] [--require-enforcement] [--check-name NAME]`
+(or legacy raw view: `python3 scripts/doctor.py [--root DIR] ...`; explain any check ID without remediation via `python3 scripts/sdlc.py explain <check-id> --root DIR`)
 
-Verifies the installation and says exactly how sure it is. Each line is `name: status - detail`.
+Verifies the installation, groups findings into `blocking`, `needs_human`, and `informational` action buckets while retaining raw check IDs/counts, and says exactly how sure it is. Each raw finding is `name: status - detail`.
 
 ## Statuses
 - `verified`: checked here and true.

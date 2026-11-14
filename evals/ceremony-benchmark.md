@@ -1,3 +1,7 @@
+> [!NOTE]
+> Historical dated record from 2026-10-02 based on estimated template authoring durations.
+> Superseded by measured foreground observations with finite preregistered token budgets in [`evals/ceremony-measured.md`](ceremony-measured.md).
+
 # Ceremony benchmark — measured 2026-10-02
 
 Method: approval counts from lane rules; minutes timed on this change's own artifacts (Lite-sized edit: trace block ~2 min; Standard spec + approval ~15 min authoring + async approval; Critical estimated from template fields).

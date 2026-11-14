@@ -20,17 +20,72 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, E, D = "scripts/lane.py", "scripts/evidence_check.py", "scripts/doctor.py"
 H, HD, C = "hooks/pre-push.sh", "hooks/pre-push", "skills/context-pack/scripts/check_brief.py"
 S, R, G = "skills/spec-first/scripts/check_spec.py", "skills/verify-and-evals/scripts/redgreen.py", "skills/ai-sdlc/assets/ci-generic.sh"
+SI = "skills/spec-first/scripts/spec_inputs.py"
+FD, I, AP, BW = "scripts/sdlc.py", "scripts/install.py", "scripts/agent_profiles.py", "scripts/build_wheel.py"
+LT, CB, ME, VA = ("scripts/lite.py", "scripts/ceremony_benchmark.py",
+                  "scripts/model_eval.py", "scripts/verify_all.py")
 # Which test modules can possibly observe a change to each file (lane.py is imported by the others).
 TESTS = {L: ["tests.test_lane", "tests.test_evidence_check", "tests.test_hook", "tests.test_templates", "tests.test_doctor", "tests.test_ci_security"],
-         E: ["tests.test_evidence_check", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
+         E: ["tests.test_evidence_check", "tests.test_spec_interop", "tests.test_templates", "tests.test_hook", "tests.test_ci_security"],
+         SI: ["tests.test_spec_interop", "tests.test_interop_adapters"],
          D: ["tests.test_doctor.WorkflowChecks", "tests.test_doctor.Basics", "tests.test_doctor.ConfigChecks",
              "tests.test_doctor.HookChecks", "tests.test_doctor.CodeownersChecks", "tests.test_doctor.RemoteChecks",
              "tests.test_doctor.GitState", "tests.test_doctor"],
          H: ["tests.test_hook"], HD: ["tests.test_hook"], C: ["tests.test_check_brief", "tests.test_templates"],
          S: ["tests.test_check_spec", "tests.test_templates"], R: ["tests.test_redgreen", "tests.test_templates"],
-         G: ["tests.test_ci_generic", "tests.test_ci_security"]}
+         G: ["tests.test_ci_generic", "tests.test_ci_security"],
+         FD: ["tests.test_sdlc_cli.PublicCLIContract", "tests.test_sdlc_cli.DoctorAndExplainContract",
+              "tests.test_sdlc_cli.RuntimeIsolationContract", "tests.test_sdlc_cli"],
+         I: ["tests.test_lifecycle.StatusAndDryRunPlanningContract", "tests.test_lifecycle.UpdateReconciliationContract",
+             "tests.test_lifecycle.UninstallContract", "tests.test_lifecycle.LifecycleRaceAndFailureContract",
+             "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
+         AP: ["tests.test_agent_profiles.ClaudeCursorCopilotCodexProfilesContract",
+              "tests.test_agent_profiles.GeminiOpencodeKiloAndHostilePolicyContract",
+              "tests.test_agent_profiles.CanonicalPolicyAndRegistryContract"],
+         BW: ["tests.test_wheel.WheelPackagingContract", "tests.test_wheel.InstalledWheelExecutionContract"],
+         LT: ["tests.test_lite"],
+          CB: ["tests.test_ceremony_benchmark"],
+          ME: ["tests.test_model_eval.ProviderAndReplayContract"],
+          VA: [
+              "tests.test_verify_all.VerifyAllContract.test_subprocess_stage_uses_argv_hashes_output_and_reports_timeout",
+              "tests.test_verify_all.VerifyAllContract.test_git_provenance_marks_relevant_dirty_paths_but_excludes_receipt",
+              "tests.test_verify_all.VerifyAllContract.test_footprint_reports_exact_bytes_and_unverified_tokens_without_loader_record",
+              "tests.test_verify_all.VerifyAllContract.test_atomic_receipt_keeps_previous_file_when_replace_fails",
+              "tests.test_verify_all.VerifyAllContract.test_claim_value_status_revision_and_stale_inputs_fail_closed",
+          ]}
 
 MUTANTS = [
+    (L, '    "openspec/config.yaml",\n', "", False),
+    (LT, 'if lane != "Lite":', "if False:", False),
+    (LT, "if not base_sha:", "if False:", False),
+    (LT, "if base_sha == head_sha:", "if False:", False),
+    (LT, "if args.redgreen:", "if False:", False),
+    (CB, "if reg_err:", "if False:", False),
+    (CB, 'if not data.get("registration_id"):', "if False:", False),
+    # --- model_eval.py provider and replay trust boundary ---
+    (ME, "if len(records) >= request_cap:", "if False:", False),
+    (ME, "if spent + max_request_cost > cost_cap:", "if False:", False),
+    (ME, "            shell=False,\n", "            shell=True,\n", False),
+    (ME, 'def replay_evaluation(bundle, args):\n    transcript = _read_json_path',
+     'def replay_evaluation(bundle, args):\n    argv, child_env, _, credential_values = _provider_configuration()\n    _provider_response({}, argv, child_env, credential_values, 1024, 1, set())\n    transcript = _read_json_path', False),
+    (ME, "all(isinstance(item, str) and item in catalog_ids for item in selected)",
+     "all(isinstance(item, str) for item in selected)", False),
+    (ME, "_eval_require(seen == expected, \"transcript repeat coverage is incomplete\")",
+     "_eval_require(True, \"transcript repeat coverage is incomplete\")", False),
+    (ME, 'transcript.get("registration_sha256") == frozen["selection registration"]', "True", False),
+    (ME, 'transcript_catalog.get("sha256") == catalog["sha256"]', "True", False),
+    (ME, 'record.get("request_sha256") == _sha256(_canonical_json(request))', "True", False),
+    (ME, "if value in text:", "if False:", False),
+    # --- verify_all.py receipt and claim trust boundary ---
+    (VA, 'status = "pass" if exit_code == 0 else "fail"', 'status = "pass"', False),
+    (VA, '"state": "dirty" if changed else "clean",', '"state": "clean",', False),
+    (VA, '"tokens": None,', '"tokens": 0,', False),
+    (VA, '"max_lane_tokens": None,', '"max_lane_tokens": 0,', False),
+    (VA, "        replace(temporary, path)\n", "        os.remove(path)\n        replace(temporary, path)\n", False),
+    (VA, '_require(actual == expected, "claim block is stale or malformed: %s" % claim_id)',
+     '_require(True, "claim block is stale or malformed: %s" % claim_id)', False),
+    (VA, '_require(actual == expected, "verification input hash is stale: %s" % relative)',
+     '_require(True, "verification input hash is stale: %s" % relative)', False),
     (L, "top = max(per_path", "top = min(per_path", False),
     (L, 'return "Standard", None', 'return "Lite", None', False),
     (L, 'compile_pattern(pattern, name == "critical")', "compile_pattern(pattern, False)", False),
@@ -38,6 +93,11 @@ MUTANTS = [
     (L, '    "scripts/**",\n', "", False),
     (L, '    ".github/workflows/**",\n', "", False),
     (L, '    "hooks/**",\n', "", False),
+    (L, '    ".cursor/skills/**",\n', "", False),
+    (L, '    ".github/prompts/**",\n', "", False),
+    (L, '    ".opencode",\n', "", False),
+    (L, '    ".gemini",\n', "", False),
+    (L, '    "AGENTS.override.md",\n', "", False),
     (L, 'text.startswith("/") or re.match', 'False or re.match', False),
     (L, 'if ".." in text.split("/"):', "if False:", False),
     (L, "if _CONTROL_CHARS.search(item):", "if False:", False),
@@ -72,7 +132,7 @@ MUTANTS = [
     (D, '"pull_request_target" not in events', "True", False),
     (D, 'and head_with["fetch-depth"] == 0, FAIL', 'and True, FAIL', False),
     (D, 'add("trusted-tooling", base_ok and head_ok and gate_ok, WARN,', 'add("trusted-tooling", True, WARN,', False),
-    (D, "pinned = len(actions) == 2 and not unpinned and all(isinstance(a, str) for a in actions)", "pinned = True", False),
+    (D, "pinned = len(actions) == (2 if scanner else 3) and not unpinned and all(isinstance(a, str) for a in actions)", "pinned = True", False),
     (D, "covered = has_owner", "covered = True", False),
     (D, "    if missing:\n", "    if False:\n", False),
     (D, 'ln.strip() and "__pycache__" not in ln and not ln.endswith(".pyc")', "ln.strip()", False),
@@ -92,12 +152,31 @@ MUTANTS = [
     (D, "return 1 if failed else 0", "return 0", False),
     (D, "if os.path.realpath(scripts_dir) == os.path.realpath(HERE):", "if False:", False),
     (D, "    if drifted:\n", "    if False:\n", False),
+    # --- evidence_check.py manifest provenance / verified_how taxonomy ---
+    (E, 'return _item(True, detail, "verified", "tracked-blob")', 'return _item(True, detail, "attested", "tracked-blob")', False),
+    (E, 'return _item(True, detail, "unverified", "pr-body-section")', 'return _item(True, detail, "verified", "pr-body-section")', False),
+    (E, 'if ok and detail.startswith("URL accepted"):', "if False:", False),
+    (E, '_item(True, "attested by --present, not verified", "attested", "attested-flag")', '_item(True, "attested by --present, not verified", "verified", "attested-flag")', False),
+    (E, '"head_sha": _resolve_sha(args.repo_root, args.head)', '"head_sha": None', False),
+    (E, '"base_sha": _resolve_sha(args.repo_root, args.base)', '"base_sha": None', False),
+    (E, 'if name in present:', "if True:", False),
+    (E, 'if not getattr(args, "emit_json", None):', "if True:", False),
+    # --- evidence_check.py approval verification ---
+    (E, 'required = bool(args.require_approvals)', "required = False", False),
+    (E, 'if author and login.lower() == str(author).lower():', "if False:", False),
+    (E, 'if state != "ok":', "if False:", False),
+    (E, 'if missing:', "if False:", False),
+    (E, 'if len(approved) < 2:', "if False:", False),
+    (E, 'if not any(login.lower() in owners for login in approved):', "if False:", False),
+    (E, 'if matches(path):\n                applicable = tokens', "if False:\n                applicable = tokens", False),
+    (E, 'return (False if required else True), _item(\n            False if required else True, "approvals unverified: %s" % detail, "unverified", "api-checked")',
+     'return True, _item(True, "approvals unverified: %s" % detail, "verified", "api-checked")', False),
     # --- evidence_check.py --diff-only ---
     (E, "if args.diff_only and args.ci:", "if False and args.ci:", False),
     (E, "if args.diff_only and not auto:", "if False and not auto:", False),
     (E, "    if args.diff_only:\n        lane = lanelib.max_lane(computed, floor)", "    if False:\n        lane = lanelib.max_lane(computed, floor)", False),
     (E, 'owed = [name for name in REQUIRED[lane] if name != "test_changes"]', "owed = []", False),
-    (E, "        if not found[0]:\n            detail = ", "        if False:\n            detail = ", False),
+    (E, '        if not found["ok"]:\n            detail = ', '        if False:\n            detail = ', False),
     (E, '("diff checks ok for %s (PR description items are checked in CI)" if args.diff_only', '("diff checks ok for %s (PR description items are checked in CI)" if False', False),
     # --- doctor.py hook logic ---
     (D, "    if not os.path.isfile(target):\n", "    if False:\n", False),
@@ -207,6 +286,12 @@ MUTANTS = [
     # Equivalent: resolve() appends "^{commit}" to the ref, and every later git call receives only full SHAs, so an unsafe ref is
     # rejected by git itself even without this check. The check is kept as defence in depth.
     (R, "if not _REF_OK.match(ref or \"\"):", "if False:", True),
+    # --- redgreen.py --junit semantic checks ---
+    (R, 'if red_report["tests"] == 0 or green_report["tests"] == 0:', "if False:", False),
+    (R, 'elif red_report["errors"] and not red_report["failures"]:', "elif False:", False),
+    (R, 'if missing:\n            verdict = "AC_MISMATCH"', 'if False:\n            verdict = "AC_MISMATCH"', False),
+    (R, 'if not any(_test_id_matches(mapped, case) for case in canonical):', "if False:", False),
+    (R, 'text = re.sub(r"\\.(?:py|js|jsx|ts|tsx|go|rb|java|cs|php|rs)\\b", "", text)', "text = text", False),
     # --- ci-generic.sh ---
     (G, '[ "${#sha}" -ge 40 ] ||', '[ "${#sha}" -ge 1 ] ||', False),
     (G, '  case "$sha" in *[!0-9a-f]*) die 2 "not a commit SHA: $sha" ;; esac\n', "", False),
@@ -220,6 +305,27 @@ MUTANTS = [
     (G, ': "${SDLC_BASE:=}" "${SDLC_HEAD:=}" "${SDLC_PR_BODY_FILE:=}"\n', "", False),
     (G, '--pr-body-file "$SDLC_PR_BODY_FILE"', "", False),
     (G, "python3 -I \"$tmp/scripts/evidence_check.py\" --ci \\", "python3 -I \"$tmp/scripts/evidence_check.py\" \\", False),
+    # --- sdlc.py (dispatcher bypasses & hidden doctor failures) ---
+    (FD, "return 0 if code is None else int(code)", "return 0", False),
+    (FD, "for req in required:", "for req in ():", False),
+    (FD, 'if status == "FAIL" or (strict and status == "WARN") or status not in ("FAIL", "WARN", "unverified", "info"):',
+     'if status == "FAIL" or (False and status == "WARN") or status not in ("FAIL", "WARN", "unverified", "info"):', False),
+    (FD, 'if status == "verified":', 'if status in ("verified", "FAIL"):', False),
+    (FD, "failed = counts[doctor_mod.FAIL] > 0 or (parsed.strict and counts[doctor_mod.WARN] > 0)", "failed = False", False),
+    # --- install.py (unsafe ownership/deletion & dropped generated records) ---
+    (I, "recognized.discard(CANONICAL_POLICY)", "recognized.add(CANONICAL_POLICY)", False),
+    (I, "unrecognized = sorted(rel for rel in owned if rel not in recognized)", "unrecognized = []", False),
+    (I, "if additive:", "if False:", False),
+    (I, 'elif snap["record"] != owned_rec:', "elif False:", False),
+    # --- agent_profiles.py (native manual command safety) ---
+    (AP, '"disable-model-invocation: true\\n"', '"disable-model-invocation: false\\n"', False),
+    # --- build_wheel.py (required source integrity) ---
+    (BW, "if license_snap is None:", "if False:", False),
+    # --- Interoperability controls (spec_inputs.py & evidence_check.py) ---
+    (SI, "if (sf, u_key) not in mapped_units:", "if False:", False),
+    (SI, '    if lane == "Critical":\n        for risk_file', '    if False:\n        for risk_file', False),
+    (E, "resolve_repo_file(link_target(spec_val), repo_root, revision, lane=lane, return_bundle_info=True)", "resolve_repo_file(link_target(spec_val), repo_root, None, lane=lane, return_bundle_info=True)", False),
+    (E, '_spec_inputs_path = os.path.join(_root_dir, "skills", "spec-first", "scripts", "spec_inputs.py")', '_spec_inputs_path = os.path.join(repo_root or _root_dir, "skills", "spec-first", "scripts", "spec_inputs.py")', False),
 ]
 
 
@@ -233,12 +339,24 @@ def run_tests(tree, modules=None):
     return proc.returncode == 0
 
 
+def attach_readonly_git_history(tree):
+    """Expose committed objects to provenance tests without copying or mutating .git."""
+    git_dir = subprocess.check_output(
+        ["git", "-C", ROOT, "rev-parse", "--absolute-git-dir"],
+        stderr=subprocess.STDOUT,
+    ).decode("utf-8", "replace").strip()
+    with open(os.path.join(tree, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: %s\n" % git_dir.replace("\\", "/"))
+
+
 def try_mutant(number, mutant):
     rel, old, new, is_equiv = mutant
     tree = tempfile.mkdtemp()
     try:
         shutil.copytree(ROOT, tree, dirs_exist_ok=True, symlinks=True, ignore_dangling_symlinks=True,
                         ignore=shutil.ignore_patterns("__pycache__", ".git", ".codegraph", ".omo", "*.pyc"))
+        if rel == ME:
+            attach_readonly_git_history(tree)
         path = os.path.join(tree, rel)
         with open(path) as handle:
             source = handle.read()
@@ -256,10 +374,14 @@ def try_mutant(number, mutant):
 
 def main():
     only = sys.argv[1] if len(sys.argv) > 1 else ""
-    if not run_tests(ROOT):
+    chosen = [(i, m) for i, m in enumerate(MUTANTS, 1) if only in m[0]]
+    modules_to_check = set()
+    for _, (rel, _, _, _) in chosen:
+        modules_to_check.update(TESTS.get(rel, []))
+    baseline_modules = list(modules_to_check) if (only and modules_to_check) else None
+    if not run_tests(ROOT, baseline_modules):
         print("baseline tests fail on UNMUTATED code; mutation results would be meaningless")
         return 2
-    chosen = [(i, m) for i, m in enumerate(MUTANTS, 1) if only in m[0]]
     workers = max(1, min(8, os.cpu_count() or 1))
     killed = survived = equivalent = 0
     bad = []

@@ -281,6 +281,160 @@ class CiFlow(Repo):
             self.assertIn("sdlc-gate: Lite lane", handle.read())
 
 
+class Manifest(Repo):
+    def manifest_path(self):
+        return os.path.join(self.repo, "..", "manifest-%d.json" % id(self))
+
+    def read_manifest(self, path):
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def items(self, data):
+        return {item["name"]: item for item in data["evidence"]}
+
+    def test_emit_json_records_provenance_and_verified_how_taxonomy(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        path = self.manifest_path()
+        code, out, _ = self.ci(GOOD_STANDARD, "--emit-json", path)
+        self.assertEqual(code, 0, out)
+        data = self.read_manifest(path)
+        self.assertEqual(data["lane"], "Standard")
+        self.assertEqual(data["head_sha"], self.g("rev-parse", "HEAD").strip())
+        self.assertEqual(data["base_sha"], self.base)
+        self.assertIn("src/**", data["rule"])
+        items = self.items(data)
+        self.assertEqual((items["spec_link"]["status"], items["spec_link"]["verified_how"]),
+                         ("verified", "tracked-blob"))
+        self.assertEqual((items["test_changes"]["status"], items["test_changes"]["verified_how"]),
+                         ("verified", "tracked-blob"))
+        for name in ("trace_block", "review_notes"):
+            self.assertEqual((items[name]["status"], items[name]["verified_how"]),
+                             ("verified", "pr-body-section"), name)
+
+    def test_present_attestations_are_labeled_attested_not_verified(self):
+        path = self.manifest_path()
+        code, out, _ = run_main(["--lane", "Lite", "--repo-root", self.repo,
+                                 "--present", "intent_block", "test_changes", "trace_block",
+                                 "--emit-json", path])
+        self.assertEqual(code, 0, out)
+        data = self.read_manifest(path)
+        self.assertIsNone(data["base_sha"])
+        for item in data["evidence"]:
+            self.assertEqual((item["status"], item["verified_how"]), ("attested", "attested-flag"), item["name"])
+
+    def test_unverified_url_is_not_misreported_as_verified(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        path = self.manifest_path()
+        code, out, _ = self.ci(GOOD_STANDARD.replace("Spec: docs/spec.md", "Spec: https://example.com/spec"),
+                               "--emit-json", path)
+        self.assertEqual(code, 0, out)
+        item = self.items(self.read_manifest(path))["spec_link"]
+        self.assertEqual((item["status"], item["verified_how"]), ("unverified", "pr-body-section"))
+
+    def test_manifest_is_written_even_when_evidence_is_missing(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        path = self.manifest_path()
+        code, _, _ = self.ci("", "--emit-json", path)
+        self.assertEqual(code, 1)
+        data = self.read_manifest(path)
+        self.assertEqual(data["lane"], "Lite")
+        self.assertEqual(self.items(data)["trace_block"]["status"], "missing")
+
+    def test_emit_json_does_not_pollute_json_stdout(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        path = self.manifest_path()
+        code, out, _ = self.ci(GOOD_LITE, "--json", "--emit-json", path)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out)["lane"], "Lite")
+        self.assertTrue(os.path.isfile(path))
+
+
+class Approvals(Repo):
+    def reviews(self, *entries):
+        return ("ok", [{"user": {"login": login}, "state": state} for login, state in entries], "")
+
+    def offline(self, detail="gh CLI is not installed"):
+        return ("unavailable", None, detail)
+
+    def critical_change(self, owners="auth/** @alice\n"):
+        self.write(".github/CODEOWNERS", owners)
+        self.change(auth__login_dot_py="x = 2\n", tests__test_login_dot_py="assert True\n")
+
+    def test_author_self_approval_is_rejected(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        body = GOOD_LITE + "\nApproved-by: @author\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(("author", "APPROVED"))):
+            code, out, _ = self.ci(body, "--check-approvals", "--pr-author", "author")
+        self.assertEqual(code, 1, out)
+        self.assertIn("authors cannot approve their own change", out)
+
+    def test_declared_approver_must_have_an_approved_review(self):
+        self.change(src__app_dot_py="x = 2\n", tests__test_app_dot_py="assert True\n")
+        body = GOOD_STANDARD + "\nApproved-by: @alice\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(("carol", "APPROVED"))):
+            code, out, _ = self.ci(body, "--check-approvals", "--pr-author", "author")
+        self.assertEqual(code, 1, out)
+        self.assertIn("@alice has no APPROVED review", out)
+
+    def test_offline_check_warns_but_does_not_false_pass_as_verified(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        body = GOOD_LITE + "\nApproved-by: @alice\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.offline()):
+            code, out, _ = self.ci(body, "--check-approvals", "--pr-author", "author")
+        self.assertEqual(code, 0, out)
+        self.assertIn("unverified", out)
+        self.assertIn("gh CLI is not installed", out)
+        self.assertNotIn("approvals verified", out)
+
+    def test_require_approvals_fails_closed_when_offline(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        body = GOOD_LITE + "\nApproved-by: @alice\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.offline()):
+            code, out, _ = self.ci(body, "--require-approvals", "--pr-author", "author")
+        self.assertEqual(code, 1, out)
+        self.assertIn("unverified", out)
+
+    def test_critical_requires_two_distinct_reviewers_and_a_codeowner(self):
+        self.critical_change()
+        body = GOOD_CRITICAL + "\nApproved-by: @alice, @bob\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(
+                ("alice", "APPROVED"), ("bob", "APPROVED"), ("author", "APPROVED"))):
+            code, out, _ = self.ci(body, "--require-approvals", "--pr-author", "author",
+                                   "--pr-number", "7", "--repo", "acme/widgets")
+        self.assertEqual(code, 0, out)
+        self.assertIn("approvals verified", out)
+
+    def test_critical_rejects_a_single_reviewer(self):
+        self.critical_change()
+        body = GOOD_CRITICAL + "\nApproved-by: @alice\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(("alice", "APPROVED"))):
+            code, out, _ = self.ci(body, "--require-approvals", "--pr-author", "author")
+        self.assertEqual(code, 1, out)
+        self.assertIn("two distinct", out)
+
+    def test_critical_requires_a_reviewer_matching_codeowners(self):
+        self.critical_change(owners="auth/** @carol\n")
+        body = GOOD_CRITICAL + "\nApproved-by: @alice, @bob\n"
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(
+                ("alice", "APPROVED"), ("bob", "APPROVED"))):
+            code, out, _ = self.ci(body, "--require-approvals", "--pr-author", "author")
+        self.assertEqual(code, 1, out)
+        self.assertIn("CODEOWNER", out)
+
+    def test_manifest_records_api_checked_approval_provenance(self):
+        self.change(docs__guide_dot_md="fixed\n")
+        body = GOOD_LITE + "\nApproved-by: @alice\n"
+        path = os.path.join(self.repo, "..", "approval-manifest-%d.json" % id(self))
+        with patch.object(ec, "_load_github_reviews", return_value=self.reviews(("alice", "APPROVED"))):
+            code, out, _ = self.ci(body, "--check-approvals", "--pr-author", "author",
+                                   "--emit-json", path)
+        self.assertEqual(code, 0, out)
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        item = {entry["name"]: entry for entry in data["evidence"]}["approvals"]
+        self.assertEqual((item["status"], item["verified_how"]), ("verified", "api-checked"))
+
+
 class SpecLinks(Repo):
     def standard(self, spec_line):
         return GOOD_STANDARD.replace("Spec: docs/spec.md", spec_line)
@@ -308,6 +462,23 @@ class SpecLinks(Repo):
         code, out, _ = self.run_standard("Spec: docs/link.md")
         self.assertEqual(code, 1)
         self.assertIn("outside the repository", out)
+
+    def test_realpath_escape_is_rejected_without_symlinks(self):
+        outside = os.path.realpath(os.path.join(self.repo, "..", "outside-realpath-%d.md" % id(self)))
+        with open(outside, "w") as handle:
+            handle.write("secret\n")
+        real_realpath = ec.os.path.realpath
+
+        def fake_realpath(path):
+            text = os.fspath(path).replace("\\", "/")
+            if text.endswith("docs/link.md"):
+                return outside
+            return real_realpath(path)
+
+        with patch.object(ec.os.path, "realpath", side_effect=fake_realpath):
+            ok, detail = ec.resolve_repo_file("docs/link.md", self.repo)
+        self.assertFalse(ok)
+        self.assertIn("outside the repository", detail)
 
     def test_empty_file(self):
         self.write("docs/empty.md", "")

@@ -1,22 +1,47 @@
 # AI-native SDLC skills (plus)
 
-> **Risk-proportional Agent Skills for AI-native delivery: explicit intent before code, governed loops, traceable work — with compliance mappings for the EU AI Act, Cyber Resilience Act (CRA), NIST AI RMF, and SOC 2 Type II.**
+AI-native SDLC combines Agent Skills with a standard-library Python gate for risk-proportional delivery. It classifies Git changes as Lite, Standard, or Critical, checks the evidence owed by that lane, and supports non-destructive toolkit installation. Use it alongside your coding agent and planning process; installing instructions or passing a structural check is not proof of semantic quality, human approval, runtime containment, or hosted merge enforcement. See [the limits](LIMITATIONS.md).
 
-Claims convention: `[report-stated]` = perception-survey respondents report (never measured outcomes); `[measured here]` = numbers from `evals/`, or from the test suite and verification scripts in this repository, reproducible by running them; `[extrapolated]` = judgment, flagged as such.
+Claims convention: `[report-stated]` means a cited publisher or survey reports it, not an independently reproduced outcome; `[measured here]` means a scoped local observation with recorded inputs and environment; `[extrapolated]` means a fit judgment. Historical evaluation records do not attest a newer revision or a comparative benchmark.
+
+Already using OpenSpec or Spec Kit? Keep that planning process while evaluating this repository's gate and skills. The gate and spec checker accept OpenSpec change folders and Spec Kit feature folders in-place as lane-appropriate specification evidence—see [the interoperability guide](docs/INTEROPERABILITY.md). Use `scripts/sdlc.py` (or the local wheel's `sdlc` entry point) as the unified front door for `init`, `lane`, `check spec|brief|evidence`, `doctor`, `explain`, `status`, `update`, `uninstall`, and `lite`. Start with the [sourced comparison](docs/COMPARISON.md), [current compatibility notes](docs/COMPATIBILITY.md), and [interoperability guide](docs/INTEROPERABILITY.md).
 
 ---
 
-## 60-Second Demo
+## Sixty-Second Gate Demo
 
-```bash
-# 1. Classify risk lane from changed files
-$ python3 scripts/lane.py --paths docs/guide.md
-Lite: matched Lite rule docs/**
+This is a local replay of the missing-evidence failure mode seen on [PR #4](https://github.com/achmadk/ai-native-sdlc-plus/pull/4), not a new hosted PR or an exact replay of its event payload. It uses the recorded base/head below and a simplified empty PR body. Test files changed, but Critical evidence is still required.
 
-# 2. Check owed evidence for the lane
-$ python3 scripts/evidence_check.py --lane Standard --present spec_link test_changes
-WARNING: missing evidence for Standard: trace_block, review_notes (local, not blocking)
+Prerequisites: run from an existing full-history toolkit checkout containing both revisions, with supported Python and Git installed. Cloning, installation, authentication, and hosted execution are outside the timing boundary. A missing ref or tool is a setup failure, not a successful demonstration of blocking.
+
+POSIX shell:
+
+```sh
+printf '' | PYTHONDONTWRITEBYTECODE=1 GITHUB_STEP_SUMMARY='' python3 -B scripts/evidence_check.py --ci \
+  --config scripts/lane-config.yaml --repo-root . \
+  --base=e5e8ff20fb732064f9ad38271199b3357b398099 \
+  --head=0ee9a1b426778aa4bd2cf45092bf37eb852d52a7 --pr-body-file -
 ```
+
+PowerShell:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE = '1'
+$env:GITHUB_STEP_SUMMARY = ''
+'' | python -B scripts/evidence_check.py --ci `
+  --config scripts/lane-config.yaml --repo-root . `
+  --base=e5e8ff20fb732064f9ad38271199b3357b398099 `
+  --head=0ee9a1b426778aa4bd2cf45092bf37eb852d52a7 --pr-body-file -
+```
+
+Expected exit code: **1**, with this missing-evidence result, not an ignored failure:
+
+```text
+ok       test_changes   16 test path(s) changed
+FAIL: missing evidence for Critical: intent_link, spec_link, threat_note, trace_block, review_notes, rollout_plan
+```
+
+`[measured here]` Two prepared-checkout runs on 2026-11-09 took approximately **0.30 seconds** and **0.681 seconds** on Windows with Python 3.15.2 and Git 2.45.1.windows.1, using checker revision `06c2ab56d1f790f17203c586108c53112be563cd` and the inputs above. These are reference observations, not a cold-start, onboarding, hosted-PR, or competitor-performance claim. The command does not edit files or GitHub; actual CI runs trusted-base tooling against a fresh event payload. Do not use `--present` or a lane downgrade to make incomplete Critical evidence pass.
 
 ---
 
@@ -49,12 +74,17 @@ The shared standard-library installer copies the explicit payload in `scripts/in
 
 Ownership is recorded in `.sdlc-install.json`. Identical reruns preserve file/state bytes and modification times. An unchanged managed file can be upgraded; a differing unowned or locally modified file causes a reported conflict before payload writes. This includes existing lane configs, templates, workflows, and `.gitattributes`. Reconcile conflicts explicitly and rerun; do not delete ownership state to force an overwrite. A later I/O failure reports a partial result and returns nonzero rather than claiming success.
 
-From the installed repository:
+From the installed repository (via the unified `sdlc` front door or direct helpers):
 
 ```bash
-python3 scripts/doctor.py --root .             # offline installation health
-python3 scripts/check_spec.py --help
-python3 scripts/check_brief.py --help
+python3 scripts/sdlc.py init --root . [--agents claude,cursor,copilot,codex,gemini,opencode,kilo]
+python3 scripts/sdlc.py status --root .        # read-only ownership, policy, and drift status
+python3 scripts/sdlc.py doctor --root .        # grouped offline installation health (raw counts retained)
+python3 scripts/sdlc.py explain codeowners --root .
+python3 scripts/sdlc.py lane --paths <files>
+python3 scripts/sdlc.py check spec --help
+python3 scripts/sdlc.py check brief --help
+python3 scripts/sdlc.py check evidence --help
 python3 scripts/redgreen.py --help
 ```
 
@@ -160,7 +190,11 @@ Standalone, standard-library helpers that sit next to the core gate and never ru
 - **Pinned Workflow Actions:** All CI actions pinned to immutable 40-character commit SHAs.
 - **Integrated Secret Scanning:** Multi-layer secret regex scanning in all brief/spec parsers plus [Gitleaks action](.github/workflows/gitleaks.yml) in CI.
 - **Cross-Platform Pre-Push Hooks:** Advisory dispatch with supported interpreter discovery and managed LF rules that survive Git checkout. Windows Python 3.8/3.13 CI runs focused native installer/Git-dispatch tests and a separate full suite; a configured job or skipped test is not a passing execution result.
-- **Reproducible Verification:** Run `python3 -m unittest discover -s tests -v`, `python3 tests/mutate.py`, and the ShellCheck command in `.github/workflows/ci.yml` against the revision being evaluated. Historical counts in `evals/` and `PATCH-NOTES.md` do not attest a newer revision. Trigger scores measure lexical matching, not actual agent skill selection.
+- **Reproducible Verification:** Run `python3 -m unittest discover -s tests -v`, `python3 tests/mutate.py`, and the ShellCheck command in `.github/workflows/ci.yml` against the revision being evaluated. Historical counts in `evals/` and `PATCH-NOTES.md` do not attest a newer revision. `Lexical overlap` scores from the old keyword harness are not actual agent skill selection.
+
+<!-- verify-all:start {"id":"readme-unit-tests","label":"unit tests","status_path":"stages.unit.status","unit":"tests","value_path":"stages.unit.counts.tests"} -->
+Current measured unit tests: `802 tests`; status `fail`; tested revision `9054870abd657ac6f8c49842eacde8999e1a1333`.
+<!-- verify-all:end readme-unit-tests -->
 
 Gitleaks receives the generated read-only `GITHUB_TOKEN` explicitly and has PR commenting disabled. Organization repositories additionally require `GITLEAKS_LICENSE`; fork-event secret availability can prevent scanning. Missing credentials, licensing, or API access must fail as setup errors, not be bypassed or reported as a clean scan. Hosted scanner verification is separate from local workflow-contract tests.
 
@@ -168,18 +202,16 @@ For self-tests in a Windows toolkit checkout, use `python -B -m unittest discove
 
 ---
 
-## How This Compares (Factual)
+## How This Compares
 
-| Area | This suite | timwukp/ai-native-sdlc | spec-kit |
-|---|---|---|---|
-| **Lanes scale ceremony with risk** | Yes: Lite/Standard/Critical (`lane.py`) | Not found on front page | Not found; fixed extension depth |
-| **Enterprise compliance packs** | Mappings in `docs/compliance/`: EU AI Act, CRA, NIST AI RMF, SOC 2 | None documented | None documented |
-| **Right-of-code loops** | `ship-and-observe` + 5 loop runbooks | CI gate + privacy scanner | Bug-fix extension adjacent |
-| **Context packs & freshness** | Yes: git-tracked `governs:` staleness | Unverified | Unverified |
-| **Decision trace as by-product** | Yes: lane-sized PR trace blocks | Intent chain (heavier) | Unverified |
-| **Multi-Agent / Multi-CI** | Claude, Cursor, Copilot, Codex, Gemini + 5 CI systems | Single platform focus | GitHub Actions primarily |
-| **Proof battery** | Unit/integration suite, mutation fixtures, lexical trigger checks; run against the candidate revision | verify.py model + 36/80 rubric | Maturity at scale (140k stars) |
+These are reviewed source descriptions and fit judgments, not a leaderboard or independent product tests. The [detailed comparison](docs/COMPARISON.md) covers the same tools plus Tessl, with prerequisites, unverified areas, and evidence limits. No source absence is treated as feature absence.
 
-This suite's column describes what is in this repository; its numbers are `[measured here]`. The other two columns summarize those projects' public READMEs: "Not found" means not found there, not that it is absent, and "Unverified" means not checked. Re-check them before relying on them.
+| Tool | Version / surface | Documented capabilities | Fit / limits | Evidence | Primary sources | Checked |
+| --- | --- | --- | --- | --- | --- | --- |
+| Spec Kit | 1.3.2 snapshot | Configurable SDD, bug-fix and assessment processes; extensions, presets, workflows and gates. | Evaluate for reusable process customization; it is not inherently fixed-depth. Comparative cost and agent outcomes are unverified here. | [report-stated] capabilities; [extrapolated] fit | [README](https://github.com/github/spec-kit/blob/v1.3.2/README.md) | 2026-11-09 |
+| OpenSpec | 1.16.1 snapshot; stores beta | Requirement/scenario artifacts, change lifecycle, profiles/schemas, and separate planning stores. | Evaluate for evolving specifications; artifact completion is not approval or hosted enforcement. | [report-stated] capabilities; [extrapolated] fit | [README](https://github.com/Fission-AI/OpenSpec/blob/v1.16.1/README.md) | 2026-11-09 |
+| Kiro | IDE 1.4.121; CLI 3.1.0; other surfaces rolling | IDE, CLI and hosted surfaces with specs, steering, hooks, permissions and ACP. | Evaluate for integrated agent execution; check the chosen surface and service terms rather than assuming IDE-only behavior. | [report-stated] capabilities; [extrapolated] fit | [Docs](https://kiro.dev/docs/) [Changelog](https://kiro.dev/changelog/) | 2026-11-09 |
+| BMAD | 6.12.4 snapshot | Right-sized planning/build paths, durable context, specialist perspectives and optional modules. | Evaluate for shared product/engineering process; relative ceremony has not been measured here. | [report-stated] capabilities; [extrapolated] fit | [README](https://github.com/bmad-code-org/BMAD-METHOD/blob/v6.12.4/README.md) | 2026-11-09 |
+| Superpowers | 7.0.2 snapshot | Design, TDD, debugging and review skills with harness-specific plugins and documented behavior evaluations. | Evaluate for agent-integrated coding discipline; verify loader behavior and repository controls in the selected setup. | [report-stated] capabilities; [extrapolated] fit | [README](https://github.com/obra/superpowers/blob/v7.0.2/README.md) | 2026-11-09 |
 
-Survey context: 94% use AI, 36% agentic, 6% deeply integrated; 74% faster codegen yet ~78-79% manual PR process; trust ~25-32% zero / ~60% guarded / ~1% full autonomy `[all report-stated]`.
+For a fact-checked adoption decision, review the linked version/surface and its current terms, then test the workflow you need. A passing metadata lint validates this table's structure, not those product claims or a universal winner.

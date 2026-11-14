@@ -54,7 +54,21 @@ Temporary fixtures remove read-only Git objects and unlink junctions without tra
 
 Foundation behavior tightens deliberately: install conflicts return nonzero without overwriting local work; path-only inspection cannot grant a CI documentation exemption; local evidence must be tracked at the evaluated revision; nested security and control paths receive higher lanes. Existing config format 1 and helper invocation forms remain supported. Root helper entry points delegate to the existing skill-local implementations.
 
-The installer preserves `.gitattributes` conflicts and maintains `.sdlc-install.json` ownership state. A pre-manifest installation has no implied ownership: identical files are retained, differing files require explicit reconciliation. Do not claim an automatic rollback or uninstall interface; neither is provided by this change.
+The installer preserves `.gitattributes` conflicts and maintains `.sdlc-install.json` ownership state. A pre-manifest installation has no implied ownership: identical files are retained, differing files require explicit reconciliation. The unified front door (`scripts/sdlc.py` / `sdlc`) exposes conservative `init`, `status`, `update`, `uninstall`, `doctor`, and `explain` operations over the shared engine without adding a `--force` overwrite flag or automatic rollback.
+
+## Native agent profiles (`sdlc init --agents ...`)
+
+`sdlc init --root <repo> [--agents claude,cursor,copilot,codex,gemini,opencode,kilo]` preserves root `AGENTS.md` as user-owned canonical policy (creating a starter only when absent and retaining it on uninstall) and renders project-local native files via `scripts/agent_profiles.py`. Configuration/fixture generation, loader discovery, and live agent execution are distinct evidence levels:
+
+| Profile | Native project-local surfaces | Verification level (`[measured here, 2026-11-10]`) |
+|---|---|---|
+| `claude` (Claude Code) | Generated `CLAUDE.md`; `.claude/skills/<10-skills>/`; `.claude/commands/sdlc/<op>.md` (`/sdlc:<op>`) | Configuration/snapshot verified; `claude` CLI absent locally (`unverified` loader/execution) |
+| `cursor` (Cursor) | User-owned `AGENTS.md`; `.cursor/skills/<10-skills>/`; manual `.cursor/skills/sdlc-<op>/SKILL.md` (`disable-model-invocation: true`, `/sdlc-<op>`) | Configuration/snapshot verified; `skills 1.7.0` (`npx --no-install --offline skills add --list`) verified 10 canonical skills; Cursor client `unverified` |
+| `copilot` (VS Code surface) | `.github/copilot-instructions.md`; `.github/skills/<10-skills>/`; `.github/prompts/sdlc-<op>.prompt.md` (VS Code prompt files only, not Copilot CLI) | Configuration/snapshot verified; VS Code Copilot loader/execution `unverified` |
+| `codex` (Codex) | User-owned `AGENTS.md`; `.agents/skills/<10-skills>/` (no custom slash-command file mechanism) | Configuration/snapshot verified; `codex` CLI absent locally (`unverified` loader/execution) |
+| `gemini` (Gemini CLI) | Generated `GEMINI.md`; `.gemini/skills/<10-skills>/`; `.gemini/commands/sdlc/<op>.toml` (`/sdlc:<op>`, not an Antigravity substitution) | Configuration/TOML parse verified; `gemini` CLI absent locally (`unverified` loader/execution) |
+| `opencode` (OpenCode V2) | User-owned `AGENTS.md` (no `CLAUDE.md` fallback); `.opencode/skills/<10-skills>/`; `.opencode/commands/sdlc/<op>.md` (`/sdlc/<op>`) | Configuration/snapshot verified; `opencode v2.2.5` installed locally, live LLM execution not authorized (`unverified` execution) |
+| `kilo` (Kilo) | User-owned `AGENTS.md`; `.kilo/skills/<10-skills>/`; `.kilo/command/sdlc-<op>.md` (`/sdlc-<op>`, no `.kilocode/`) | Configuration/snapshot verified; `kilo` CLI absent locally (`unverified` loader/execution) |
 
 ## Contributor-generated instructions
 

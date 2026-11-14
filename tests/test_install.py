@@ -24,23 +24,36 @@ else:
 
 ROOT = Path(__file__).resolve().parents[1]
 SH = support.find_shell()
-SHELLCHECK = shutil.which("shellcheck")
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
-    ".gitattributes", "install.sh", "install.ps1", "scripts/install.py", "scripts/install-manifest.json",
-    "scripts/lane.py", "scripts/lane-config.yaml", "scripts/evidence_check.py", "scripts/scanner-profiles.json",
+    ".gitattributes", "install.sh", "install.ps1", "scripts/sdlc.py", "scripts/agent_profiles.py",
+    "scripts/install.py", "scripts/install-manifest.json",
+    "scripts/lane.py", "scripts/lane-config.yaml", "scripts/lite.py", "scripts/evidence_check.py", "scripts/scanner-profiles.json",
     "scripts/doctor.py", "scripts/doctor_online.py", "scripts/lane_backtest.py",
     "scripts/trace_lint.py", "scripts/check_spec.py", "scripts/check_brief.py", "scripts/redgreen.py",
     ".github/pull_request_template.md", ".github/workflows/sdlc-gate.yml",
     ".github/workflows/gitleaks.yml", "hooks/pre-push", "hooks/pre-push.sh", "hooks/pre-push.ps1",
     "adapters/ci/README.md", "adapters/ci/gitlab-ci.yml", "adapters/ci/azure-pipelines.yml",
     "adapters/ci/bitbucket-pipelines.yml",
+    "adapters/openspec/config.fragment.yaml",
+    "adapters/openspec/sdlc-governed/schema.yaml",
+    "adapters/openspec/sdlc-governed/templates/proposal.md",
+    "adapters/openspec/sdlc-governed/templates/spec.md",
+    "adapters/openspec/sdlc-governed/templates/design.md",
+    "adapters/openspec/sdlc-governed/templates/threat-note.md",
+    "adapters/openspec/sdlc-governed/templates/rollout-plan.md",
+    "adapters/openspec/sdlc-governed/templates/tasks.md",
+    "adapters/spec-kit/extension/extension.yml",
+    "adapters/spec-kit/extension/bin/speckit-sdlc-gate",
+    "adapters/spec-kit/preset/preset.yml",
+    "adapters/spec-kit/preset/templates/plan-additions.md",
+    "adapters/spec-kit/preset/templates/tasks-additions.md",
 }
 SKILL_FILES = {
     "ai-sdlc/SKILL.md", "ai-sdlc/assets/ci-generic.sh", "ai-sdlc/references/init.md",
     "ai-sdlc/references/doctor.md", "ai-sdlc/references/onboarding.md",
-    "spec-first/SKILL.md", "spec-first/scripts/check_spec.py", "spec-first/references/examples.md",
+    "spec-first/SKILL.md", "spec-first/scripts/check_spec.py", "spec-first/scripts/spec_inputs.py", "spec-first/references/examples.md",
     "spec-first/assets/intent-template.md", "spec-first/assets/intent-critical-template.md",
     "spec-first/assets/spec-critical-template.md", "spec-first/assets/threat-note-template.md",
     "context-pack/SKILL.md", "context-pack/scripts/check_brief.py", "context-pack/assets/brief-template.md",
@@ -65,6 +78,22 @@ HELPERS = {
     "check_brief.py": "skills/context-pack/scripts/check_brief.py",
     "redgreen.py": "skills/verify-and-evals/scripts/redgreen.py",
 }
+
+
+def find_shellcheck():
+    executable = shutil.which("shellcheck")
+    if not executable:
+        return None
+    try:
+        result = subprocess.run(
+            [executable, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return executable if result.returncode == 0 else None
+
+
+SHELLCHECK = find_shellcheck()
 
 
 def clean_env(**extra):
