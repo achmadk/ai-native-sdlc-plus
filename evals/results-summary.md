@@ -15,11 +15,11 @@
 
 ## Where it loses (published, not hidden)
 
-- Trigger precision misses 0.85 on 4 skills (ai-sdlc, spec-first, context-pack, learning-mode); keyword harness lacks negation handling.
+- Historical lexical overlap precision missed 0.85 on 4 skills (ai-sdlc, spec-first, context-pack, learning-mode); this 2026-10-02 keyword-harness result is not model selection. A later dated lexical overlap iteration is recorded in `results-trigger.md`.
 - Learning-mode edge ties baseline off-scope.
 - No 6-month independent replication yet; single-session dry-run only.
 - Incumbents win on maturity (spec-kit scale/integrations) and worked-example history (timwukp portal + 36/80 rubric).
 
 ## Links
 
-evals/gap-analysis.md, evals/pass-criteria.md, evals/results-router-spec-first.md, evals/results-full.md, evals/results-trigger.md, evals/footprint.md, evals/ceremony-benchmark.md, evals/context-reconstruction.md, evals/mutation-security.md, evals/slice-learnings.md.
+evals/gap-analysis.md, evals/pass-criteria.md, evals/results-router-spec-first.md, evals/results-full.md, evals/results-trigger.md, evals/footprint.md, evals/ceremony-measured.md (supersedes historical evals/ceremony-benchmark.md), evals/context-reconstruction.md, evals/mutation-security.md, evals/slice-learnings.md.

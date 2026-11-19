@@ -29,3 +29,12 @@ Verify evidence locally before pushing:
 ```bash
 python3 scripts/evidence_check.py --lane <Lane> --present <evidence_keys...>
 ```
+
+## 4. Repository Safeguards
+
+- Define clear acceptance criteria (`AC1: ... | pass: ...`) before implementation logic. Do not weaken tests to make a change pass.
+- Check `docs/SBOM.md` before introducing external dependencies. Keep Python scripts stdlib-only and never introduce unpinned dependencies.
+- Evidence checks in CI must fail closed (`scripts/evidence_check.py --ci`).
+- Structured PR traces must identify the agent model, relevant prompts, and decision points. Mark unavailable metadata unknown rather than inventing it.
+- Never bypass pre-push checks or commit broken symlinks.
+- Never commit tokens, credentials, or personal data. Scrub secrets from traces and captured evidence.

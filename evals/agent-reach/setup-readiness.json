@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "checked_at": "2026-11-15T13:22:16Z",
+  "repository_head": "84c165c6ae952dc00ca81f5e0423ef430f8ed951",
+  "authorization": {
+    "scope": "setup-only",
+    "approved_by": "Achmad Kurnianto (@achmadk)",
+    "installs": true,
+    "authentication": false,
+    "discovery": false,
+    "behavior_calls": false
+  },
+  "status": "blocked",
+  "profiles": {
+    "claude": {
+      "status": "setup-only-verified",
+      "reason": "Official WinGet package installed user-locally. Version-only startup succeeded with updates, nonessential traffic, and marketplace auto-install disabled in an isolated home; no login or model call occurred.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "2.1.318",
+          "path": "C:/Users/achmadkurnianto/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/claude.exe",
+          "sha256": "b9aa5b08dc2cc46ea77d334dce792d1b8fdbb3a43bb290efdebdc905b1181082"
+        }
+      ],
+      "controls": [
+        "isolated HOME/USERPROFILE",
+        "DISABLE_UPDATES=1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
+        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1"
+      ]
+    },
+    "cursor": {
+      "status": "unsafe",
+      "reason": "Cursor Agent build 2026.11.13-eacade1 is installed on Windows and WSL, and Cursor IDE 3.30.14 is running on Windows. Agent version-only startup did not change recorded hashes, but the CLI lacks documented complete isolation. The IDE uses global user data rather than a dedicated audit profile; update controls are absent, crash reporting is enabled, and local plugins are present. Native startup remains unsafe for registered evidence.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "2026.11.13-eacade1",
+          "path": "C:/Users/achmadkurnianto/AppData/Local/cursor-agent/versions/2026.11.13-eacade1/index.js",
+          "sha256": "a5fd43d379c38ba408fd57ad8051e5309f30ef4deee035be8cfa11fead0d1bde"
+        },
+        {
+          "platform": "wsl-ubuntu",
+          "version": "2026.11.13-eacade1",
+          "path": "/home/achmadkurnianto/.local/share/cursor-agent/versions/2026.11.13-eacade1/cursor-agent",
+          "sha256": "2ccc9a8e167797641448b5e5c936f006ba137a2555f117f38c5eb76a5238a233"
+        },
+        {
+          "platform": "windows-ide",
+          "version": "3.30.14",
+          "path": "E:/Users/achmadkurnianto/AppData/Local/Programs/cursor/Cursor.exe",
+          "sha256": "2653b1db291cbfe343c77e0640378350180c090a2c8101dc2104fb2fd1bd0190"
+        }
+      ],
+      "verified_controls": [
+        "isolated HOME/USERPROFILE",
+        "CURSOR_API_KEY absent",
+        "no authentication or model request",
+        "binary hashes unchanged across version-only startup",
+        "IDE binary identity inspected without interacting with the running process"
+      ],
+      "missing_controls": [
+        "documented update-disable switch",
+        "complete plugin/hook/MCP isolation mode",
+        "dedicated Cursor IDE profile or user-data directory",
+        "disabled IDE extension update checks, crash reporting, and local plugins"
+      ]
+    },
+    "copilot": {
+      "status": "setup-only-verified",
+      "reason": "VS Code 1.146.0 includes built-in GitHub Copilot Chat 0.74.0. The isolated Marketplace install was rejected because it tried to downgrade the newer built-in extension; the built-in path was recorded. No sign-in, chat, or model call occurred. Copilot CLI remains ineligible for VS Code prompt-file evidence.",
+      "observed_binaries": [
+        {
+          "platform": "windows-vscode",
+          "version": "1.146.0",
+          "path": "C:/Users/achmadkurnianto/AppData/Local/Programs/Microsoft VS Code/Code.exe",
+          "sha256": "4474ce7baf2c78d38e4646f28497a7d4c0980bbe31de6b43eee1b52c3d73eadb"
+        },
+        {
+          "platform": "windows-vscode-extension",
+          "version": "0.74.0",
+          "path": "C:/Users/achmadkurnianto/AppData/Local/Programs/Microsoft VS Code/69047191fc/resources/app/extensions/copilot/package.json",
+          "sha256": "376840199db1a171247b21befbd9b9a606f3a1078cf0b914d4af25120e74ad3d"
+        }
+      ],
+      "controls": [
+        "isolated --user-data-dir",
+        "isolated --extensions-dir",
+        "no authentication",
+        "no chat or model request"
+      ]
+    },
+    "codex": {
+      "status": "setup-only-verified",
+      "reason": "Pinned @openai/codex 0.169.0 installed into an isolated npm prefix. Version-only startup succeeded with isolated CODEX_HOME; no login or model call occurred.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "0.169.0",
+          "path": "C:/Users/ACHMAD~1/AppData/Local/Temp/kilo/agent-reach-clients/codex/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe",
+          "sha256": "ce1945eb440b5481ed1233ebaf32b7056ee7e4e452fa62ffe1cbfb26103cdee0"
+        }
+      ],
+      "controls": [
+        "isolated npm prefix",
+        "isolated CODEX_HOME",
+        "no authentication",
+        "no model request"
+      ]
+    },
+    "gemini": {
+      "status": "setup-only-verified",
+      "reason": "Pinned @google/gemini-cli 0.68.0 installed into an isolated npm prefix. Version-only startup succeeded in an isolated home with updates and hooks disabled and no MCP configuration. npm blocked the optional keytar install script, so later authentication readiness remains unverified. Antigravity is not accepted as Gemini CLI evidence.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "0.68.0",
+          "path": "C:/Users/ACHMAD~1/AppData/Local/Temp/kilo/agent-reach-clients/gemini/gemini.cmd",
+          "sha256": "ed3d5b269acefc5dffb342df0a214b2351794244c520c124d3556bc5ea6064c5"
+        }
+      ],
+      "controls": [
+        "isolated npm prefix and HOME",
+        "general.enableAutoUpdate=false",
+        "hooksConfig.enabled=false",
+        "empty mcpServers",
+        "no authentication or model request"
+      ]
+    },
+    "opencode": {
+      "status": "setup-only-verified",
+      "reason": "Pinned @opencode/cli 2.3.0 installed into an isolated npm prefix. The package's native binary is present and version-only startup succeeded with isolated XDG paths, updates disabled, and plugin/MCP use denied. The earlier Windows and WSL Vite+ shims remain ineligible.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "2.3.0",
+          "path": "C:/Users/ACHMAD~1/AppData/Local/Temp/kilo/agent-reach-clients/opencode/node_modules/@opencode/cli/bin/opencode.exe",
+          "sha256": "38153a142354634c82b5cfe6c00b19df15a71e6cf8c17ef5f5c1a4cc684a6917"
+        }
+      ],
+      "controls": [
+        "isolated npm prefix and XDG paths",
+        "update=disable",
+        "plugins=-*",
+        "plugin.use and mcp.use denied",
+        "no authentication or model request"
+      ]
+    },
+    "kilo": {
+      "status": "setup-only-verified",
+      "reason": "Bundled Kilo version commands succeeded in isolated pure-mode homes. Native discovery was not run.",
+      "observed_binaries": [
+        {
+          "platform": "windows",
+          "version": "7.8.27",
+          "path": "C:/Users/achmadkurnianto/.vscode/extensions/kilocode.kilo-code-7.8.27-win32-x64/bin/kilo.exe",
+          "sha256": "e657cc27fcf4401886117f566f4ef186b1f9e3a362565eae949728d23025fc8a"
+        },
+        {
+          "platform": "wsl-ubuntu",
+          "version": "7.8.18",
+          "path": "/home/achmadkurnianto/.vscode-server/extensions/kilocode.kilo-code-7.8.18-linux-x64/bin/kilo",
+          "sha256": "aa9fb3f37464eafb7c0c395f057dee042e7414a8620a17dc8c3ca2fa39b12361"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "This record is setup readiness only and satisfies no Level 2 or Level 3 target.",
+    "Authorized client packages were installed only into the recorded user-local or isolated destinations. No client was authenticated or given a model prompt.",
+    "Cursor is installed but remains unsafe for native evidence because required startup controls cannot be verified; task 4.1 stays incomplete.",
+    "Gemini authentication readiness remains unverified because npm blocked the optional keytar install script.",
+    "The failed isolated Copilot Marketplace attempt changed no repository files and installed no isolated extension; the newer built-in extension is the recorded surface."
+  ]
+}

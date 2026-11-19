@@ -1,0 +1,25 @@
+# Additive project-configuration fragment for OpenSpec operations.
+# Merge these keys into your project's .openspec/config.yaml to provide
+# AI coding agents with explicit guidance on invoking the SDLC gate.
+#
+# Note: Guidance provides instructions to agents during workflow steps;
+# it is NOT an automatic hook or hosted enforcement. The gate must be
+# executed with explicit repository, revision range, and evidence inputs.
+
+operations:
+  apply:
+    guidance: |
+      Before completing implementation tasks, verify evidence against the gate:
+      1. Ensure all scenarios are mapped in tasks.md under '## SDLC evidence'.
+      2. Run the canonical gate check:
+         sdlc check evidence --base <SDLC_BASE> --head <SDLC_HEAD> --pr-body-file <PR_BODY_FILE>
+         (or python scripts/sdlc.py check evidence ...)
+      3. Confirm exit code 0 before concluding.
+  archive:
+    guidance: |
+      Before archiving a change:
+      1. Run the canonical gate verification to confirm all lane requirements are met:
+         sdlc check evidence --base <SDLC_BASE> --head <SDLC_HEAD> --pr-body-file <PR_BODY_FILE>
+         (or python scripts/sdlc.py check evidence ...)
+      2. Ensure required human approvals and test verifications are recorded.
+      3. Only proceed with 'openspec archive <change>' when the gate passes cleanly.

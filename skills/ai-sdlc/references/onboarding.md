@@ -3,9 +3,9 @@
 Adopt on an existing repo without disturbing it. The aim of the first two weeks is a working gate and a few honest data points, not full coverage.
 
 ## Steps
-1. **Run init** (`references/init.md`) on the repo as it is. Do not touch history.
+1. **Run init** (`references/init.md`, e.g. `python3 scripts/sdlc.py init --root .`) on the repo as it is. Do not touch history.
 2. **Pick a small first change.** Lite or Standard, with a clear outcome. Avoid a Critical change first: you would be learning the process and the risk at once.
-3. **Classify it with `lane.py`** (`python3 scripts/lane.py --base origin/main --strict`). That change is the first governed one.
+3. **Classify it with the front door** (`python3 scripts/sdlc.py lane --base origin/main --strict` or `python3 scripts/lane.py --base origin/main --strict`). That change is the first governed one.
 4. **Write its intent with `spec-first`.** Prior work needs no spec.
 5. **Add a `context-pack` brief only if** the change depends on history: a past incident, a prior decision, a standard. Include dates and freshness rules.
 6. **Record test evidence** with `scripts/redgreen.py` against an authorized committed candidate and inspect the expected failures. A process exit difference is not semantic proof; keep local uncommitted results labeled provisional rather than inventing revision evidence.

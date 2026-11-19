@@ -1,0 +1,298 @@
+{
+  "changed_paths": [],
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.15.2",
+    "python_implementation": "CPython"
+  },
+  "footprint": {
+    "accounting": {
+      "attempts": 15,
+      "cost_usd": 0.0,
+      "input_tokens": 417216,
+      "limitations": [
+        "Catalog tokens are the exact initial-input delta between matched empty-skill prompts.",
+        "Body tokens are the observed incremental model input after each Kilo skill tool result, including its loader wrapper and tool-call transcript.",
+        "Lane totals report product catalog plus product skill loads, not the host agent's unrelated base system context."
+      ],
+      "method": "kilo-skill-tool-step-token-delta",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "output_tokens": 853,
+      "probe_evidence_sha256": "7110972ae5f710da46545bbad6a68512d934b0c51048c017afd99fa8bea192d6",
+      "provider": "Agent Router"
+    },
+    "bodies": {
+      "bytes": 38239,
+      "source_count": 10,
+      "tokens": 10929
+    },
+    "descriptions": {
+      "bytes": 2629,
+      "sha256": "7d849fe534ee7c85a470ac93a6b221abce00c08cc1697f7d751ea61f6e873550",
+      "tokens": 1039
+    },
+    "lanes": {
+      "Critical": {
+        "loaded_paths": [
+          "skills/ai-sdlc/SKILL.md",
+          "skills/spec-first/SKILL.md",
+          "skills/verify-and-evals/SKILL.md"
+        ],
+        "loaded_tokens": 4140,
+        "repeated_paths": [],
+        "total_tokens": 5179,
+        "unexpected_paths": []
+      },
+      "Lite": {
+        "loaded_paths": [
+          "skills/ai-sdlc/SKILL.md"
+        ],
+        "loaded_tokens": 1552,
+        "repeated_paths": [],
+        "total_tokens": 2591,
+        "unexpected_paths": []
+      },
+      "Standard": {
+        "loaded_paths": [
+          "skills/ai-sdlc/SKILL.md",
+          "skills/spec-first/SKILL.md"
+        ],
+        "loaded_tokens": 2810,
+        "repeated_paths": [],
+        "total_tokens": 3849,
+        "unexpected_paths": []
+      }
+    },
+    "limitations": [],
+    "max_lane_tokens": 5179,
+    "recorded_revision": "e692000a16984e824c759dc7bd09a5c150eb990b",
+    "status": "verified"
+  },
+  "generated_at": "2026-11-14T08:04:17.654718Z",
+  "input_hashes": {
+    "scripts/agent_profiles.py": "a00848850d433c4a50e144582f175563fd1d1f65ff8e83114c621f285a73a939",
+    "scripts/build_wheel.py": "f4700b5416def95e3701d33bef86caf460ec947d948290eaf6ed3fc99ee7d523",
+    "scripts/ceremony_benchmark.py": "0b606585086ca072f4702a9ae74cbab70a6f44059154d6b687042e6c4341ce3d",
+    "scripts/check_brief.py": "96d70fdf01cfdab2d17f14ed61b13e249e7f7dc091d03672141592da43dd5672",
+    "scripts/check_spec.py": "22583dee1d1408c5d4236dd998f8c8c3b99a34d4b2e5da5bff6374fefa15d060",
+    "scripts/doctor.py": "6502a458e427ed61a02001e6342628eb39c939d3fb1e2b6428d0666deba3f514",
+    "scripts/doctor_online.py": "75b1060bc6a2ad6a53391296ffc4b98d5efd11eadbd201507288e8cd8be276c5",
+    "scripts/evidence_check.py": "364943edb802c0ffefff36ef465317ae5c253c1a9217157dc0747eba71962210",
+    "scripts/install.py": "7e6c5d7d0a5aa90f5f5e0957b9b840d86c416f33ede2977ff498bab5ea819aef",
+    "scripts/lane.py": "a1c4bda639126a350f4d2e4d49fb6b4eddd568cb8e9ef03e58eb2b436505d6af",
+    "scripts/lane_backtest.py": "1dd88c7c6ec7b0bbc88483031e6be930153b74d67e9f2d7ea19e97013704b7e4",
+    "scripts/lite.py": "f8172efa2d6ec44ed0e7b34d1e4c67f3adf9412410ab1701a9274f9f9856f8a6",
+    "scripts/model_eval.py": "386c60778bf4c7c2997a3d139033cff728b7165e0a832334eb31cfb562d801d8",
+    "scripts/redgreen.py": "d8d5d388ff725646bd588db111e025e35368c06eff59ee60a5617c28fbee0410",
+    "scripts/sdlc.py": "ab502036f12713cb18c23dd1d850dcafc2a08d03d6f022424d066f4a5cf3f537",
+    "scripts/trace_lint.py": "a89c322efa00114cf4fe1e0c7f9d9c849ba8d4a3e69ddbad2fa48514a88ea559",
+    "scripts/trigger_eval.py": "c3d667f913e2d7c0ca36cb3b35ab97aaa5d1f27d5e07981d2ee50b1dfd8586a4",
+    "scripts/verify_all.py": "3b6305855cc3262298497312c250cd3b1462cd38ac33305dead5494afc41c97d",
+    "skills/ai-readiness-and-metrics/SKILL.md": "6274f1b9944470e4a0369d329fec874a9ca3292d9b24bc42f684452dc690afd8",
+    "skills/ai-sdlc/SKILL.md": "c3f7fde29deaadd936c7e84e39a2055712305a6a99480ee9b2771267bb6592bb",
+    "skills/autonomy-policy/SKILL.md": "28d6d12511b7034c1123c5e06e2f8c08281ae314a60125f3c38a8a98900b18ac",
+    "skills/context-pack/SKILL.md": "a7c475b81e764d4f9078be179587357e8b4c2f7ff762a664f4d20aeedfc8678c",
+    "skills/decision-trace/SKILL.md": "f707cf23b28777d9e28afad9bbbb193a0c5c4edca5f192fd2eb7c053f3b3bfde",
+    "skills/learning-mode/SKILL.md": "79bed0cf00b1a637e0c9e60f5c9472cc57c6b8df0ba080f8e426531a6b0244a6",
+    "skills/review-by-intent/SKILL.md": "90c3990821c462dc0ce0f1cc667146cdffa27e2f74df11ffb50078093431cffa",
+    "skills/ship-and-observe/SKILL.md": "b428f0fe9861fac2ee572d0f7d02f4abe25cfe7f94881c21270b3015faa1a3d9",
+    "skills/spec-first/SKILL.md": "3bc1fd89e06344f5cbcff50baa42d0445dd7cb8c63c32c8b29fcba66850f65d9",
+    "skills/verify-and-evals/SKILL.md": "f8c8bbf591efbff1024000cd72083179db65f65f19ec496440e5451001b37278",
+    "tests/mutate.py": "26ef38c97f2186ef374754cb7635c78cf4d644f19ece918309fea4f1a68a27c1",
+    "tests/support.py": "86d573a638cac03c924b616e7e76c7cc5ea22fd8407126f19093e48874c0dfb3",
+    "tests/test_agent_profiles.py": "8cddc597b6fc7eb28798353e985081f46ee0cbbeccd6a3d8b123a6e9d5b9c26b",
+    "tests/test_ceremony_benchmark.py": "6332e892ecd3ee2d801abf5ee2a3dd2eb238a65810f2b031b800680f35e36bf1",
+    "tests/test_check_brief.py": "be1d907ce21dbf5fa577db805e50ea91a10f13dc14d6f12e6457ffbdf6a8ebab",
+    "tests/test_check_spec.py": "28942c84e1ce5d4e017928c514e8bee8e0c9ad98146cedd80ec7a42e758417e0",
+    "tests/test_ci_adapters.py": "426b51f73d427b2fc4a5d5991374db5f7c64f69ad03495e740f555790144688e",
+    "tests/test_ci_generic.py": "751def4ddb4a9212cc6ff2891ed71361d95bda020df9fecfd9e9cc611446239f",
+    "tests/test_ci_security.py": "d25035a86832a61fa71acc94bdedb5bc6b693ef76546802d4c03d7377c37b28c",
+    "tests/test_comparison_docs.py": "995c427641b9ee40bdb581504abcd2d9e9ad6c5b8c6f362e0a0e2a8f2cf21edc",
+    "tests/test_doctor.py": "39b5a12d6c87d9e503381c82c240627f6ac753bbd36a4702b6f5e1e66d1c67f8",
+    "tests/test_evidence_check.py": "92de38662d2e26703f4a6fe485ddc78fc6f764c7abd6575371e49a7cb2c0873b",
+    "tests/test_extras_doctor_online.py": "748f401ef38fd0cf7d1c981e1b751a46207fb780d33530ad346694c7f4d5f263",
+    "tests/test_extras_lane_backtest.py": "feb3e7d0adac16049582146b1a0755dce8d4003681510fbf95f01b00d8a4e17c",
+    "tests/test_extras_trace_lint.py": "e109922993986e96fd2318b69f2d442b3408af2eb0c8ba3e1dc8c517041c0ae7",
+    "tests/test_hook.py": "269df9a69b84fa830ccc9eb3cd1bbbe4cb49c1e0fd01a91bf53b59939820a708",
+    "tests/test_install.py": "ad8ddd7dc5f8508230846efa6817e2c57ed02d2b14b8f40897674d1c3345cd61",
+    "tests/test_interop_adapters.py": "29fe4aee0119d311357201cfbbaa24336e3fbad2b71b15d99c9d0e0f1a69aeb8",
+    "tests/test_lane.py": "6065072369bdf1d553fc3f005f28c9a874cb01e0b8a028898c86817a5b81a18f",
+    "tests/test_lifecycle.py": "3d756c3e7d96c48f1539749a332d2bd849a252271aff0826490f00a2cca3d9f2",
+    "tests/test_lite.py": "2232a53bcf37ac78c5ef7bcffcfd4eb00dfa5482f7f80799d2b7795750471521",
+    "tests/test_model_eval.py": "51fb6c6d7747dd55a0dfde695c2096951c749ca799dbc385497533082928f47d",
+    "tests/test_mutation_targets.py": "9c9d18f1374314575b56393e58bcbde0e67d5cc5a7887f6864c50c44ca172a85",
+    "tests/test_redgreen.py": "79f7d1bd21ad31ff72eefbd3c322cd780850e6afce32d5f8a7110f5cdfe64fe4",
+    "tests/test_repository_hygiene.py": "ea611de55397166bb5944a2957a730e2cdee6fd12bbbe9b824a084152f6a15dd",
+    "tests/test_sdlc_cli.py": "fdafee66607a159102b5b20f72bf811fd7b171ddde1b895b613a88090f55005c",
+    "tests/test_spec_interop.py": "8f0029286028b154d8d94500726c3d7d9717a66ebc5f34297d18575ae9928d13",
+    "tests/test_support.py": "b5b53671f8c4c768c97cbd3a9f828b1bc24c7a793247317421c9f9f12615f7fd",
+    "tests/test_templates.py": "00f9bf00ca95325104a09e03546fa783b1a061ab8804d20ee6027e35666d3135",
+    "tests/test_verify_all.py": "e9bb4b1daa028a2cb46768b193ac304f2d4cb7bda75140897c02af3c415297f9",
+    "tests/test_wheel.py": "8e20fa01a8fae8751522be4b930364df439b0aa75c8f35bae23c30762504e791"
+  },
+  "overall_status": "pass",
+  "schema_version": 1,
+  "stages": [
+    {
+      "command": [
+        "C:\\Python315\\python.exe",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "counts": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 17,
+        "tests": 804
+      },
+      "duration_ms": 979024.279,
+      "exit_code": 0,
+      "kind": "subprocess",
+      "limitations": [
+        "real latest.json marker integration skipped during receipt replacement; rerun after publication"
+      ],
+      "name": "unit",
+      "status": "pass",
+      "stderr_sha256": "deeea730ebfd552d4c93e1b4f10265a05343b9e900018321bac5ed1efc01ff05",
+      "stdout_sha256": "ea4d01b1f8488f8fea9b401bdeec18d7db678033b0c007ad0eb9933f1f600eed",
+      "timeout_seconds": 1800
+    },
+    {
+      "command": [
+        "C:\\Python315\\python.exe",
+        "-B",
+        "D:\\PROJECTS\\PORTFOLIOS\\ai-native-sdlc-plus\\tests\\mutate.py"
+      ],
+      "counts": {
+        "equivalent": 2,
+        "infrastructure_errors": 0,
+        "killed": 241,
+        "survived": 0,
+        "total": 241
+      },
+      "duration_ms": 6409405.494,
+      "exit_code": 0,
+      "kind": "subprocess",
+      "limitations": [],
+      "name": "mutation",
+      "status": "pass",
+      "stderr_sha256": "4ca0a4f0a74820a0a4bc896c6608246934a0648114e56eaee5d1fd99b2e5031b",
+      "stdout_sha256": "1fd1935696da9f00bfcb38234c8ed900144d93adf103991b4287b616bd64fdc0",
+      "timeout_seconds": 7200
+    },
+    {
+      "command": [
+        "C:\\Python315\\python.exe",
+        "-I",
+        "-B",
+        "D:\\PROJECTS\\PORTFOLIOS\\ai-native-sdlc-plus\\scripts\\doctor.py",
+        "--root",
+        "D:\\PROJECTS\\PORTFOLIOS\\ai-native-sdlc-plus",
+        "--json"
+      ],
+      "counts": {
+        "FAIL": 0,
+        "WARN": 3,
+        "info": 1,
+        "unverified": 2,
+        "verified": 32
+      },
+      "duration_ms": 1897.841,
+      "exit_code": 0,
+      "kind": "subprocess",
+      "limitations": [],
+      "name": "doctor",
+      "status": "pass",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "fe01a638b8b17cb360c25f7ab4f5a8ffd5a6fb36aa2572264da877bb6d63e9c0",
+      "timeout_seconds": 300
+    },
+    {
+      "command": [],
+      "counts": {
+        "body_bytes": 38239,
+        "body_tokens": 10929,
+        "description_bytes": 2629,
+        "description_tokens": 1039,
+        "max_lane_tokens": 5179
+      },
+      "duration_ms": 1666.482,
+      "exit_code": 0,
+      "footprint": {
+        "accounting": {
+          "attempts": 15,
+          "cost_usd": 0.0,
+          "input_tokens": 417216,
+          "limitations": [
+            "Catalog tokens are the exact initial-input delta between matched empty-skill prompts.",
+            "Body tokens are the observed incremental model input after each Kilo skill tool result, including its loader wrapper and tool-call transcript.",
+            "Lane totals report product catalog plus product skill loads, not the host agent's unrelated base system context."
+          ],
+          "method": "kilo-skill-tool-step-token-delta",
+          "model": "agentrouterr/gpt-5.6-sol",
+          "output_tokens": 853,
+          "probe_evidence_sha256": "7110972ae5f710da46545bbad6a68512d934b0c51048c017afd99fa8bea192d6",
+          "provider": "Agent Router"
+        },
+        "bodies": {
+          "bytes": 38239,
+          "source_count": 10,
+          "tokens": 10929
+        },
+        "descriptions": {
+          "bytes": 2629,
+          "sha256": "7d849fe534ee7c85a470ac93a6b221abce00c08cc1697f7d751ea61f6e873550",
+          "tokens": 1039
+        },
+        "lanes": {
+          "Critical": {
+            "loaded_paths": [
+              "skills/ai-sdlc/SKILL.md",
+              "skills/spec-first/SKILL.md",
+              "skills/verify-and-evals/SKILL.md"
+            ],
+            "loaded_tokens": 4140,
+            "repeated_paths": [],
+            "total_tokens": 5179,
+            "unexpected_paths": []
+          },
+          "Lite": {
+            "loaded_paths": [
+              "skills/ai-sdlc/SKILL.md"
+            ],
+            "loaded_tokens": 1552,
+            "repeated_paths": [],
+            "total_tokens": 2591,
+            "unexpected_paths": []
+          },
+          "Standard": {
+            "loaded_paths": [
+              "skills/ai-sdlc/SKILL.md",
+              "skills/spec-first/SKILL.md"
+            ],
+            "loaded_tokens": 2810,
+            "repeated_paths": [],
+            "total_tokens": 3849,
+            "unexpected_paths": []
+          }
+        },
+        "limitations": [],
+        "max_lane_tokens": 5179,
+        "recorded_revision": "e692000a16984e824c759dc7bd09a5c150eb990b",
+        "status": "verified"
+      },
+      "kind": "footprint",
+      "limitations": [],
+      "name": "footprint",
+      "status": "verified",
+      "timeout_seconds": 60
+    }
+  ],
+  "tested_sha": "8341fe4df5a0319d3894c2c455069b032c7dd114",
+  "tree_state": "clean"
+}

@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 if __package__:
     from . import support
@@ -160,6 +161,22 @@ class Traceability(Base):
             handle.write("x")
         os.symlink(outside, os.path.join(self.repo, "tests", "link_test.py"))
         self.assertError(spec(tests=TEST.replace("tests/test_a.py", "tests/link_test.py")), "outside the repository", exist=True)
+
+    def test_realpath_escape_is_rejected_without_symlinks(self):
+        outside = os.path.join(os.path.dirname(self.repo), "outside-realpath.py")
+        with open(outside, "w") as handle:
+            handle.write("x")
+        real_realpath = cs.os.path.realpath
+
+        def fake_realpath(path):
+            text = os.fspath(path).replace("\\", "/")
+            if text.endswith("tests/link_test.py"):
+                return outside
+            return real_realpath(path)
+
+        with patch.object(cs.os.path, "realpath", side_effect=fake_realpath):
+            self.assertError(spec(tests=TEST.replace("tests/test_a.py", "tests/link_test.py")),
+                             "outside the repository", exist=True)
 
 
 class Sections(Base):

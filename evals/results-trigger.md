@@ -1,6 +1,6 @@
-# Trigger eval results — measured 2026-10-15 (scripts/trigger_eval.py)
+# Lexical overlap experiment results — measured 2026-10-15 (scripts/trigger_eval.py)
 
-Method: 8 should-trigger + 8 near-miss queries per skill (160 total), keyword-overlap matcher (>=2 content words from query present in SKILL.md, with stopword filtering and negation guardrail parsing). Pre-registered bar: precision >= 0.85 and recall >= 0.85 per skill.
+Method: 8 should-trigger + 8 near-miss queries per skill (160 total), keyword-overlap matcher (>=2 content words from query present in SKILL.md, with stopword filtering and negation guardrail parsing). Pre-registered bar: precision >= 0.85 and recall >= 0.85 per skill. This dated lexical overlap score is not actual agent skill selection.
 
 | Skill | TP | FN | TN | FP | Precision | Recall | Bar |
 |---|---|---|---|---|---|---|---|

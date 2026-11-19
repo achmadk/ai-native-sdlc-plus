@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 if __package__:
@@ -230,7 +231,8 @@ class NeverBlocks(HookRepo):
 
     def test_interactive_terminal_does_not_hang(self):
         if not hasattr(os, "openpty"):
-            self.skipTest("POSIX pseudo-terminal unavailable")
+            self._assert_interactive_branch_under_mintty()
+            return
         try:
             master, slave = os.openpty()
         except OSError:
@@ -243,6 +245,38 @@ class NeverBlocks(HookRepo):
             os.close(slave)
         self.assertEqual(proc.returncode, 0)
         self.assertIn("run this through 'git push'", proc.stderr.decode())
+
+    def _assert_interactive_branch_under_mintty(self):
+        if os.name != "nt":
+            self.skipTest("POSIX pseudo-terminal unavailable")
+        mintty, cygpath = support.shell_tool("mintty"), support.shell_tool("cygpath")
+
+        def posix(path):
+            return subprocess.run([cygpath, "-u", os.fspath(path)], check=True, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE).stdout.decode().strip()
+
+        log = os.path.join(self.repo, "..", "mintty-%d.log" % os.getpid())
+        proc = subprocess.Popen([mintty, "-w", "hide", "-h", "never", "-l", posix(log),
+                                 "-e", posix(SH), posix(os.path.join(self.repo, "hooks", "pre-push.sh"))],
+                                cwd=self.repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.env)
+        try:
+            proc.communicate(timeout=20)
+        except subprocess.TimeoutExpired:
+            taskkill = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "taskkill.exe")
+            subprocess.run([taskkill, "/F", "/T", "/PID", str(proc.pid)], stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+            proc.wait(timeout=10)
+            self.fail("interactive hook did not exit when stdin was a terminal")
+        self.assertEqual(proc.returncode, 0)
+        text = ""
+        for _ in range(100):
+            if os.path.exists(log):
+                with open(log, encoding="utf-8", errors="replace") as handle:
+                    text = handle.read()
+                if "run this through 'git push'" in text:
+                    break
+            time.sleep(0.05)
+        self.assertIn("run this through 'git push'", text)
 
     def test_dispatcher_never_blocks_even_if_the_target_is_missing(self):
         os.remove(os.path.join(self.repo, "hooks/pre-push.sh"))

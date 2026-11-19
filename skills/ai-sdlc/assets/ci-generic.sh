@@ -30,7 +30,11 @@ git rev-parse -q --verify "$SDLC_BASE^{commit}" >/dev/null 2>&1 || die 2 "base c
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/sdlc-ci-gate.XXXXXXXXXX") || die 3 "cannot create a temp directory"
 trap 'rm -rf "$tmp"' EXIT
 
-git archive "$SDLC_BASE" scripts 2>/dev/null | tar -x -C "$tmp" 2>/dev/null
+if git rev-parse -q --verify "$SDLC_BASE:skills/spec-first/scripts" >/dev/null 2>&1; then
+  git archive "$SDLC_BASE" scripts skills/spec-first/scripts 2>/dev/null | tar -x -C "$tmp" 2>/dev/null
+else
+  git archive "$SDLC_BASE" scripts 2>/dev/null | tar -x -C "$tmp" 2>/dev/null
+fi
 [ -f "$tmp/scripts/evidence_check.py" ] && [ -f "$tmp/scripts/lane.py" ] && [ -f "$tmp/scripts/lane-config.yaml" ] ||
   die 3 "the base commit has no usable scripts/ (commit the gate tooling to the default branch first)"
 

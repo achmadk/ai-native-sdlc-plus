@@ -1,5 +1,9 @@
 # Patch notes (cumulative; newest round first)
 
+<!-- verify-all:start {"id":"patch-unit-failures","label":"unit failures","status_path":"stages.unit.status","unit":"failures","value_path":"stages.unit.counts.failures"} -->
+Current measured unit failures: `0 failures`; status `pass`; tested revision `8341fe4df5a0319d3894c2c455069b032c7dd114`.
+<!-- verify-all:end patch-unit-failures -->
+
 # Round 5: learning-mode (the last skill) and the suite overview
 
 ## What was wrong in the upload

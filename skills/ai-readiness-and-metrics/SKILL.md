@@ -1,6 +1,6 @@
 ---
 name: ai-readiness-and-metrics
-description: "Score an engineering org's AI readiness from observable evidence and pick metrics beyond velocity. Use when someone asks whether a team is ready for agents, wants a maturity or readiness score, an adoption backlog, which metrics to track for AI-assisted development, or how to reinvest AI time savings. Triggers: readiness score, maturity assessment, system of record gap, metrics beyond velocity, measure AI impact, Goodhart, reinvest dividend."
+description: "Assess an engineering organization's readiness for coding agents from observable context, trace, gate, and policy evidence, and choose team-level metrics beyond delivery volume. Use it when scoring adoption gaps, prioritizing a readiness backlog, or measuring how AI time savings are reinvested."
 ---
 
 # ai-readiness-and-metrics — measure what you can point to

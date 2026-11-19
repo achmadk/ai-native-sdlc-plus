@@ -1,6 +1,6 @@
 ---
 name: review-by-intent
-description: "Review a change against its intent and risk instead of reading line by line. Use when reviewing AI-generated changes, checking whether code matches the spec, or writing review notes for the PR. Triggers: review change, check intent, intent mismatch, review notes, failure checklist, explain-back, second reviewer."
+description: "Review a change against its approved intent, criteria, risk, test evidence, and trace, prioritizing scope drift and behavioral defects over line-by-line narration. Use it when producing review notes or an evidence-linked recommendation for an AI-assisted change."
 ---
 
 # review-by-intent — judge the delta against its promise

@@ -89,6 +89,16 @@ class Classification(unittest.TestCase):
                      ".github/workflows/sdlc-gate.yml", "CODEOWNERS", ".github/CODEOWNERS", "hooks/pre-push.sh"):
             self.assertEqual(lane.classify([path], lite_all)[0], "Critical", path)
 
+    def test_openspec_active_control_paths_are_critical_and_cannot_be_downgraded(self):
+        lite_all = lane.parse_config('version: 1\nlite:\n  - "**"\n')
+        for path in (
+            "openspec/config.yaml",
+            "openspec/config.yml",
+            "openspec/schema/custom.yaml",
+            "openspec/schemas/spec-driven.yaml",
+        ):
+            self.assertEqual(lane.classify([path], lite_all)[0], "Critical", path)
+
     def test_critical_rules_are_case_insensitive(self):
         self.assertEqual(lane.classify(["AUTH/Login.py"], rules())[0], "Critical")
         self.assertEqual(lane.classify([".GitHub/Workflows/x.yml"], rules())[0], "Critical")
@@ -414,6 +424,80 @@ class GitInput(unittest.TestCase):
             handle.write(CONFIG)
         code, out, _ = run_main(["--config", cfg, "--base", self.base, "--repo-root", self.repo])
         self.assertEqual((code, out.strip()), (0, "Standard: no changed files, escalated"))
+
+
+class NativeAgentControlBoundary(unittest.TestCase):
+    """Task 4.4: all generated native agent instruction/command/skill paths and nested locations stay Critical."""
+
+    def test_generated_and_nested_agent_control_paths_override_permissive_lite_and_non_executable_config(self):
+        import evidence_check
+        import agent_profiles
+
+        permissive = lane.parse_config(
+            'version: 1\n'
+            'lite:\n'
+            '  - "**"\n'
+            'non_executable:\n'
+            '  - "**"\n'
+        )
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        generated_paths = sorted(agent_profiles.recognized_profile_paths(root))
+        self.assertGreater(len(generated_paths), 200)
+
+        nested_and_surface_paths = [
+            "AGENTS.md",
+            "nested/AGENTS.md",
+            "AGENTS.override.md",
+            "packages/web/AGENTS.override.md",
+            "CLAUDE.md",
+            "packages/web/CLAUDE.md",
+            "CLAUDE.local.md",
+            "packages/web/CLAUDE.local.md",
+            "GEMINI.md",
+            "packages/web/GEMINI.md",
+            "opencode.json",
+            "packages/web/opencode.json",
+            "opencode.jsonc",
+            "kilo.json",
+            "packages/web/kilo.json",
+            "kilo.jsonc",
+            ".cursor/skills/ai-sdlc/SKILL.md",
+            ".cursor/skills/sdlc-check/SKILL.md",
+            ".cursor/commands/sdlc.md",
+            ".github/copilot-instructions.md",
+            ".github/skills/ai-sdlc/SKILL.md",
+            ".github/prompts/sdlc-check.prompt.md",
+            ".github/agents/reviewer.agent.md",
+            ".agents/skills/ai-sdlc/SKILL.md",
+            "services/api/.agents/skills/ai-sdlc/SKILL.md",
+            ".gemini/skills/ai-sdlc/SKILL.md",
+            ".gemini/commands/sdlc/check.toml",
+            "services/api/.gemini/commands/sdlc/check.toml",
+            ".opencode/skills/ai-sdlc/SKILL.md",
+            ".opencode/commands/sdlc/check.md",
+            "services/api/.opencode/commands/sdlc/check.md",
+            ".kilo/skills/ai-sdlc/SKILL.md",
+            ".kilo/command/sdlc-check.md",
+        ]
+
+        for path in generated_paths + nested_and_surface_paths:
+            with self.subTest(path=path):
+                got_lane, reason = lane.classify([path], permissive)
+                self.assertEqual(got_lane, "Critical", "%s classified as %s (%s)" % (path, got_lane, reason))
+                self.assertIn("(built-in)", reason)
+                changes = [{"raw_path": path, "old_mode": "100644", "new_mode": "100644", "status": "M"}]
+                detected = evidence_check.detect(
+                    body="## Intent\nAttempting to exempt an agent control file as prose.\n",
+                    paths=[path],
+                    repo_root=root,
+                    rules=permissive,
+                    lane=got_lane,
+                    changes=changes,
+                )
+                self.assertFalse(
+                    detected["test_changes"][0],
+                    "%s must not obtain a non-executable test exemption: %r" % (path, detected["test_changes"]),
+                )
 
 
 if __name__ == "__main__":

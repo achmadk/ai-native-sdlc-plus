@@ -1,6 +1,6 @@
 ---
 name: verify-and-evals
-description: "Prove a change works with failing-first tests, and measure AI behavior with pre-registered evals. Use when verifying a fix or feature, showing red-to-green evidence, writing evals, using an LLM as a judge, or turning an incident into a regression test. Triggers: red to green, test first, failing test, prove it works, eval plan, LLM judge, regression eval, incident to eval."
+description: "Prove a change with failing-first or justified green-green evidence, and preregister repeated evaluations of AI behavior with honest negative results. Use it when writing tests, capturing red-to-green proof, designing model or task evals, or converting incidents into regression cases."
 ---
 
 # verify-and-evals — measured, not asserted
@@ -33,6 +33,22 @@ Register the plan **before** running anything, using `assets/eval-plan-template.
 - Report counts (k of n), not only percentages. Repeat non-deterministic runs at least three times and report the spread.
 - Tune on a development set and report on a held-out set.
 - Publish negative results and the design change they led to. Never change cases, thresholds, or the judge after seeing results to flatter them.
+
+### Recorded provider runs
+
+Live recording is opt-in. Set `SDLC_EVAL_PROVIDER_CMD` to a JSON argv array such as `["python3","/absolute/provider-wrapper.py"]`; the wrapper reads one versioned JSON request from stdin and writes one versioned JSON response to stdout. Set `SDLC_EVAL_PROVIDER_ENV` to a comma-separated allowlist of credential/configuration variable names. The runner uses `shell=False`, passes a minimal environment plus only those names, scans output for secrets, and never records credential values.
+
+After the registration and catalogs are committed, set those variables with the host shell and run:
+
+`python3 scripts/model_eval.py record --root . --kind selection --split development --catalog baseline --registration-commit "$REGISTRATION_SHA" --recorded-revision "$HEAD_SHA" --out evals/transcripts/selection-development.json --max-request-cost 0.05 --json`
+
+The registration supplies total request, input-token, and cost caps. `--max-request-cost` is the wrapper's declared worst case and lets the runner stop before a next request could exceed the total. A missing cost is recorded as `unverified`, stops the run, and cannot satisfy the monetary cap. Provider access, credentials, model choice, and spend require separate human authorization.
+
+Replay is the CI boundary:
+
+`python3 scripts/model_eval.py replay --root . --transcript evals/transcripts/selection-development.json --json`
+
+Replay validates registration/catalog/request hashes, exact labels, and repeat completeness, and never invokes the provider or reads provider credentials. It proves deterministic scoring of recorded responses, not a fresh model call. Catalog selection is not loader discovery, automatic skill invocation, loaded-context measurement, or evidence that a task improved.
 
 ## LLM judges
 

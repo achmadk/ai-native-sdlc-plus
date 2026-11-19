@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "registration_id": "ws4-ceremony-v1-2026-11-10",
+  "criteria_source": "evals/pass-criteria.md",
+  "protocol": {
+    "repetitions": 3,
+    "checkpoints": ["start", "preflight", "checks", "complete"],
+    "counting_rules": {
+      "human_approvals": "Strict human actions (e.g. named approvals in review notes/PRs); strictly distinct from tool execution consent or harness prompts.",
+      "tool_consents": "Tracked separately as platform/tool confirmation prompts; never counted as human approvals.",
+      "elapsed_time": "Monotonic wall-clock seconds from benchmark checkpoint start to completion; human wait time recorded separately.",
+      "token_accounting": "Categorized SHA-256 delivered inputs separated into catalog, router, skill bodies, and other. Incomplete or unverified accounting remains null (unavailable), never zero."
+    },
+    "finite_budgets": {
+      "Lite": 8000,
+      "Standard": 16000,
+      "Critical": 24000
+    }
+  },
+  "cases": [
+    {
+      "id": "lite-fixture",
+      "lane": "Lite",
+      "description": "Low-risk documentation prose update via fast-path workflow.",
+      "target_overhead_seconds": 300,
+      "target_pre_approvals": 0,
+      "token_budget": 8000,
+      "paths": ["docs/guide.md"],
+      "change_type": "prose_documentation",
+      "required_evidence": ["intent_block", "test_changes", "trace_block"]
+    },
+    {
+      "id": "standard-fixture",
+      "lane": "Standard",
+      "description": "Standard feature implementation with spec-first workflow.",
+      "target_overhead_seconds": null,
+      "target_pre_approvals": 1,
+      "token_budget": 16000,
+      "paths": ["src/feature.py", "tests/test_feature.py"],
+      "change_type": "code_and_tests",
+      "required_evidence": ["spec_link", "test_changes", "trace_block", "review_notes"]
+    },
+    {
+      "id": "critical-fixture",
+      "lane": "Critical",
+      "description": "High-risk infrastructure or security script modification requiring formal gate.",
+      "target_overhead_seconds": null,
+      "target_pre_approvals": 2,
+      "token_budget": 24000,
+      "paths": ["scripts/lane.py"],
+      "change_type": "security_script",
+      "required_evidence": ["formal_intent", "spec_link", "threat_note", "test_changes", "trace_block", "two_reviewer_notes", "rollout_plan"]
+    }
+  ],
+  "comparison_flow": {
+    "id": "flat-review-queue",
+    "description": "Uniform review queue requiring 1 approval and full queue wait for all changes regardless of risk.",
+    "baseline_pre_approvals": 1,
+    "baseline_queue_wait_seconds": 1800
+  }
+}
+

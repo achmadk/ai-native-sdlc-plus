@@ -1,0 +1,875 @@
+{
+  "accounting_method": "kilo-skill-tool-step-token-delta",
+  "attempts": 15,
+  "catalog_control": {
+    "same_prompt_and_loaded_skill": "empty-probe",
+    "tokens": 1039,
+    "with_product_descriptions": "catalog-product-control",
+    "without_product_descriptions": "control-empty"
+  },
+  "cost_usd": 0.0,
+  "input_tokens": 417216,
+  "limitations": [
+    "Catalog tokens are the exact initial-input delta between matched empty-skill prompts.",
+    "Body tokens are the observed incremental model input after each Kilo skill tool result, including its loader wrapper and tool-call transcript.",
+    "Lane totals report product catalog plus product skill loads, not the host agent's unrelated base system context."
+  ],
+  "model": "agentrouterr/gpt-5.6-sol",
+  "output_tokens": 853,
+  "probes": [
+    {
+      "expected_skills": [
+        "empty-probe"
+      ],
+      "id": "control-empty",
+      "increments": [
+        143
+      ],
+      "raw_sha256": "1f745ecfa113b9112906d1caa4e8007a91dcb8512a5d63b92b41925aee4a9c48",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 10889,
+          "output_tokens": 42,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 10886
+            },
+            "input": 3,
+            "output": 21,
+            "reasoning": 21,
+            "total": 10931
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 11032,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 10886,
+              "write": 143
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 11041
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "empty-probe",
+          "output_sha256": "63046b601e287616cece67cb4cebe9c33dc836281728be90c48c6dae110e3b49",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "empty-probe"
+      ],
+      "id": "catalog-product-control",
+      "increments": [
+        138
+      ],
+      "raw_sha256": "ef3b7e490ccfdd146d0d86f8452deae1c6bb2ac171892539de2c9214f6ec83ce",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11928,
+          "output_tokens": 37,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11925
+            },
+            "input": 3,
+            "output": 21,
+            "reasoning": 16,
+            "total": 11965
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12066,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11925,
+              "write": 138
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12075
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "empty-probe",
+          "output_sha256": "63046b601e287616cece67cb4cebe9c33dc836281728be90c48c6dae110e3b49",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ai-readiness-and-metrics"
+      ],
+      "id": "body-ai-readiness-and-metrics",
+      "increments": [
+        827
+      ],
+      "raw_sha256": "f95bc50363ab4cb51f0fa33771a313345f88afe125cad57239025d5af82dc4b9",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11931,
+          "output_tokens": 44,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11928
+            },
+            "input": 3,
+            "output": 24,
+            "reasoning": 20,
+            "total": 11975
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12758,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11928,
+              "write": 827
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12767
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ai-readiness-and-metrics",
+          "output_sha256": "566af5f8289177c07406e3f7b98892f3e020b328e3512217b251fe05472dad88",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ai-sdlc"
+      ],
+      "id": "body-ai-sdlc",
+      "increments": [
+        1548
+      ],
+      "raw_sha256": "bc220273c461fc53fdfaf23aca64ebc3af953cf7aba4e5c82574b9b70451fc93",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11929,
+          "output_tokens": 48,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11926
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 26,
+            "total": 11977
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13477,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11926,
+              "write": 1548
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13486
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ai-sdlc",
+          "output_sha256": "718b57e8cbc3740f8868104d5923d0910d169998718d67c191a3a6d1a12a7cdf",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "autonomy-policy"
+      ],
+      "id": "body-autonomy-policy",
+      "increments": [
+        1095
+      ],
+      "raw_sha256": "45e77b6d0bcb63c6717229b52246f27a789a449d450258373c92bfb3c9a12efb",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11927,
+          "output_tokens": 45,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11924
+            },
+            "input": 3,
+            "output": 21,
+            "reasoning": 24,
+            "total": 11972
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13022,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11924,
+              "write": 1095
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13031
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "autonomy-policy",
+          "output_sha256": "d5f75ebd7a2828757bc95f109717b099748954cd78b031e10f351fda9e4b5883",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "context-pack"
+      ],
+      "id": "body-context-pack",
+      "increments": [
+        1047
+      ],
+      "raw_sha256": "4be7cb0eb305e1a65b7cbc524b1c5935db054d28809dca0eeb6e0a667eaad217",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11927,
+          "output_tokens": 44,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11924
+            },
+            "input": 3,
+            "output": 20,
+            "reasoning": 24,
+            "total": 11971
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12974,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11924,
+              "write": 1047
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12983
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "context-pack",
+          "output_sha256": "388a86fd62462c0cda5ae4708acca72233b136a3382a7cec014aaa64fd37c563",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "decision-trace"
+      ],
+      "id": "body-decision-trace",
+      "increments": [
+        754
+      ],
+      "raw_sha256": "be5ac25ac2a0df506508d006a9926254696fdae4d3db9b8af3dcd87d79d65771",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11928,
+          "output_tokens": 45,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11925
+            },
+            "input": 3,
+            "output": 21,
+            "reasoning": 24,
+            "total": 11973
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12682,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 12679
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12691
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "decision-trace",
+          "output_sha256": "e41413b4e002942a61825a6913c475d4245b4081696c5dca44e38a76186f8518",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "learning-mode"
+      ],
+      "id": "body-learning-mode",
+      "increments": [
+        1253
+      ],
+      "raw_sha256": "135a8e4641aedf1ece462083a1f55770dd22a2fe15fceeb3ef53fbdf2470b060",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11927,
+          "output_tokens": 41,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11924
+            },
+            "input": 3,
+            "output": 20,
+            "reasoning": 21,
+            "total": 11968
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13180,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11924,
+              "write": 1253
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13189
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "learning-mode",
+          "output_sha256": "68ad3d43ba0edfb7dcd9892d98ea47852f7f39f782a55819ba237ac60f34f444",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "review-by-intent"
+      ],
+      "id": "body-review-by-intent",
+      "increments": [
+        912
+      ],
+      "raw_sha256": "8cabcfa393377dc21f37d98e924f8f81c1bb482c6ad7a153028fcc110d23354e",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11929,
+          "output_tokens": 43,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11926
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 21,
+            "total": 11972
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12841,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11926,
+              "write": 912
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12850
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "review-by-intent",
+          "output_sha256": "5538deb5cdcbf3b137f804478daaeb8ebeb79f17c9c1685c6df18dc025079e1c",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ship-and-observe"
+      ],
+      "id": "body-ship-and-observe",
+      "increments": [
+        849
+      ],
+      "raw_sha256": "fc5dfe6f83195e2d37b61ebfabcb543747072de9babaa62366a33a4000619679",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11929,
+          "output_tokens": 41,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11926
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 19,
+            "total": 11970
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 12778,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11926,
+              "write": 849
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 12787
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ship-and-observe",
+          "output_sha256": "3ca8c1c8c575a4b95fe33818c5ac8b7cf13d0a997d6da9234b0a81bb678021df",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "spec-first"
+      ],
+      "id": "body-spec-first",
+      "increments": [
+        1287
+      ],
+      "raw_sha256": "cfc19ada621acffd30b15926b4a3500d2808335d74533c4726c694f2e3058a3a",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11927,
+          "output_tokens": 41,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11924
+            },
+            "input": 3,
+            "output": 20,
+            "reasoning": 21,
+            "total": 11968
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13214,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11924,
+              "write": 1287
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13223
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "spec-first",
+          "output_sha256": "47442bc5eff80d2341a3770e955bab663c8b04c87a7795c61e6308035003b6f1",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "verify-and-evals"
+      ],
+      "id": "body-verify-and-evals",
+      "increments": [
+        1357
+      ],
+      "raw_sha256": "896673838b3b71d94ce2cf5a8e24c6db085bb0b01b5366aea7b30c83a2c2ae76",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11929,
+          "output_tokens": 47,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11926
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 25,
+            "total": 11976
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13286,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11926,
+              "write": 1357
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13295
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "verify-and-evals",
+          "output_sha256": "7f6c3900200f1807505acdf15bb1cd192d99d7881ed1a2d23eadbc10db031f9c",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ai-sdlc"
+      ],
+      "id": "lane-lite",
+      "increments": [
+        1552
+      ],
+      "raw_sha256": "05a2794cd036ca2d2d3ec6f0f396d62e9a6d9a983f40bb9574e343d997be9f9d",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11929,
+          "output_tokens": 52,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11926
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 30,
+            "total": 11981
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13481,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 11926,
+              "write": 1552
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 13490
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ai-sdlc",
+          "output_sha256": "718b57e8cbc3740f8868104d5923d0910d169998718d67c191a3a6d1a12a7cdf",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ai-sdlc",
+        "spec-first"
+      ],
+      "id": "lane-standard",
+      "increments": [
+        1546,
+        1264
+      ],
+      "raw_sha256": "2c4fccc75442cccce8f04300a5dc6926cd16cc9a8ef0d6466de2de2413fe0012",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11932,
+          "output_tokens": 46,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11929
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 24,
+            "total": 11978
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13478,
+          "output_tokens": 18,
+          "raw_tokens": {
+            "cache": {
+              "read": 11929,
+              "write": 1546
+            },
+            "input": 3,
+            "output": 18,
+            "reasoning": 0,
+            "total": 13496
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 14742,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 13475,
+              "write": 1264
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 14751
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ai-sdlc",
+          "output_sha256": "09c48f746586ffc54d90a74046b8ea116a77831e9215c37828730927aa29eabc",
+          "status": "completed",
+          "truncated": false
+        },
+        {
+          "name": "spec-first",
+          "output_sha256": "8d718b7db402b3a27a541dd9ed0572a3745c0be87f86d50e733404dd0a24ac8e",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected_skills": [
+        "ai-sdlc",
+        "spec-first",
+        "verify-and-evals"
+      ],
+      "id": "lane-critical",
+      "increments": [
+        1546,
+        1264,
+        1330
+      ],
+      "raw_sha256": "788ece3db6cf16c27719462c832a8fc4d1df76395a1b50768b7391ac67a352ee",
+      "steps": [
+        {
+          "cost_usd": 0,
+          "input_tokens": 11937,
+          "output_tokens": 46,
+          "raw_tokens": {
+            "cache": {
+              "read": 0,
+              "write": 11934
+            },
+            "input": 3,
+            "output": 22,
+            "reasoning": 24,
+            "total": 11983
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 13483,
+          "output_tokens": 18,
+          "raw_tokens": {
+            "cache": {
+              "read": 11934,
+              "write": 1546
+            },
+            "input": 3,
+            "output": 18,
+            "reasoning": 0,
+            "total": 13501
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 14747,
+          "output_tokens": 20,
+          "raw_tokens": {
+            "cache": {
+              "read": 13480,
+              "write": 1264
+            },
+            "input": 3,
+            "output": 20,
+            "reasoning": 0,
+            "total": 14767
+          },
+          "reason": "tool-calls"
+        },
+        {
+          "cost_usd": 0,
+          "input_tokens": 16077,
+          "output_tokens": 9,
+          "raw_tokens": {
+            "cache": {
+              "read": 14744,
+              "write": 1330
+            },
+            "input": 3,
+            "output": 9,
+            "reasoning": 0,
+            "total": 16086
+          },
+          "reason": "stop"
+        }
+      ],
+      "tools": [
+        {
+          "name": "ai-sdlc",
+          "output_sha256": "718b57e8cbc3740f8868104d5923d0910d169998718d67c191a3a6d1a12a7cdf",
+          "status": "completed",
+          "truncated": false
+        },
+        {
+          "name": "spec-first",
+          "output_sha256": "b303adf492be174b8fcb0673bed0ca4c9a59045d4315eb22d08301ffebd1fdea",
+          "status": "completed",
+          "truncated": false
+        },
+        {
+          "name": "verify-and-evals",
+          "output_sha256": "7f6c3900200f1807505acdf15bb1cd192d99d7881ed1a2d23eadbc10db031f9c",
+          "status": "completed",
+          "truncated": false
+        }
+      ]
+    }
+  ],
+  "provider": "Agent Router",
+  "version": 1
+}

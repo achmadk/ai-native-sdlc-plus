@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "catalog_id": "real-evals-external-distractors-v1",
+  "skills": [
+    {
+      "id": "openspec/openspec-apply-change",
+      "family": "OpenSpec",
+      "description": "Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks. Also use when the user says \"openspec apply\", \"opsx apply\", or \"openspec implement\".",
+      "description_sha256": "6a19dbda60b1d693ad6c50dc7091159e15e775eb3deb77f8d623f58ac2d990fe",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-apply-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-archive-change",
+      "family": "OpenSpec",
+      "description": "Archive a completed OpenSpec change in the experimental workflow. Use when the user wants to finalize and archive a change after implementation is complete. Also use when the user says \"openspec archive\" or \"opsx archive\".",
+      "description_sha256": "ea8c6fca24fd781a94cf2c1d22154ab417d6812ba767e8be61036b99d9d0ef6f",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-archive-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-bulk-archive-change",
+      "family": "OpenSpec",
+      "description": "Archive multiple completed OpenSpec changes at once. Use when archiving several parallel changes. Also use for a plural archive request - \"openspec bulk-archive\", \"opsx bulk-archive\", \"openspec archive all\", or \"openspec archive these changes\".",
+      "description_sha256": "a5fa32e6d9828c9bd794759cf108b892dc44a33b431bb35b8ff67abd4134a35b",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-bulk-archive-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-continue-change",
+      "family": "OpenSpec",
+      "description": "Continue working on an OpenSpec change by creating the next artifact. Use when the user wants to progress their change, create the next artifact, or continue their workflow. Also use when the user says \"openspec continue\" or \"opsx continue\".",
+      "description_sha256": "3395182a4f66113b357090a7452b5354443080f36088656ec5267fe6ce976e06",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-continue-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-explore",
+      "family": "OpenSpec",
+      "description": "Enter OpenSpec explore mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements in a project that uses OpenSpec. Use when the user wants to think through something before or during an OpenSpec change. Also use when the user says \"openspec explore\" or \"opsx explore\".",
+      "description_sha256": "020f3a6436214a5093d9f74cc93e29d1bd5538258251f8a13fa3192abae99632",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-explore/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-ff-change",
+      "family": "OpenSpec",
+      "description": "Fast-forward through OpenSpec artifact creation. Use when the user wants to quickly create all artifacts needed for implementation without stepping through each one individually. Also use when the user says \"openspec ff\" or \"opsx ff\".",
+      "description_sha256": "5a3f89c84c9457ff52189a00fdb0195d4d9b21d60db95f6ab9087508e11ebe02",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-ff-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-new-change",
+      "family": "OpenSpec",
+      "description": "Start a new OpenSpec change using the experimental artifact workflow. Use when the user wants to create a new feature, fix, or modification with a structured step-by-step approach. Also use when the user says \"openspec new change\" or \"opsx new\".",
+      "description_sha256": "cab5f6899ab2d37691531b701b1869d03c93d6562f0a9c3645eb0479a8c5881f",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-new-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-onboard",
+      "family": "OpenSpec",
+      "description": "Guided onboarding for OpenSpec - walk through a complete workflow cycle with narration and real codebase work. Also use when the user says \"openspec onboard\" or \"opsx onboard\".",
+      "description_sha256": "858486505147467418b4803721f3befea42aad50689586e0558cb3f9be87ad38",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-onboard/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-propose",
+      "family": "OpenSpec",
+      "description": "Propose a new OpenSpec change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation. Also use when the user says \"openspec propose\" or \"opsx propose\".",
+      "description_sha256": "727a045abdc0c746dd8623feb80c59a999d8c2de75d27892574df96a7bc0553c",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-propose/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-sync-specs",
+      "family": "OpenSpec",
+      "description": "Sync delta specs from an OpenSpec change to main specs. Use when the user wants to update main specs with changes from a delta spec, without archiving the change. Also use when the user says \"openspec sync\" or \"opsx sync\".",
+      "description_sha256": "a3c8d9b6e8fdb7aa59d90e32300ef6d96480adba5f23e41c8127f2107723a7bc",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-sync-specs/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-update-change",
+      "family": "OpenSpec",
+      "description": "Update an OpenSpec change by revising its existing planning artifacts and keeping them coherent with one another. Use when the user wants to revise a change's plan, fold new decisions into it, or reconcile its artifacts after an edit. Also use when the user says \"openspec update change\" or \"opsx update\". If the user means the openspec update CLI command, which refreshes generated files, run that command instead. Never edits code.",
+      "description_sha256": "319a28687174f5b8ce4f8956054072862c37abd4b0589f43569283e306ef5f62",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-update-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "openspec/openspec-verify-change",
+      "family": "OpenSpec",
+      "description": "Verify implementation matches OpenSpec change artifacts. Use when the user wants to validate that implementation is complete, correct, and coherent before archiving. Also use when the user says \"openspec verify\" or \"opsx verify\".",
+      "description_sha256": "6ed89b462528155329f0b702aad462e50e5ad20475129654f531cc4bb1a6ac21",
+      "source_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/skills/openspec-verify-change/SKILL.md",
+      "source_revision": "d12c2817776779e06891d68230773b3bb673b106",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/d12c2817776779e06891d68230773b3bb673b106/LICENSE"
+    },
+    {
+      "id": "superpowers/brainstorming",
+      "family": "Superpowers",
+      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation).",
+      "description_sha256": "031ec08d5214fa0a56c6a59140016cd20a0d79f8cafa8e732650c9225ab998d8",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/brainstorming/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/writing-plans",
+      "family": "Superpowers",
+      "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+      "description_sha256": "90ae238dbfd4ac845d20a7e3c14e1f13284457aa2ae21b3c068e7af181d869ca",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-plans/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/test-driven-development",
+      "family": "Superpowers",
+      "description": "Use when implementing any feature or bugfix, before writing implementation code",
+      "description_sha256": "23b7e98c1a3494e1bbbd2440ad8892bcc5da40648539d8a008dbea493f0d1ed3",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/test-driven-development/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/systematic-debugging",
+      "family": "Superpowers",
+      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+      "description_sha256": "45abe257b772fb52556a307565a2b700246e64aea1b692359058677f198058a0",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/systematic-debugging/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/requesting-code-review",
+      "family": "Superpowers",
+      "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
+      "description_sha256": "739cdd1b776658eb0bcb038dd4c8bb8f4ea82d08895fda7ce5b8012d22f6cbb0",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/requesting-code-review/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/receiving-code-review",
+      "family": "Superpowers",
+      "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
+      "description_sha256": "aaf1de41eab32e80610f3008f23526897b5dadad3eced02bd722767d6521a10c",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/receiving-code-review/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/executing-plans",
+      "family": "Superpowers",
+      "description": "Use when executing an implementation plan in the current session as the implementer yourself — your human partner chose inline execution, or no subagent tool is available",
+      "description_sha256": "fbf78c622d7e89fc67825dc8a202276e4468d90773da992d62457a71eeffe821",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/executing-plans/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/subagent-driven-development",
+      "family": "Superpowers",
+      "description": "Use when executing implementation plans with independent tasks in the current session",
+      "description_sha256": "4a3ca86a4a7b7f1a05632a88f81ce5aa41f3da84ac5045d78c7c3aaf9d3680f8",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/subagent-driven-development/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/dispatching-parallel-agents",
+      "family": "Superpowers",
+      "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
+      "description_sha256": "5649c0d308ec206f10b14e81bfde914497ed7f3570473aa1dc43636d05233f2e",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/dispatching-parallel-agents/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/verification-before-completion",
+      "family": "Superpowers",
+      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
+      "description_sha256": "fc4ba75fba42be6b5b1cd29dfbf4229c7efee97cc7a9075341c7c5aedacbe4e2",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/verification-before-completion/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/using-git-worktrees",
+      "family": "Superpowers",
+      "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
+      "description_sha256": "f112aa0c9e54d2f6bd697580f019e098b8c489a7b6b847d50bd5995f40200072",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/using-git-worktrees/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    },
+    {
+      "id": "superpowers/finishing-a-development-branch",
+      "family": "Superpowers",
+      "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
+      "description_sha256": "abec2b086d3c16ee7f4becc696463ef623d3bc66816ea992b4efe4a883066897",
+      "source_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/skills/finishing-a-development-branch/SKILL.md",
+      "source_revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "evidence_url": "https://raw.githubusercontent.com/obra/superpowers/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE"
+    }
+  ]
+}

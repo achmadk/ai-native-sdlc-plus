@@ -1,0 +1,34 @@
+{
+  "base": "0ee9a1b426778aa4bd2cf45092bf37eb852d52a7",
+  "command": "python3 -B -m unittest tests.test_doctor.Basics.test_shipped_source_has_no_doctor_failures tests.test_install.HelperEntryPoints.test_installed_doctor_is_healthy_without_source_checkout tests.test_doctor.ScannerProfiles.test_reviewed_v3_and_existing_v2_are_recognized -v",
+  "green": [
+    {
+      "error": null,
+      "rc": 0,
+      "tail": "test_shipped_source_has_no_doctor_failures (tests.test_doctor.Basics.test_shipped_source_has_no_doctor_failures) ... ok\ntest_installed_doctor_is_healthy_without_source_checkout (tests.test_install.HelperEntryPoints.test_installed_doctor_is_healthy_without_source_checkout) ... ok\ntest_reviewed_v3_and_existing_v2_are_recognized (tests.test_doctor.ScannerProfiles.test_reviewed_v3_and_existing_v2_are_recognized) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 2.886s\n\nOK"
+    },
+    {
+      "error": null,
+      "rc": 0,
+      "tail": "test_shipped_source_has_no_doctor_failures (tests.test_doctor.Basics.test_shipped_source_has_no_doctor_failures) ... ok\ntest_installed_doctor_is_healthy_without_source_checkout (tests.test_install.HelperEntryPoints.test_installed_doctor_is_healthy_without_source_checkout) ... ok\ntest_reviewed_v3_and_existing_v2_are_recognized (tests.test_doctor.ScannerProfiles.test_reviewed_v3_and_existing_v2_are_recognized) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 3.650s\n\nOK"
+    }
+  ],
+  "head": "06c2ab56d1f790f17203c586108c53112be563cd",
+  "head_sha": "06c2ab56d1f790f17203c586108c53112be563cd",
+  "red": [
+    {
+      "error": null,
+      "rc": 1,
+      "tail": "FAIL: test_reviewed_v3_and_existing_v2_are_recognized (tests.test_doctor.ScannerProfiles.test_reviewed_v3_and_existing_v2_are_recognized) (sha='e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/redgreen-_i97vzsx/red/tests/test_doctor.py\", line 873, in test_reviewed_v3_and_existing_v2_are_recognized\n    self.assertEqual(rows[\"scanner-invokes-gate\"][0], doctor.OK, rows)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 'FAIL' != 'verified'\n- FAIL\n+ verified\n : {'scanner-workflow-profile': ('verified', 'recognized bounded workflow structure (not execution proof)'), 'scanner-no-pr-target': ('verified', 'pull_request_target is outside the read-only profi...\n\n----------------------------------------------------------------------\nRan 3 tests in 3.649s\n\nFAILED (failures=3)"
+    },
+    {
+      "error": null,
+      "rc": 1,
+      "tail": "FAIL: test_reviewed_v3_and_existing_v2_are_recognized (tests.test_doctor.ScannerProfiles.test_reviewed_v3_and_existing_v2_are_recognized) (sha='e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/redgreen-_i97vzsx/red/tests/test_doctor.py\", line 873, in test_reviewed_v3_and_existing_v2_are_recognized\n    self.assertEqual(rows[\"scanner-invokes-gate\"][0], doctor.OK, rows)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 'FAIL' != 'verified'\n- FAIL\n+ verified\n : {'scanner-workflow-profile': ('verified', 'recognized bounded workflow structure (not execution proof)'), 'scanner-no-pr-target': ('verified', 'pull_request_target is outside the read-only profi...\n\n----------------------------------------------------------------------\nRan 3 tests in 3.423s\n\nFAILED (failures=3)"
+    }
+  ],
+  "repeat": 2,
+  "start": "0ee9a1b426778aa4bd2cf45092bf37eb852d52a7",
+  "tests": ["tests/test_doctor.py", "tests/test_install.py", "tests/test_repository_hygiene.py"],
+  "verdict": "PASS"
+}

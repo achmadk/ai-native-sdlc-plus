@@ -1,32 +1,53 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Python >= 3.8, standard library only, git, Windows (PowerShell/cmd) and POSIX/WSL (bash/sh).
+  Front door: `sdlc` CLI (`sdlc init`, `sdlc doctor`, `sdlc lane`, `sdlc check evidence`, `sdlc lite`, `sdlc scan`, `sdlc test redgreen`, `sdlc bundle wheel`).
+  SDLC gate: Evidence-based risk-proportional gates (Lite, Standard, Critical).
+  - Lite: low-risk prose/docs and isolated test tweaks; minimal Intent, Plan, Trace. Fast path available via `sdlc lite --base REF [--head HEAD]`.
+  - Standard: feature and bugfix code; requires spec, tests, trace, and review notes.
+  - Critical: security, auth, payments, migrations, scripts, CI workflows, hooks, agent controls, and OpenSpec config/schema; requires formal intent, approved spec, threat note, failing-first test verification, 2 reviewer notes, rollout plan.
+  Conventions:
+  - TDD / red-to-green verification: assert intended behavior, confirm failure on base, produce deterministic proof via `sdlc test redgreen`.
+  - Security & isolation: trusted tooling runs from its own runtime directory, never executed or poisoned from inspected repository data.
+  - Line budgets: keep change design documents <= 200 lines total.
+  - Zero unpinned external runtime dependencies; all Python scripts are stdlib-only with `sys.dont_write_bytecode = True`.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - "Keep proposals focused on problem statement, proposed solution, and
+      explicit non-goals."
+    - "Clearly define change boundaries and out-of-scope items."
+  specs:
+    - "Every requirement MUST have verifiable scenarios using '#### Scenario:'
+      syntax with GIVEN, WHEN, THEN."
+    - "Scenarios must be deterministic and testable without live network or
+      external service calls."
+  design:
+    - "Address context, architectural decisions, risks/tradeoffs, and rollback
+      plans."
+    - "Strictly observe the repository line budget (keep design.md <= 200 lines
+      total)."
+    - "Never invent human reviews, pre-approvals, or accepted-risk
+      justifications."
+  tasks:
+    - "Group tasks into sequenced sections with checkable items (- [ ])."
+    - "Enforce failing-first TDD ordering: tests before implementation code."
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - "Always classify target paths with `sdlc lane --paths <files>` before
+        coding."
+      - "If Critical paths are touched, obtain and record explicit named human
+        approval."
+      - "Follow red-to-green proof for all bugfixes and behavioral changes."
+      - "Run both Windows and WSL unit test suites in the foreground before
+        completing tasks."
+  archive:
+    guidance:
+      - "Confirm all tasks in tasks.md are marked complete [x] before archiving."
+      - "Sync delta specs into main specs and verify with `openspec validate
+        --strict --no-interactive`."
+githubCopilot:
+  cloudAgent: false

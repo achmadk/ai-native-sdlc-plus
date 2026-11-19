@@ -1,0 +1,3083 @@
+{
+  "case_ids": [
+    "sel-ai-sdlc-s-d1",
+    "sel-ai-sdlc-s-d2",
+    "sel-ai-sdlc-n-d1",
+    "sel-ai-sdlc-n-d2",
+    "sel-spec-first-s-d1",
+    "sel-spec-first-s-d2",
+    "sel-spec-first-n-d1",
+    "sel-spec-first-n-d2",
+    "sel-context-pack-s-d1",
+    "sel-context-pack-s-d2",
+    "sel-context-pack-n-d1",
+    "sel-context-pack-n-d2",
+    "sel-learning-mode-s-d1",
+    "sel-learning-mode-s-d2",
+    "sel-learning-mode-n-d1",
+    "sel-learning-mode-n-d2",
+    "sel-verify-and-evals-s-d1",
+    "sel-verify-and-evals-s-d2",
+    "sel-verify-and-evals-n-d1",
+    "sel-verify-and-evals-n-d2",
+    "sel-review-by-intent-s-d1",
+    "sel-review-by-intent-s-d2",
+    "sel-review-by-intent-n-d1",
+    "sel-review-by-intent-n-d2",
+    "sel-decision-trace-s-d1",
+    "sel-decision-trace-s-d2",
+    "sel-decision-trace-n-d1",
+    "sel-decision-trace-n-d2",
+    "sel-autonomy-policy-s-d1",
+    "sel-autonomy-policy-s-d2",
+    "sel-autonomy-policy-n-d1",
+    "sel-autonomy-policy-n-d2",
+    "sel-ship-and-observe-s-d1",
+    "sel-ship-and-observe-s-d2",
+    "sel-ship-and-observe-n-d1",
+    "sel-ship-and-observe-n-d2",
+    "sel-ai-readiness-and-metrics-s-d1",
+    "sel-ai-readiness-and-metrics-s-d2",
+    "sel-ai-readiness-and-metrics-n-d1",
+    "sel-ai-readiness-and-metrics-n-d2"
+  ],
+  "catalog": {
+    "id": "candidate",
+    "sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+    "skill_count": 34,
+    "source_sha256": "9905aab321a4279c7dfaeeef9a28043c2e75d6a0b42fc57415dcd769fa394a16"
+  },
+  "cost_status": "verified",
+  "kind": "selection",
+  "mode": "record",
+  "model": "agentrouterr/gpt-5.6-sol",
+  "provider": "Agent Router",
+  "provider_environment_names": [
+    "APPDATA",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "KILO_EVAL_CACHE",
+    "KILO_EXE",
+    "KILO_MODEL",
+    "LOCALAPPDATA",
+    "PROGRAMDATA",
+    "USERNAME",
+    "USERPROFILE",
+    "XDG_CONFIG_HOME"
+  ],
+  "recorded_at": "2026-11-13T02:46:33.469112Z",
+  "recorded_revision": "e692000a16984e824c759dc7bd09a5c150eb990b",
+  "records": [
+    {
+      "case_id": "sel-ai-sdlc-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "3282a0935af0b3f9067f69f2d06f24e04be0c43005eb0538fb8c2679dcabf066",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8696,
+        "output_tokens": 185
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "219d64a07dacd2637eae4057002244168fe06246cdd86ceaf062d66a18fa2719",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8696,
+        "output_tokens": 153
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "005342ba0c855b10c670b64b71caf143336aa3f8f98e3a4955842ece33ac438d",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8696,
+        "output_tokens": 254
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "9d28da21cee7d57f494e2d417a8ff9d858ee883ec82f42ca17d17190f91278fd",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8687,
+        "output_tokens": 260
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "9dcf6b02283d85c9ce126e8e70eb5dc5d902cc1967e0c43427fe64556ff1fb45",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8687,
+        "output_tokens": 373
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "02c20c180516649f1d85766613a1101f01a24f23e2461b7f1849ce1517ae47d3",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8687,
+        "output_tokens": 366
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "54742021de197c5dfeafaad661b1af31f8d98ac16a64b97179a9f6068dab47b6",
+      "selected": [
+        "openspec/openspec-apply-change"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 773
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "78a72423866a9b5bd1793f7b7a0ecf71b28d33a4efcd966224cf04bd708a4d81",
+      "selected": [
+        "openspec/openspec-apply-change"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 314
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/executing-plans"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "9d0adf92dfb83500b8953b266269484eb8c8a905120314bb09e6e9bccd9eee56",
+      "selected": [
+        "openspec/openspec-apply-change",
+        "superpowers/executing-plans"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 334
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "1ac4f605e06ba5f8e1d2883de8adf8face3bdfa9b13b7e944b758ff0c65972b5",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 105
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "4ed443e0eb46ec5fb91b4cdbca3949f520257433951cce6baf3360a99132b758",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 156
+      }
+    },
+    {
+      "case_id": "sel-ai-sdlc-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "21d53baa6d3aa1018716687ab0c3d57c231640282364564e8391ecd7e00c1e1d",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 132
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "40915f14afad7640abc3851f1c0dc9225b5b0d81526978d7827da1d6b99a8f8e",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 286
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "9b6b2beee0873a505c3da9ac870e9d7cfdc784afe373948074d05ba08459840e",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 341
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "58343a2ddece35b5e6173e58bc0a7dcb7badf1bba9b1000acfbfb5db1073d601",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 189
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "a20021f48cb693c07d76546b6b9726c356703ddd1f05bdc8d8e32a80ac39c030",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 247
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "6f666aeb7fce34c4a001509f75cde27ec3b14d24997dab990a1688c0264be085",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 326
+      }
+    },
+    {
+      "case_id": "sel-spec-first-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "fd876a15e1809c031bdce77ecfa238cc83a2ec19a25d0797295dc6c304c87830",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 249
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "6627e81c2ce2fc75ddaf63359cfc66a7593d8418f2f74f22f12368d38ea53aab",
+      "selected": [
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 313
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "524be1f7a7350a742dd4ba968dfd2ef15fb5b0a91b6040abdd5ea73d4fdbadaa",
+      "selected": [
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 266
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "d1ff6b7f4ae80e278475cda64f6c22c4f1d23edc2336c3a8df7deb8cad465cb9",
+      "selected": [
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 315
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "cc60d67b2329d3ad06d077cd1ba97be35d456c9c010c5e470071d3af03ade042",
+      "selected": [
+        "openspec/openspec-apply-change"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 228
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "bd2ae3cde010493fab1cf189f1a1a979a13eb8346c09758934284b40145f47e1",
+      "selected": [
+        "openspec/openspec-apply-change"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 154
+      }
+    },
+    {
+      "case_id": "sel-spec-first-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "3f7a6c1ab7a5c9542c5ad55bcb618db292d548170f8883bba794e4e24c20a952",
+      "selected": [
+        "openspec/openspec-apply-change"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 203
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "f7457102fef4c8b0bafc9aa86b568b76760308443bbee6f7f7799115d3eea2d9",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8691,
+        "output_tokens": 198
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "a73931d95b7d517ece88fb43fd0288da42d744c9eaa8320c41a6d3f59197f616",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8691,
+        "output_tokens": 144
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "195a4712881e1a72b53fdea026ad4426f9b603bbbfbee3be91a48a942307486d",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8691,
+        "output_tokens": 141
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "4f6e76febdfd8ab88991734432a7c4695c466c8baf52c86b93c68d250c556dfe",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 256
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "991cf92b9cc1d10e09e8cc7a1978918a446ba0797940e2eb975a9fda804a2142",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 213
+      }
+    },
+    {
+      "case_id": "sel-context-pack-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "0e23fcdc002cebe01fd0ee0f402e2eb543ea9e659afa1b51dca1ca319b412325",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 131
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "05fd390283b739bf1a15e1f9b6848f5184033a72e88e6015dc28556f86ad1f06",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 141
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "555504397d3506185bd4874356f775a38462d8655bb049d6af3ee9da7d6f35fc",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 231
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "17d9cd9084fc9d0266be739fdbda67ea8e78582cda246043451951fd4c9a0e41",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 172
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "2c463c5774a1fb98321cf93a0dfb9b6f2f9e13435d9029fa6038b10a8b224c21",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 159
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "630740b4e06de32e4369da1ef096b7d94e5cce6e69bdd6de364472a95a1051d5",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 107
+      }
+    },
+    {
+      "case_id": "sel-context-pack-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "cd2a25df48ce560f4ac3f9a9e201c526444b1862fb7f65abd6fc94b0b374732d",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 163
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "d00c6d32328df27c5843b7b3da7efd37fe5b115a4edab326d8ae14401b85f10f",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8690,
+        "output_tokens": 112
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "8e0c9740826c99612d644d70736248c8d1d202eb9c68288f78aebb5dae9fc5fc",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8690,
+        "output_tokens": 152
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "926248cacfe34e5a2f6d2d368ee05aedd2c56ce9322d8ecb736854408f7fa8d5",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8690,
+        "output_tokens": 191
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "e0c10dbffe2931a84719429b38020601b462f55a56b738f0a64ed350e57842fa",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 162
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "05c6f26cdf85a4398b11b4fa8a0c78f969fbc62e137ca164c77a6af04987360e",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 219
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "f2230ebf86e9bb5220211024922d95428a7976d3dd07c5afd87438c2ee0b08e5",
+      "selected": [
+        "learning-mode"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8683,
+        "output_tokens": 165
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "0e035795753f00736ad3e41615fe317f4838b1c0e7493b1036f0f8ca4d3a89df",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 169
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "eea9f0a92e6de1f9fa7b26b820ca0015eb4669e9eeb2f151f55e434ebafaa4ff",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 139
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "4c411e768719898147db4207a44349dcaaf71f3e1ce0558e9afd4563f2dc473b",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 156
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "9fbaf35001ea2bcb1649e2eef1f4d59a530c2dff32cba12c06327604c304fdfc",
+      "selected": [],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 135
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "51ae24290475aa04893f49e9a08c19daf361e5b339ab27c8583874793b6837c5",
+      "selected": [],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 105
+      }
+    },
+    {
+      "case_id": "sel-learning-mode-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "b0c357763ace9e885ea4dfaa7120d215862442755fb5f943ecab5bc999fbc70b",
+      "selected": [],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 156
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/systematic-debugging",
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "dbf8a3a2886d2bb36bafded2277d16b510cd53bdf03315512e94fef1de61c943",
+      "selected": [
+        "superpowers/systematic-debugging",
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 287
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "8160710ec3121d5103ef5d1433da6931d596e87ccaf5252ee686b3a22e5cace3",
+      "selected": [
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 468
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/systematic-debugging",
+          "superpowers/test-driven-development"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "79632cc4e39e4a90bab84f548a758d15ea07f45237f2f412294acaa1b546e358",
+      "selected": [
+        "superpowers/systematic-debugging",
+        "superpowers/test-driven-development",
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8684,
+        "output_tokens": 349
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "0e124fd5fdad8d10b3332fde6f5221fa7bead162bc69cf547d9f2d67686e962e",
+      "selected": [
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8686,
+        "output_tokens": 188
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "0a602cd5de03bc984a5cd259472f2b0b7920bdd2366bed2bd502bd5fd38387f3",
+      "selected": [
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8686,
+        "output_tokens": 187
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "1acbb81e1469d9bf9f6b14dc6b84d0b067fca1937149fa1fdbf21993534c930a",
+      "selected": [
+        "verify-and-evals"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8686,
+        "output_tokens": 149
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "bcacb2069133c56dce273b616af0da95be421e3d0327f088c0692ea9b25e32c1",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 177
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "05b7edd4c8369c6549e48818fa492f21b17f27f453a99dee4eea180db3fb210b",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 264
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "affdf63688a7cf6a25e136813027dd9fbd69df2849802ccad31decf22d2d8a12",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 331
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "5731677be1071c02a9101143bdba629aeb3f5bf3eff0e781d9b2c2aac7baf4bc",
+      "selected": [
+        "superpowers/systematic-debugging"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 203
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "fa7554f9f9396820c3b86aee03c28d05eb57d0e0d8898fb8f6dfce365a3a6fbf",
+      "selected": [
+        "superpowers/systematic-debugging"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 192
+      }
+    },
+    {
+      "case_id": "sel-verify-and-evals-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "b87c64b0a1929ad8b9635e3dd150e0c75507224d943268f31bc5f25d2e06f176",
+      "selected": [
+        "superpowers/systematic-debugging"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 188
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "2b681de1ff05ccd975f65d6177113aae2b32297967ef3d8c3979fe7925f4205a",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 136
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "ab58c8da6f0e279441dd2ace636a1b4c85fb5ac48b229e71fabe4fe5c73bf434",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 129
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "1922f9a6d518e1c7faab2012dcba12288450354d7878987c33b1654c5ed839a6",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 199
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "f9829a7be0c9af3f2469b20173fea5bac8adec36d00e287fc01201f68b23e260",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 240
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "7c09a7aaab3293ee3a81ccf40a5298402eb240b4e5753fde3c4004b6737eb1d1",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 228
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "406105d888916b6ceb384e21f30eebfc41d63883b9842594e74da100bc4fb479",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 282
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "ffc852424992d7e35331290b2bb62623766495a6ef89689434d9d6e1bf508741",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 245
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "580bde68db4a2d0bed648e827b86500b17a79e5e3b3d62391acc75ca430f397d",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 169
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "77652fde6142c17d000b9754b5eb63a292277beedb3083703f96ff7f670a0523",
+      "selected": [
+        "spec-first"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 133
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "2969921a5042ff0c898c54cab1ff156a36a80984d16d3ef18da9b8f6a854840b",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 117
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "32fafe83beff9a6b5886af3df6ac11aecfa15a3f4cde30530ca17db46ce26faf",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 150
+      }
+    },
+    {
+      "case_id": "sel-review-by-intent-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "646f4dd624f6dadfacd171c60dd790722f7ba1f43a47502a1171b90a9a3b2f9b",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 165
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "a9a1a13d74fbe83823876bb1ac0281d59092ae790a494ef2e96d557b3bb86e18",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 108
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "160f9a27f6a4ae78812bad1f65c9cc4e57fb9dc5cee6eb48cc03bb09bcad95fc",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 184
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "369b605c9792cf237f128ed89caf8b39aa3eb131a35e399e8284e45c960dd8e8",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8681,
+        "output_tokens": 168
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "09afba00d7bd3e79e36f0d8db94e5162886b15cde63e409fe55e446e168cbfad",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 273
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "329e4d36f2f93513bf0aae69a4ba850d431f253344338ce4b2abf90054615736",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 300
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "b2d71314567b748578b832eecb297ee15a4dc00cb75fde2d1071f0070336b055",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 191
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "4f04b7c21c185f7ddbec8f3ed58afaefe494818215c3346bd212afc94428c750",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 162
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "6b3e8a7f6b0b34357d9ad6951036ebf0ff95e17444e4ed10110bd8169db979af",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 155
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "af5bf5bf3ce475ceeae5396eb92f6b68689d45ab5d1590e03631ead0f3f633b0",
+      "selected": [
+        "context-pack"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8676,
+        "output_tokens": 161
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "4cc4048878053e5dc6245eb3818bb7634c9381e1f76f89e4c8bf13687f89ea08",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8670,
+        "output_tokens": 164
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "9b6f9f3890d4b06959bad192e089c3f685b359df8fa43a970be75ee5aaabaf38",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8670,
+        "output_tokens": 162
+      }
+    },
+    {
+      "case_id": "sel-decision-trace-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "1fc28ef6fcfd194448635ffd5e7db8776504393ce3e34e8533c91d3564650c1a",
+      "selected": [
+        "review-by-intent"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8670,
+        "output_tokens": 248
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "b0a2b13e746ac73062f83c34d86d715bc6f3adf22f2a4c8074ec99036cda06d8",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 190
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "d96387b6664b52bce57e0506a3621f1d6068f4072df01ded3ab9cb3f105fda3e",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 152
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "1919edea7a06f8ccd4a2fc409cffcc61e084e716856ede470ad704bbe5d94111",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 182
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "f677dac82d448930053d2e7ea34fa6daacb64241ad74fa8a3d23073892cd5989",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 135
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "5a362eadb9ccf2752c89319102d91abf6108ed359e0254281f4a7cc73d147352",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 228
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "4d63da2d849eb1ea35ade047b3b40c078809961d6aff6ad3b9c8282aec93be98",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 206
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "837c5d72e125a0bc35b669405ccc32121362f7ad282d67b95f496cc7aea68cc0",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 194
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "0b2ca8134acf25fde8aff417f26575236ef954ba8746a285b437cc8b35be3d82",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 241
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "fdd1b54bc46dffef8ffb082c12acc8d15a385ff69b577d355720bce718dc8f95",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 202
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "0b881487dc99b20ee01d18fdcb809a1c934c47a1c141aea06b51e1a6fd8f53fb",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 231
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "a11f1fac8f2a897d7f36509eb0e1ddb1061edc75fc348696ace13b9ed710f869",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 130
+      }
+    },
+    {
+      "case_id": "sel-autonomy-policy-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "74cce9c862d2b67e4094aa01e3361e0edeb304a8148d4d1d1426107da2cfa8d7",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 298
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "8e8972f2569b211ab9471f15de708e5e4eed4b67cc20829d6ada0a5790cacfa1",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8682,
+        "output_tokens": 383
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "bab5d52f93d4ed174e04e452dc2af7a830470cab6dd4eddfa952d933a48dc864",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8682,
+        "output_tokens": 257
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "24f242ceae54172c386b8a61bf46eea8bbb0b0e57df75554fcd010ce59485e17",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8682,
+        "output_tokens": 438
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "fail",
+        "unexpected_selected": [
+          "superpowers/systematic-debugging"
+        ]
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "78b79d38b6ee8e8b3b8719b75a5f74de0575406757d9bb7f01d61db73270e5db",
+      "selected": [
+        "ship-and-observe",
+        "superpowers/systematic-debugging"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 300
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "d84e3d72a5319c353a7346b975a15a78177d5c3d6edc77f0f6d0473b94025be8",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 471
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "0bc5bb0f158bcc14cf6fa0d55c0c004aef0c7b71cf74aadedbb5ef40168b850f",
+      "selected": [
+        "ship-and-observe"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8680,
+        "output_tokens": 350
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "77bac1bdcc2df82ffbdf82e864ea3f6f38bfe77b4116789d64ba2ce76e321548",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 259
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "bf86f18f93723821cdee1d808d3a141763ad74578191c9713790a3ccad5292d9",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 270
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "0a2b5ff9b4bd09dcb0d45d833248365c205cbe4eaa414f4eac37f24816e74d90",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8674,
+        "output_tokens": 312
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "015e5038040d0fb08ef2c740fd4aaae648c5ee9762b6352284c45373b4cf35c0",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 116
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "ca36109a31f8341f7e338fac257976a56e19e6fc7fc229d71c5a3410e6c67467",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 176
+      }
+    },
+    {
+      "case_id": "sel-ship-and-observe-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "bcaafb87ef442b243941ae044b9b36690d3b64f27b47cdd56eb892598fdf64f9",
+      "selected": [
+        "decision-trace"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8675,
+        "output_tokens": 100
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "62d131296607c88e72799bbb6b0731c03c42be0c0b51eecc0c676dbe3462883d",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 102
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "a5501d9b8729a277ec652c3a0943695daae4dc21e9ce3ce7e238441b379e7bd6",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 99
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "fba3bb9ebee1f77be20554fd0fe7e1d244cf8767fcaa538e6a4d065adf7d8b0f",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8678,
+        "output_tokens": 158
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "a0e8fa9707dd153e62b9f03749a0daf50cbc19f949b2a2d408d70e2c2d7e4a52",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 251
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "afd30590d88c1b44cc2913f3786d40ff4a3052aa952a20da14cdbf08c6300723",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 214
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-s-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "ed9980ba200be31e30fa1c5315dfef19f188fb4a62e59a3e87bf1fa63a04caf5",
+      "selected": [
+        "ai-readiness-and-metrics"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8679,
+        "output_tokens": 167
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "09bbaebc3af3981190bae5dd1196f5053170225c666981b249e4abde4b4c01f3",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 152
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "9f3833081fa764a26e70a420e17cbe1f8129736cc0695236ac4b8453ec0b17ac",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 160
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d1",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "77f23438cbb1b9fd479e61e0dc7b97a30d4b6669e7a3804d824bee611747a41b",
+      "selected": [
+        "autonomy-policy"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8672,
+        "output_tokens": 262
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 1,
+      "request_sha256": "3d3a24288913173a18212055280b4dcdd3dfe511f2d69eb86576b7083d8376dd",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 193
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 2,
+      "request_sha256": "70929b006250f546fc6f01f2e6295ae1932b6f3626be70c18b81c96200e83951",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 159
+      }
+    },
+    {
+      "case_id": "sel-ai-readiness-and-metrics-n-d2",
+      "catalog_sha256": "97ec04e519690356934c6a2f173959b3afa6fd6195340d979e58849c21e5fd69",
+      "model": "agentrouterr/gpt-5.6-sol",
+      "outcome": {
+        "forbidden_selected": [],
+        "missing_expected": [],
+        "status": "pass",
+        "unexpected_selected": []
+      },
+      "provider": "Agent Router",
+      "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+      "repeat": 3,
+      "request_sha256": "18f4e4f595e16d2ec915ef13f927bf453ae11c3d5cc31f4160679cfb32354814",
+      "selected": [
+        "ai-sdlc"
+      ],
+      "split": "development",
+      "usage": {
+        "cost_usd": 0.0,
+        "input_tokens": 8677,
+        "output_tokens": 175
+      }
+    }
+  ],
+  "registration_commit": "569eec7a51e8b8f7ee78c26601560dfd15d3b866",
+  "registration_id": "real-evals-selection-v1",
+  "registration_sha256": "571d67ae88720d51ab8125a95030e8b07107ba8ce7823c9ac2263ecabe0a83f2",
+  "repetitions": 3,
+  "status": "complete",
+  "summary": {
+    "aggregate": {
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 60,
+      "tp": 60
+    },
+    "by_skill": {
+      "ai-readiness-and-metrics": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "ai-sdlc": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "autonomy-policy": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "context-pack": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "decision-trace": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "learning-mode": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "review-by-intent": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "ship-and-observe": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "spec-first": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      },
+      "verify-and-evals": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 6,
+        "tp": 6
+      }
+    },
+    "by_split": {
+      "development": {
+        "failed": 8,
+        "passed": 112
+      }
+    },
+    "failed_records": 8,
+    "forbidden_selections": 0,
+    "passed_records": 112,
+    "records": 120,
+    "verdict": "fail"
+  },
+  "version": 1
+}

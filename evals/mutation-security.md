@@ -19,7 +19,7 @@ Final: 5 killed, 0 survivors. Initial run was 3/5; the two survivors exposed rea
 - Secret-pattern grep (AWS, private-key headers, sk-live, ghp_) over .py/.sh/.md: no matches.
 - `python3 -m compileall scripts/`: clean.
 - Network calls in scripts: none (stdlib only; verified by import audit: argparse, fnmatch, os, sys, re).
-- Finding: trigger_eval.py uses word-overlap heuristic with no negation handling — documented as eval-harness limitation, not shipped as a gate.
+- Finding: the historical lexical overlap script `trigger_eval.py` used a word-overlap heuristic with no negation handling — documented as an eval-harness limitation, not model selection or a shipped gate.
 
 ## SBOM
 

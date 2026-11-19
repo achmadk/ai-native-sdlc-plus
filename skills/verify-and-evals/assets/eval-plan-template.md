@@ -22,6 +22,17 @@ Registered where (commit or link): ___
 ## Repeats
 Runs per case: ___ (at least 3 for non-deterministic systems)    Report: counts (k of n) and spread
 
+## Provider recording and replay (if a model is called)
+- Provider command JSON argv: ___
+- Allowed provider environment names: ___ (names only; never values)
+- Provider/model identity: ___
+- Request cap: ___    Input-token cap: ___    Monetary cap: ___
+- Maximum request cost: ___    Response-byte cap: ___    Timeout: ___
+- Registration commit: ___    Recorded revision: ___
+- Replay transcript: ___    Transcript hash: ___
+- Selection, discovery, or invocation claim: ___ (state exactly which one is measured)
+- Live-call authorization: ___    Offline replay command: ___
+
 ## Judge (if any)
 - Judge model: ___ (different family from the system under test)
 - Rubric: ___ (concrete, per criterion)

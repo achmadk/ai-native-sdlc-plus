@@ -215,15 +215,37 @@ class SkillHygiene(unittest.TestCase):
         self.assertEqual({os.path.basename(os.path.dirname(p)) for p in self.skills()}, EXPECTED_SKILLS)
 
     def test_frontmatter_is_valid_and_matches_the_directory(self):
+        description_problems = []
+        hobby_words = re.compile(
+            r"\b(?:aliens|bread|breakfast|butterfly|cake|cat|concert|diet|dog|fashion|fasting|"
+            r"garden|horoscope|juggle|kayak|lunch|museum|picnic|pizza|plant|playlist|road trip|"
+            r"speech|suitcase|swim|trivia|vacation|wedding|workout)\b", re.I)
         for path in self.skills():
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
             match = re.match(r'---\nname: (\S+)\ndescription: "(.*)"\n---\n', text, re.S)
             self.assertTrue(match, path)
             self.assertEqual(match.group(1), os.path.basename(os.path.dirname(path)), path)
-            self.assertLess(len(match.group(2)), 1024, path)
-            self.assertNotIn('"', match.group(2), path)
-            self.assertIn("Triggers:", match.group(2), "%s: description should list trigger phrases" % path)
+            description = match.group(2)
+            self.assertLess(len(description), 1024, path)
+            self.assertNotIn('"', description, path)
+            sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", description) if part.strip()]
+            scope_sentences = [sentence for sentence in sentences
+                               if re.search(r"\b(?:use(?: it)? when|do not use|not for)\b", sentence, re.I)]
+            problems = []
+            if len(sentences) > 2:
+                problems.append("more than two sentences")
+            if len(scope_sentences) > 1:
+                problems.append("more than one scope sentence")
+            if not any(re.search(r"\buse(?: it)? when\b", sentence, re.I) for sentence in sentences):
+                problems.append("no natural-language use-when scope")
+            if "Triggers:" in description or "Not for:" in description:
+                problems.append("fixture-specific trigger/exclusion list")
+            if hobby_words.search(description):
+                problems.append("fixture-specific hobby exclusion word")
+            if problems:
+                description_problems.append("%s: %s" % (path, ", ".join(problems)))
+        self.assertEqual(description_problems, [], "descriptions must state what/when without fixture stuffing")
 
     def test_skill_files_stay_small_so_the_footprint_stays_small(self):
         for path in self.skills():

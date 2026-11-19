@@ -1,6 +1,6 @@
 ---
 name: decision-trace
-description: "Leave a reconstructible reasoning record as a by-product of the PR, so someone can explain months later what changed, why, and what was rejected. Use when writing the Trace section of a PR, recording why a change was made, reading history, or testing whether reasoning can be reconstructed. Triggers: trace block, decision record, why was this changed, reconstruct reasoning, provenance, ADR."
+description: "Record what changed, why, rejected alternatives, accepted risk, and tool provenance so a later reader can reconstruct a decision. Use it when completing a PR trace or promoting a durable architectural choice into a linked decision record."
 ---
 
 # decision-trace — reasoning as a by-product
