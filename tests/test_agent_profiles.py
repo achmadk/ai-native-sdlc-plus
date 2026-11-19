@@ -12,12 +12,32 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 from scripts import install as install_lib
 
 ROOT = Path(__file__).resolve().parents[1]
 SDLC = ROOT / "scripts" / "sdlc.py"
 AGENT_PROFILES = ROOT / "scripts" / "agent_profiles.py"
+CONTRACT_POLICY = "# Profile contract fixture\nUse the approved review process.\n"
+PROFILE_PATHS = {
+    "claude": ("CLAUDE.md", ".claude/skills", ".claude/commands/sdlc/{op}.md"),
+    "cursor": (None, ".cursor/skills", ".cursor/skills/sdlc-{op}/SKILL.md"),
+    "copilot": (".github/copilot-instructions.md", ".github/skills", ".github/prompts/sdlc-{op}.prompt.md"),
+    "codex": (None, ".agents/skills", None),
+    "gemini": ("GEMINI.md", ".gemini/skills", ".gemini/commands/sdlc/{op}.toml"),
+    "opencode": (None, ".opencode/skills", ".opencode/commands/sdlc/{op}.md"),
+    "kilo": (None, ".kilo/skills", ".kilo/command/sdlc-{op}.md"),
+}
+BASELINE_PROFILE_HASHES = {
+    "claude": "1dfa31b3c7f8ec1d0f1a52ff97d999c19bea6d1025335796247e168cdd386b7a",
+    "cursor": "d00a0c0c9a21d6054baf5b73d02c2df1987031462b7cdc13769cf618c6d86037",
+    "copilot": "f994606fb5ce205bf808890098b3998b080432e18575746b765255ce6fed4bc5",
+    "codex": "fa30ae03d75d727ca3e9a228a98ed561d47f3cf09b0c726bd76889e1180b2bba",
+    "gemini": "42702a7c4571f7f9ce68260bf001dfa502dd6e52e88757f90c2fef9ff363e07c",
+    "opencode": "8e2cba2dde429e0dcf31c1409d17a86d1ba33c4d587a459a0cc969560a1250f4",
+    "kilo": "9515c739ff4fede4f32cd64bca5e4091f3088bf42519843803d705eb7ead3edb",
+}
 
 
 def _sha256_bytes(data):
@@ -571,6 +591,279 @@ class ManifestAdditiveDriftAndDiscoveryContract(unittest.TestCase):
         skill_md = (ROOT / "skills" / "ai-sdlc" / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("scripts/sdlc.py", skill_md)
         self.assertIn("sdlc init", skill_md)
+
+
+class SharedProfileDescriptorContract(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="sdlc-shared-profiles-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.profiles = install_lib.load_agent_profiles(str(ROOT))
+        self.assertIsNotNone(self.profiles)
+
+    def test_native_metadata_and_selectors_derive_from_one_descriptor(self):
+        self.assertTrue(hasattr(self.profiles, "PROFILE_CONTRACT"), "shared profile descriptors are missing")
+        contract = self.profiles.PROFILE_CONTRACT
+        self.assertEqual(tuple(contract), tuple(PROFILE_PATHS))
+        self.assertEqual(tuple(self.profiles.SUPPORTED_AGENTS), tuple(contract))
+        for agent, expected in PROFILE_PATHS.items():
+            descriptor = contract[agent]
+            self.assertEqual((descriptor["policy_path"], descriptor["skill_prefix"], descriptor["command_path"]),
+                             expected, agent)
+            self.assertTrue(descriptor["label"], agent)
+            self.assertTrue(descriptor["surface"], agent)
+        self.assertEqual(self.profiles.parse_agent_selectors([" KILO ", "Claude", "kilo"]), ["kilo", "claude"])
+        with self.assertRaises(install_lib.InstallError):
+            self.profiles.parse_agent_selectors(["aider"])
+
+    def test_normalized_payloads_and_managed_path_union_preserve_baseline(self):
+        manifest = json.loads((ROOT / "scripts/install-manifest.json").read_text(encoding="utf-8"))
+        sources = [item for item in manifest["files"]
+                   if item["source"].startswith("skills/") and
+                   item["source"].split("/")[1] in self.profiles.PRODUCT_SKILLS]
+        managed = set()
+        for agent, (policy_path, skill_prefix, command_path) in PROFILE_PATHS.items():
+            items = self.profiles.render_profiles(str(ROOT), [agent], CONTRACT_POLICY)
+            paths = [item["relative"] for item in items]
+            expected = {skill_prefix + "/" + item["source"].split("/", 1)[1] for item in sources}
+            if policy_path:
+                expected.add(policy_path)
+            if command_path:
+                expected.update(command_path.format(op=item["op"]) for item in self.profiles.COMMAND_OPERATIONS)
+            self.assertEqual(set(paths), expected, agent)
+            self.assertEqual(len(paths), len(expected), "duplicate profile output for %s" % agent)
+            normalized = [(item["relative"], _sha256_bytes(item["data"].replace(b"\r\n", b"\n")))
+                          for item in sorted(items, key=lambda item: item["relative"])]
+            digest = _sha256_bytes(json.dumps(normalized, separators=(",", ":"), ensure_ascii=True).encode("ascii"))
+            self.assertEqual(digest, BASELINE_PROFILE_HASHES[agent], "profile bytes changed for %s" % agent)
+            managed.update(expected)
+            marker = skill_prefix + "/ai-sdlc/SKILL.md"
+            self.assertEqual(self.profiles.recover_installed_profiles([marker], str(ROOT)), [agent])
+        self.assertEqual(self.profiles.recognized_profile_paths(str(ROOT)), managed)
+        self.assertNotIn("AGENTS.md", managed)
+
+    def test_all_copied_assets_are_exact_and_policy_stays_unowned(self):
+        manifest = json.loads((ROOT / "scripts/install-manifest.json").read_text(encoding="utf-8"))
+        sources = [item for item in manifest["files"]
+                   if item["source"].startswith("skills/") and
+                   item["source"].split("/")[1] in self.profiles.PRODUCT_SKILLS]
+        for agent, (_, skill_prefix, _) in PROFILE_PATHS.items():
+            target = self.root / agent
+            target.mkdir()
+            policy = CONTRACT_POLICY.encode("utf-8")
+            (target / "AGENTS.md").write_bytes(policy)
+            result = run_sdlc(["init", "--root", str(target), "--agents", agent, "--json"])
+            self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+            state = json.loads((target / ".sdlc-install.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["version"], 1)
+            self.assertNotIn("AGENTS.md", state["files"])
+            self.assertEqual((target / "AGENTS.md").read_bytes(), policy)
+            for source in sources:
+                relative = skill_prefix + "/" + source["source"].split("/", 1)[1]
+                self.assertIn(relative, state["files"], relative)
+                self.assertEqual((target / relative).read_bytes(), (ROOT / source["source"]).read_bytes(), relative)
+
+    def test_repository_adapter_rendering_is_pure_and_preserves_native_wrappers(self):
+        self.assertTrue(hasattr(self.profiles, "render_repository_adapters"), "repository adapter rendering is missing")
+        before = list(self.root.iterdir())
+        items = self.profiles.render_repository_adapters(CONTRACT_POLICY)
+        expected = {".claude/CLAUDE.md", ".cursorrules", ".cursor/rules/sdlc.mdc",
+                    ".github/copilot-instructions.md", "GEMINI.md"}
+        outputs = {item["relative"]: item["data"] for item in items}
+        self.assertEqual(set(outputs), expected)
+        self.assertEqual(len(items), len(expected))
+        self.assertEqual(list(self.root.iterdir()), before, "rendering must not write files")
+        for path, data in outputs.items():
+            self.assertTrue(data.endswith(CONTRACT_POLICY.encode("utf-8")), path)
+        self.assertTrue(outputs[".cursor/rules/sdlc.mdc"].startswith(b"---\n"))
+        self.assertIn(b"alwaysApply: true", outputs[".cursor/rules/sdlc.mdc"])
+        self.assertFalse(outputs[".cursorrules"].startswith(b"---\n"))
+        self.assertNotIn("AGENTS.md", outputs)
+        with self.assertRaises(install_lib.InstallError):
+            self.profiles.render_repository_adapters(b"undecoded policy")
+
+    def test_repository_adapter_drift_check_is_read_only(self):
+        self.assertTrue(hasattr(self.profiles, "repository_adapter_status"), "repository adapter drift detection is missing")
+        self.assertTrue(hasattr(self.profiles, "render_repository_adapters"), "repository adapter rendering is missing")
+        policy_path = self.root / "AGENTS.md"
+        policy_path.write_bytes(CONTRACT_POLICY.encode("utf-8"))
+        before = policy_path.read_bytes()
+        items = self.profiles.render_repository_adapters(CONTRACT_POLICY)
+        expected = sorted(item["relative"] for item in items)
+        missing = self.profiles.repository_adapter_status(str(self.root))
+        self.assertEqual(missing["missing"], expected)
+        self.assertEqual(missing["modified"], [])
+        self.assertEqual(list(self.root.iterdir()), [policy_path])
+        for item in items:
+            path = self.root / item["relative"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(item["data"])
+        matching = self.profiles.repository_adapter_status(str(self.root))
+        self.assertEqual(matching["matching"], expected)
+        self.assertEqual(matching["missing"], [])
+        edited = self.root / ".cursorrules"
+        edited.write_bytes(edited.read_bytes() + b"unreviewed policy edit\n")
+        edited_bytes = edited.read_bytes()
+        drift = self.profiles.repository_adapter_status(str(self.root))
+        self.assertEqual(drift["modified"], [".cursorrules"])
+        self.assertEqual(edited.read_bytes(), edited_bytes)
+        self.assertEqual(policy_path.read_bytes(), before)
+
+
+class RepositoryAdapterPublicationContract(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="sdlc-repository-adoption-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.profiles = install_lib.load_agent_profiles(str(ROOT))
+        (self.root / "AGENTS.md").write_bytes(CONTRACT_POLICY.encode("utf-8"))
+        self.previous = {}
+        for path, _, _ in self.profiles.REPOSITORY_ADAPTERS:
+            destination = self.root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            self.previous[path] = ("unowned policy for %s\n" % path).encode("utf-8")
+            destination.write_bytes(self.previous[path])
+        self.state = b"pre-existing installation state\n"
+        (self.root / ".sdlc-install.json").write_bytes(self.state)
+        (self.root / "unrelated.txt").write_bytes(b"retain me\n")
+
+    def publisher(self):
+        self.assertTrue(hasattr(self.profiles, "generate_repository_adapters"),
+                        "hash-approved repository publication is missing")
+        return self.profiles.generate_repository_adapters
+
+    def approvals(self):
+        status = self.profiles.repository_adapter_status(str(self.root))
+        self.assertIn("policy_sha256", status, "canonical-policy approval hash is missing")
+        self.assertIn("adapters_sha256", status, "current-adapter approval hash is missing")
+        return status["policy_sha256"], status["adapters_sha256"]
+
+    def assert_previous(self):
+        for path, content in self.previous.items():
+            self.assertEqual((self.root / path).read_bytes(), content, path)
+        self.assertEqual((self.root / ".sdlc-install.json").read_bytes(), self.state)
+        self.assertEqual((self.root / "unrelated.txt").read_bytes(), b"retain me\n")
+
+    def test_canonical_policy_contains_the_reviewed_adapter_safeguards(self):
+        policy = (ROOT / "AGENTS.md").read_text(encoding="utf-8").casefold()
+        for safeguard in (
+            "docs/sbom.md", "fail closed", "agent model", "prompts", "decision points",
+            "pre-push", "broken symlinks", "tokens, credentials, or personal data",
+            "stdlib-only", "unpinned dependencies", "ac1:", "do not weaken tests",
+        ):
+            self.assertIn(safeguard, policy)
+
+    def test_approved_publication_preserves_canonical_policy_state_and_unrelated_files(self):
+        publish = self.publisher()
+        policy_hash, adapters_hash = self.approvals()
+        result = publish(str(self.root), policy_hash, adapters_hash)
+        expected = sorted(self.previous)
+        self.assertEqual(result["changed"], expected)
+        self.assertEqual(result["matching"], expected)
+        self.assertEqual(result["modified"], [])
+        for item in self.profiles.render_repository_adapters(CONTRACT_POLICY):
+            self.assertEqual((self.root / item["relative"]).read_bytes(), item["data"])
+        self.assertEqual((self.root / "AGENTS.md").read_bytes(), CONTRACT_POLICY.encode("utf-8"))
+        self.assertEqual((self.root / ".sdlc-install.json").read_bytes(), self.state)
+        self.assertEqual((self.root / "unrelated.txt").read_bytes(), b"retain me\n")
+        policy_hash, adapters_hash = self.approvals()
+        self.assertEqual(publish(str(self.root), policy_hash, adapters_hash)["changed"], [])
+
+    def test_unapproved_or_stale_hashes_refuse_publication_before_writes(self):
+        publish = self.publisher()
+        policy_hash, adapters_hash = self.approvals()
+        for bad_policy, bad_adapters in ((None, None), ("0" * 64, adapters_hash),
+                                        (policy_hash, "0" * 64)):
+            with self.subTest(policy=bad_policy, adapters=bad_adapters):
+                with self.assertRaises(install_lib.InstallError):
+                    publish(str(self.root), bad_policy, bad_adapters)
+                self.assert_previous()
+        self.previous[".cursorrules"] = b"edited after approval\n"
+        (self.root / ".cursorrules").write_bytes(self.previous[".cursorrules"])
+        with self.assertRaises(install_lib.InstallError):
+            publish(str(self.root), policy_hash, adapters_hash)
+        self.assert_previous()
+
+    def test_canonical_policy_race_is_detected_before_adapter_publication(self):
+        publish = self.publisher()
+        policy_hash, adapters_hash = self.approvals()
+        original = self.profiles.render_repository_adapters
+
+        def race(policy):
+            items = original(policy)
+            (self.root / "AGENTS.md").write_bytes(b"concurrently changed canonical policy\n")
+            return items
+
+        with mock.patch.object(self.profiles, "render_repository_adapters", side_effect=race):
+            with self.assertRaises(install_lib.InstallError):
+                publish(str(self.root), policy_hash, adapters_hash)
+        self.assert_previous()
+
+    def test_linked_adapter_refuses_the_whole_plan(self):
+        publish = self.publisher()
+        policy_hash, adapters_hash = self.approvals()
+        destination = self.root / ".cursorrules"
+        destination.unlink()
+        try:
+            destination.symlink_to(self.root / "unrelated.txt")
+        except OSError as exc:
+            self.skipTest("symlink creation unavailable: %s" % exc)
+        with self.assertRaises(install_lib.InstallError):
+            publish(str(self.root), policy_hash, adapters_hash)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual((self.root / ".claude/CLAUDE.md").read_bytes(), self.previous[".claude/CLAUDE.md"])
+        self.assertEqual((self.root / "unrelated.txt").read_bytes(), b"retain me\n")
+
+    def test_repository_cli_checks_read_only_and_requires_approval_hashes_for_adoption(self):
+        command = [sys.executable, "-I", "-B", str(AGENT_PROFILES), "repository",
+                   "--root", str(self.root), "--json"]
+        checked = subprocess.run(command + ["--check"], stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, timeout=30)
+        self.assertEqual(checked.returncode, 1, checked.stdout + checked.stderr)
+        self.assertTrue(checked.stdout.strip(), "repository check must return a structured report")
+        self.assertEqual(json.loads(checked.stdout)["modified"], sorted(self.previous))
+        self.assert_previous()
+        refused = subprocess.run(command + ["--adopt"], stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, timeout=30)
+        self.assertEqual(refused.returncode, 2, refused.stdout + refused.stderr)
+        self.assert_previous()
+        approval = json.loads(checked.stdout)
+        adopted = subprocess.run(command + ["--adopt", "--policy-sha256", approval["policy_sha256"],
+                                           "--adapters-sha256", approval["adapters_sha256"]],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        self.assertEqual(adopted.returncode, 0, adopted.stdout + adopted.stderr)
+        matching = subprocess.run(command + ["--check"], stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, timeout=30)
+        self.assertEqual(matching.returncode, 0, matching.stdout + matching.stderr)
+        self.assertEqual(json.loads(matching.stdout)["matching"], sorted(self.previous))
+
+    def test_guidance_distinguishes_repository_compatibility_and_installed_profiles(self):
+        guide = (ROOT / "adapters/README.md").read_text(encoding="utf-8")
+        for fragment in ("Repository compatibility", "not installer-owned", "--check", "--adopt",
+                         "--policy-sha256", "--adapters-sha256", "../docs/COMPATIBILITY.md",
+                         "do not prove native discovery"):
+            self.assertIn(fragment, guide)
+
+    def test_late_publication_failure_reports_only_files_actually_changed(self):
+        publish = self.publisher()
+        policy_hash, adapters_hash = self.approvals()
+        original = os.replace
+        calls = []
+
+        def fail_second(source, destination):
+            calls.append(destination)
+            if len(calls) == 2:
+                raise OSError("fixture late publication failure")
+            return original(source, destination)
+
+        with mock.patch.object(self.profiles.os, "replace", side_effect=fail_second):
+            with self.assertRaises(install_lib.InstallError) as caught:
+                publish(str(self.root), policy_hash, adapters_hash)
+        self.assertEqual(caught.exception.changed, (".claude/CLAUDE.md",))
+        self.assertEqual((self.root / "AGENTS.md").read_bytes(), CONTRACT_POLICY.encode("utf-8"))
+        self.assertEqual((self.root / ".sdlc-install.json").read_bytes(), self.state)
+        self.assertEqual((self.root / ".cursorrules").read_bytes(), self.previous[".cursorrules"])
+        self.assertEqual(list(self.root.rglob(".sdlc-adapter-*")), [])
 
 
 if __name__ == "__main__":

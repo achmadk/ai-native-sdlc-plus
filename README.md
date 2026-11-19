@@ -96,6 +96,10 @@ python3 scripts/doctor.py --root . --check-branch-protection --require-enforceme
 
 This requires authenticated `gh` access to protection, ownership, and bypass settings. It uses read-only REST requests plus a fixed read-only GraphQL POST query for merge-queue state; no mutations are issued. Missing, inaccessible, or unsupported prerequisites fail strict readiness. Follow the [activation checklist](skills/ai-sdlc/references/init.md), not a generic doctor exit code.
 
+### Product Version
+
+The canonical product version is defined once in `scripts/version.py`. Source and installed doctor/CLI output, wheel filename, METADATA, and dist-info identify `0.3.0`; schema and client versions remain independent. This candidate is **unreleased**: see [CHANGELOG.md](CHANGELOG.md) for verified changes and preserved history. A version value or successful local build is not a release. A local `v0.3.0` tag requires passing candidate preflight and **explicit tag authorization**; neither tagging nor remote publication happens automatically.
+
 ---
 
 ## 10-Minute First Win
@@ -150,15 +154,7 @@ Pre-built mappings from gate evidence to the provisions below. They are supporti
 
 ## Universal Agent Compatibility
 
-Instruction adapters are provided for popular AI coding assistants. Installation and instruction availability are not proof of agent behavior or runtime permission enforcement; agent registration remains separate.
-
-| Agent / Tool | Config File | Integration Method |
-|---|---|---|
-| **Claude Code** | `.claude/CLAUDE.md`, `.claude/commands/` | Native CLI integration |
-| **Cursor IDE** | `.cursorrules`, `.cursor/rules/sdlc.mdc` | Multi-rule MDC context |
-| **GitHub Copilot** | `.github/copilot-instructions.md` | Workspace instructions |
-| **OpenAI Codex / Aider / Devin** | `AGENTS.md` | Standard markdown agent prompt |
-| **Google Gemini CLI / Antigravity** | `GEMINI.md` | Instruction ruleset |
+The toolkit generates seven declared project profiles, but generation, native loader discovery, and reviewed behavior are separate evidence levels. See the bounded [native profile evidence matrix](docs/COMPATIBILITY.md#native-agent-profiles-sdlc-init---agents-) for exact surfaces, client/version/platform identity, required levels, and limitations. Missing evidence remains unverified; Kilo does not substitute for OpenCode V2, Antigravity does not substitute for Gemini CLI, and Copilot CLI does not certify VS Code prompt files.
 
 ---
 

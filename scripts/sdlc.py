@@ -134,6 +134,22 @@ def load_runtime_module(runtime_root, module_name, relpath, required=()):
     return module
 
 
+def _trusted_agent_profiles(runtime_root, install_mod=None):
+    if install_mod is None:
+        install_mod = load_runtime_module(
+            runtime_root, "_sdlc_delegated_install", "scripts/install.py",
+            ("scripts/install.py", "scripts/install-manifest.json"),
+        )
+    resolve_runtime_file(runtime_root, "scripts/agent_profiles.py")
+    try:
+        profiles = install_mod.load_agent_profiles(runtime_root)
+    except install_mod.InstallError as exc:
+        raise RuntimeIntegrityError(str(exc)) from exc
+    if profiles is None or not isinstance(getattr(profiles, "PROFILE_CONTRACT", None), dict):
+        raise RuntimeIntegrityError("missing shared profile contract: scripts/agent_profiles.py")
+    return profiles
+
+
 def _invoke_helper_main(module, prog, forwarded):
     saved_argv = sys.argv[:]
     try:
@@ -188,14 +204,15 @@ def _build_explain_parser():
     return parser
 
 
-def _build_init_parser():
+def _build_init_parser(runtime_root=RUNTIME_ROOT):
+    profiles = _trusted_agent_profiles(runtime_root)
     parser = argparse.ArgumentParser(
         prog="sdlc init",
         description="Initialize the owned SDLC runtime, canonical AGENTS.md starter, and selected native agent profiles",
     )
     parser.add_argument("--root", default=".", help="destination project directory (default: .)")
     parser.add_argument("--agents", default=None,
-                        help="comma-separated profiles: claude,cursor,copilot,codex,gemini,opencode,kilo")
+                         help="comma-separated profiles: %s" % ",".join(profiles.PROFILE_CONTRACT))
     parser.add_argument("--dry-run", action="store_true", help="plan operations without creating or modifying files")
     parser.add_argument("--json", action="store_true", help="emit structured JSON plan/result")
     return parser
@@ -320,7 +337,7 @@ def dispatch(argv=None, runtime_root=None):
             return _run_explain(rt_root, parsed)
 
         if cmd == "init":
-            parsed, exit_code = _parse_with_exit(_build_init_parser(), rest)
+            parsed, exit_code = _parse_with_exit(_build_init_parser(rt_root), rest)
             if exit_code is not None:
                 return exit_code
             return _run_lifecycle(rt_root, "init", parsed)
@@ -699,7 +716,7 @@ def _run_doctor(rt_root, parsed):
         rt_root,
         "_sdlc_delegated_doctor",
         "scripts/doctor.py",
-        ("scripts/doctor.py", "scripts/lane.py", "scripts/scanner-profiles.json"),
+        ("scripts/doctor.py", "scripts/version.py", "scripts/lane.py", "scripts/scanner-profiles.json"),
     )
     results = doctor_mod.check_repo(
         parsed.root,
@@ -809,31 +826,13 @@ def _run_explain(rt_root, parsed):
     return 0
 
 
-SUPPORTED_AGENTS = ("claude", "cursor", "copilot", "codex", "gemini", "opencode", "kilo")
-
-
-def _parse_agents_csv(raw):
+def _parse_agents_csv(raw, profiles):
     if raw is None:
         return [], None
-    tokens = [part.strip().lower() for part in raw.split(",")]
-    if not tokens or any(not tok for tok in tokens):
-        return None, "invalid --agents value %r (expected comma-separated list from: %s)" % (
-            raw,
-            ", ".join(SUPPORTED_AGENTS),
-        )
-    seen = []
-    unknown = []
-    for tok in tokens:
-        if tok not in SUPPORTED_AGENTS:
-            unknown.append(tok)
-        elif tok not in seen:
-            seen.append(tok)
-    if unknown:
-        return None, "unsupported --agents selector(s): %s (supported: %s)" % (
-            ", ".join(unknown),
-            ", ".join(SUPPORTED_AGENTS),
-        )
-    return seen, None
+    try:
+        return profiles.parse_agent_selectors(raw), None
+    except profiles.install_lib.InstallError as exc:
+        return None, str(exc)
 
 
 def _run_lifecycle(rt_root, action, parsed):
@@ -877,7 +876,8 @@ def _run_lifecycle(rt_root, action, parsed):
         return 0
 
     if action == "init":
-        selected_agents, err = _parse_agents_csv(parsed.agents)
+        profiles = _trusted_agent_profiles(rt_root, install_mod) if parsed.agents is not None else None
+        selected_agents, err = _parse_agents_csv(parsed.agents, profiles)
         if err is not None:
             sys.stderr.write("sdlc init: %s\n" % err)
             return 2

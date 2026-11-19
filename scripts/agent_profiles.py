@@ -12,8 +12,12 @@ if sys.version_info < (3, 8):
     sys.exit("agent_profiles requires Python >= 3.8")
 sys.dont_write_bytecode = True
 
+import argparse
+import hashlib
 import importlib.util
+import json
 import os
+import tempfile
 
 
 def _resolve_install_lib():
@@ -35,7 +39,83 @@ def _resolve_install_lib():
 
 install_lib = _resolve_install_lib()
 
-SUPPORTED_AGENTS = ("claude", "cursor", "copilot", "codex", "gemini", "opencode", "kilo")
+PROFILE_CONTRACT = {
+    "claude": {
+        "label": "Claude Code",
+        "surface": "Claude Code project instructions, skills, and commands",
+        "policy_path": "CLAUDE.md",
+        "policy_note": "Project-local instruction adapter; slash commands use /sdlc:<op> from .claude/commands/sdlc/<op>.md.",
+        "skill_prefix": ".claude/skills",
+        "command_path": ".claude/commands/sdlc/{op}.md",
+        "command_spelling": "/sdlc:{op}",
+        "command_format": "claude-markdown",
+    },
+    "cursor": {
+        "label": "Cursor",
+        "surface": "Cursor project skills and manual command skills",
+        "policy_path": None,
+        "skill_prefix": ".cursor/skills",
+        "command_path": ".cursor/skills/sdlc-{op}/SKILL.md",
+        "command_spelling": "/sdlc-{op}",
+        "command_format": "cursor-manual-skill",
+    },
+    "copilot": {
+        "label": "GitHub Copilot (VS Code surface)",
+        "surface": "VS Code Copilot instructions, skills, and prompt files; not Copilot CLI",
+        "policy_path": ".github/copilot-instructions.md",
+        "policy_note": "Repository instructions + .github/skills/*; .github/prompts/sdlc-*.prompt.md are VS Code prompt files only, not a Copilot CLI feature.",
+        "skill_prefix": ".github/skills",
+        "command_path": ".github/prompts/sdlc-{op}.prompt.md",
+        "command_spelling": "VS Code prompt file: sdlc-{op}",
+        "command_format": "copilot-prompt",
+    },
+    "codex": {
+        "label": "Codex",
+        "surface": "Codex project instructions and skills; no custom slash commands",
+        "policy_path": None,
+        "skill_prefix": ".agents/skills",
+        "command_path": None,
+        "command_spelling": None,
+        "command_format": None,
+    },
+    "gemini": {
+        "label": "Gemini CLI",
+        "surface": "Gemini CLI project instructions, skills, and TOML commands; not Antigravity",
+        "policy_path": "GEMINI.md",
+        "policy_note": "Project-local Gemini CLI instruction adapter (not an Antigravity substitution); commands use /sdlc:<op> from .gemini/commands/sdlc/<op>.toml.",
+        "skill_prefix": ".gemini/skills",
+        "command_path": ".gemini/commands/sdlc/{op}.toml",
+        "command_spelling": "/sdlc:{op}",
+        "command_format": "gemini-toml",
+    },
+    "opencode": {
+        "label": "OpenCode V2",
+        "surface": "OpenCode V2 project instructions, skills, and slash-namespace commands",
+        "policy_path": None,
+        "skill_prefix": ".opencode/skills",
+        "command_path": ".opencode/commands/sdlc/{op}.md",
+        "command_spelling": "/sdlc/{op}",
+        "command_format": "opencode-markdown",
+    },
+    "kilo": {
+        "label": "Kilo",
+        "surface": "Kilo project instructions, skills, and .kilo/command entries; not .kilocode",
+        "policy_path": None,
+        "skill_prefix": ".kilo/skills",
+        "command_path": ".kilo/command/sdlc-{op}.md",
+        "command_spelling": "/sdlc-{op}",
+        "command_format": "kilo-markdown",
+    },
+}
+SUPPORTED_AGENTS = tuple(PROFILE_CONTRACT)
+
+REPOSITORY_ADAPTERS = (
+    (".claude/CLAUDE.md", "claude", "markdown"),
+    (".cursorrules", "cursor", "markdown"),
+    (".cursor/rules/sdlc.mdc", "cursor", "cursor-rule"),
+    (".github/copilot-instructions.md", "copilot", "markdown"),
+    ("GEMINI.md", "gemini", "markdown"),
+)
 
 PRODUCT_SKILLS = (
     "ai-sdlc",
@@ -104,7 +184,7 @@ def parse_agent_selectors(selectors):
             raise install_lib.InstallError(
                 "empty agent profile selector in %r (supported: %s)" % (selectors, ", ".join(SUPPORTED_AGENTS))
             )
-        if tok not in SUPPORTED_AGENTS:
+        if tok not in PROFILE_CONTRACT:
             unknown.append(tok)
         elif tok not in seen:
             seen.append(tok)
@@ -283,52 +363,30 @@ def _render_kilo_command(spec):
 def recognized_profile_paths(source_root):
     """Return the exact set of relative paths that supported agent profiles can manage."""
     skill_entries = _read_canonical_skill_sources(source_root)
-    paths = {
-        "CLAUDE.md",
-        "GEMINI.md",
-        ".github/copilot-instructions.md",
-    }
-    for prefix in (
-        ".claude/skills",
-        ".cursor/skills",
-        ".github/skills",
-        ".agents/skills",
-        ".gemini/skills",
-        ".opencode/skills",
-        ".kilo/skills",
-    ):
+    paths = set()
+    for descriptor in PROFILE_CONTRACT.values():
+        if descriptor["policy_path"]:
+            paths.add(descriptor["policy_path"])
+        prefix = descriptor["skill_prefix"]
         for subpath, _, _ in skill_entries:
             paths.add("%s/%s" % (prefix, subpath))
-    for spec in COMMAND_OPERATIONS:
-        op = spec["op"]
-        paths.add(".claude/commands/sdlc/%s.md" % op)
-        paths.add(".cursor/skills/sdlc-%s/SKILL.md" % op)
-        paths.add(".github/prompts/sdlc-%s.prompt.md" % op)
-        paths.add(".gemini/commands/sdlc/%s.toml" % op)
-        paths.add(".opencode/commands/sdlc/%s.md" % op)
-        paths.add(".kilo/command/sdlc-%s.md" % op)
+        if descriptor["command_path"]:
+            for spec in COMMAND_OPERATIONS:
+                paths.add(descriptor["command_path"].format(op=spec["op"]))
     return paths
 
 
 def recover_installed_profiles(owned, source_root):
     """Recover installed profile names in canonical order from validated owned paths."""
     owned_set = set(owned or ())
-    markers = {
-        "claude": ("CLAUDE.md", ".claude/commands/sdlc/doctor.md", ".claude/skills/ai-sdlc/SKILL.md"),
-        "cursor": (".cursor/skills/sdlc-doctor/SKILL.md", ".cursor/skills/ai-sdlc/SKILL.md"),
-        "copilot": (
-            ".github/copilot-instructions.md",
-            ".github/prompts/sdlc-doctor.prompt.md",
-            ".github/skills/ai-sdlc/SKILL.md",
-        ),
-        "codex": (".agents/skills/ai-sdlc/SKILL.md",),
-        "gemini": ("GEMINI.md", ".gemini/commands/sdlc/doctor.toml", ".gemini/skills/ai-sdlc/SKILL.md"),
-        "opencode": (".opencode/commands/sdlc/doctor.md", ".opencode/skills/ai-sdlc/SKILL.md"),
-        "kilo": (".kilo/command/sdlc-doctor.md", ".kilo/skills/ai-sdlc/SKILL.md"),
-    }
     recovered = []
-    for agent in SUPPORTED_AGENTS:
-        if any(m in owned_set for m in markers[agent]):
+    for agent, descriptor in PROFILE_CONTRACT.items():
+        markers = {descriptor["skill_prefix"] + "/ai-sdlc/SKILL.md"}
+        if descriptor["policy_path"]:
+            markers.add(descriptor["policy_path"])
+        if descriptor["command_path"]:
+            markers.add(descriptor["command_path"].format(op="doctor"))
+        if owned_set & markers:
             recovered.append(agent)
     return recovered
 
@@ -339,92 +397,172 @@ def render_profiles(source_root, selected_agents, policy_text):
     if not isinstance(policy_text, str):
         raise install_lib.InstallError("canonical policy text must be a decoded UTF-8 string")
     skill_entries = _read_canonical_skill_sources(source_root)
+    command_renderers = {
+        "claude-markdown": _render_claude_command,
+        "cursor-manual-skill": _render_cursor_command_skill,
+        "copilot-prompt": _render_copilot_prompt,
+        "gemini-toml": _render_gemini_command_toml,
+        "opencode-markdown": _render_opencode_command,
+        "kilo-markdown": _render_kilo_command,
+    }
     items = []
     for agent in agents:
-        if agent == "claude":
-            items.append(
-                _make_item(
-                    "CLAUDE.md",
-                    _render_policy_adapter(
-                        "Claude Code",
-                        "Project-local instruction adapter; slash commands use /sdlc:<op> from .claude/commands/sdlc/<op>.md.",
-                        policy_text,
-                    ),
-                )
-            )
-            items.extend(_render_skill_tree(skill_entries, ".claude/skills"))
+        descriptor = PROFILE_CONTRACT[agent]
+        if descriptor["policy_path"]:
+            items.append(_make_item(
+                descriptor["policy_path"],
+                _render_policy_adapter(descriptor["label"], descriptor["policy_note"], policy_text),
+            ))
+        items.extend(_render_skill_tree(skill_entries, descriptor["skill_prefix"]))
+        if descriptor["command_path"]:
+            command_renderer = command_renderers[descriptor["command_format"]]
             for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".claude/commands/sdlc/%s.md" % spec["op"],
-                        _render_claude_command(spec),
-                    )
-                )
-        elif agent == "cursor":
-            items.extend(_render_skill_tree(skill_entries, ".cursor/skills"))
-            for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".cursor/skills/sdlc-%s/SKILL.md" % spec["op"],
-                        _render_cursor_command_skill(spec),
-                    )
-                )
-        elif agent == "copilot":
-            items.append(
-                _make_item(
-                    ".github/copilot-instructions.md",
-                    _render_policy_adapter(
-                        "GitHub Copilot (VS Code surface)",
-                        "Repository instructions + .github/skills/*; .github/prompts/sdlc-*.prompt.md are VS Code prompt files only, not a Copilot CLI feature.",
-                        policy_text,
-                    ),
-                )
-            )
-            items.extend(_render_skill_tree(skill_entries, ".github/skills"))
-            for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".github/prompts/sdlc-%s.prompt.md" % spec["op"],
-                        _render_copilot_prompt(spec),
-                    )
-                )
-        elif agent == "codex":
-            items.extend(_render_skill_tree(skill_entries, ".agents/skills"))
-        elif agent == "gemini":
-            items.append(
-                _make_item(
-                    "GEMINI.md",
-                    _render_policy_adapter(
-                        "Gemini CLI",
-                        "Project-local Gemini CLI instruction adapter (not an Antigravity substitution); commands use /sdlc:<op> from .gemini/commands/sdlc/<op>.toml.",
-                        policy_text,
-                    ),
-                )
-            )
-            items.extend(_render_skill_tree(skill_entries, ".gemini/skills"))
-            for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".gemini/commands/sdlc/%s.toml" % spec["op"],
-                        _render_gemini_command_toml(spec),
-                    )
-                )
-        elif agent == "opencode":
-            items.extend(_render_skill_tree(skill_entries, ".opencode/skills"))
-            for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".opencode/commands/sdlc/%s.md" % spec["op"],
-                        _render_opencode_command(spec),
-                    )
-                )
-        elif agent == "kilo":
-            items.extend(_render_skill_tree(skill_entries, ".kilo/skills"))
-            for spec in COMMAND_OPERATIONS:
-                items.append(
-                    _make_item(
-                        ".kilo/command/sdlc-%s.md" % spec["op"],
-                        _render_kilo_command(spec),
-                    )
-                )
+                items.append(_make_item(descriptor["command_path"].format(op=spec["op"]),
+                                        command_renderer(spec)))
     return items
+
+
+def render_repository_adapters(policy_text):
+    """Render named compatibility files without adopting or writing them."""
+    if not isinstance(policy_text, str):
+        raise install_lib.InstallError("canonical policy text must be a decoded UTF-8 string")
+    policy = policy_text if policy_text.endswith("\n") else policy_text + "\n"
+    items = []
+    for path, agent, wrapper in REPOSITORY_ADAPTERS:
+        prefix = ""
+        if wrapper == "cursor-rule":
+            prefix = (
+                "---\n"
+                "description: AI-native SDLC lane routing and evidence rules\n"
+                'globs: ["*"]\n'
+                "alwaysApply: true\n"
+                "---\n\n"
+            )
+        header = (
+            "<!-- Generated %s repository compatibility policy from AGENTS.md.\n"
+            "Not installer-owned; edit canonical policy and regenerate this output. -->\n\n"
+        ) % PROFILE_CONTRACT[agent]["label"]
+        items.append(_make_item(path, prefix + header + policy))
+    return items
+
+
+def _repository_adapter_plan(root):
+    root = os.path.abspath(root)
+    policy = install_lib.inspect_canonical_policy(root)
+    if policy["status"] != "present":
+        raise install_lib.InstallError("required canonical policy missing: AGENTS.md")
+    report = {"matching": [], "missing": [], "modified": []}
+    items = render_repository_adapters(policy["text"])
+    current_records = {}
+    for item in items:
+        actual = install_lib.snapshot(root, item["relative"])
+        item["previous"] = actual
+        current_records[item["relative"]] = actual["record"] if actual is not None else None
+        if actual is None:
+            report["missing"].append(item["relative"])
+        elif actual["data"] == item["data"]:
+            report["matching"].append(item["relative"])
+        else:
+            report["modified"].append(item["relative"])
+    install_lib.unchanged(root, "AGENTS.md", policy["snapshot"])
+    report = {key: sorted(values) for key, values in report.items()}
+    report["policy_sha256"] = policy["snapshot"]["record"]["sha256"]
+    report["adapters_sha256"] = hashlib.sha256(
+        json.dumps(current_records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return policy, items, report
+
+
+def repository_adapter_status(root):
+    """Inspect compatibility drift without changing policy or adapter files."""
+    return _repository_adapter_plan(root)[2]
+
+
+def generate_repository_adapters(root, policy_sha256, adapters_sha256):
+    """Publish only the five named adapters after exact snapshot approval."""
+    for approved_hash in (policy_sha256, adapters_sha256):
+        if not isinstance(approved_hash, str) or not install_lib.HASH.fullmatch(approved_hash):
+            raise install_lib.InstallError("explicit policy and adapter approval hashes are required")
+    root = os.path.abspath(root)
+    policy, items, report = _repository_adapter_plan(root)
+    if policy_sha256 != report["policy_sha256"] or adapters_sha256 != report["adapters_sha256"]:
+        raise install_lib.InstallError("canonical policy or adapters changed since approval; review the new plan")
+    pending = [item for item in items
+               if item["previous"] is None or item["previous"]["record"] != item["record"]]
+    staged = []
+    changed = []
+    try:
+        install_lib.unchanged(root, "AGENTS.md", policy["snapshot"])
+        for item in items:
+            install_lib.unchanged(root, item["relative"], item["previous"])
+        for item in pending:
+            destination = install_lib.checked_path(root, item["relative"])
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            destination = install_lib.checked_path(root, item["relative"])
+            descriptor, temporary = tempfile.mkstemp(prefix=".sdlc-adapter-", dir=os.path.dirname(destination))
+            item["staged"] = temporary
+            staged.append(temporary)
+            install_lib.write_staged(descriptor, temporary, item)
+            install_lib.verify_staged(temporary, item)
+        for item in pending:
+            destination = install_lib.checked_path(root, item["relative"])
+            install_lib.verify_staged(item["staged"], item)
+            install_lib.unchanged(root, "AGENTS.md", policy["snapshot"])
+            install_lib.unchanged(root, item["relative"], item["previous"])
+            os.replace(item["staged"], destination)
+            changed.append(item["relative"])
+        install_lib.verify_payload(root, items)
+        install_lib.unchanged(root, "AGENTS.md", policy["snapshot"])
+        result = repository_adapter_status(root)
+        result["changed"] = sorted(changed)
+        return result
+    except (OSError, ValueError, install_lib.InstallError) as exc:
+        raise install_lib.InstallError("repository adoption failed: %s" % exc, changed) from exc
+    finally:
+        for temporary in staged:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+def run(argv=None):
+    parser = argparse.ArgumentParser(description="Inspect or explicitly adopt repository compatibility adapters")
+    subcommands = parser.add_subparsers(dest="command")
+    repository = subcommands.add_parser("repository", help="check or regenerate the five named repository adapters")
+    repository.add_argument("--root", default=".")
+    mode = repository.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--check", action="store_true", help="report drift without writing")
+    mode.add_argument("--adopt", action="store_true", help="publish the exact approved policy and adapter snapshots")
+    repository.add_argument("--policy-sha256")
+    repository.add_argument("--adapters-sha256")
+    repository.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    if args.command != "repository":
+        parser.print_help()
+        return 2
+    if args.adopt and (not args.policy_sha256 or not args.adapters_sha256):
+        parser.error("--adopt requires --policy-sha256 and --adapters-sha256 from the reviewed --check report")
+    if args.check and (args.policy_sha256 or args.adapters_sha256):
+        parser.error("approval hashes apply only to --adopt")
+    try:
+        if args.adopt:
+            result = generate_repository_adapters(args.root, args.policy_sha256, args.adapters_sha256)
+        else:
+            result = repository_adapter_status(args.root)
+    except (OSError, install_lib.InstallError) as exc:
+        if args.json:
+            print(json.dumps({"error": str(exc), "changed": list(getattr(exc, "changed", ()))}, sort_keys=True))
+        else:
+            sys.stderr.write("repository adapters: %s\n" % exc)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print("repository adapters: %d matching, %d missing, %d modified" % (
+            len(result["matching"]), len(result["missing"]), len(result["modified"])))
+    return 1 if result["missing"] or result["modified"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(run())

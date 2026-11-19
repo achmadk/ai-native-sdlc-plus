@@ -98,6 +98,9 @@ class PublicCLIContract(FrontDoorContractTestCase):
                 res = self.run_sdlc(*argv, cwd=empty)
                 self.assertEqual(res.returncode, 0, res.stderr)
                 self.assertTrue(res.stdout.strip())
+                if argv == ("init", "--help"):
+                    for agent in ("claude", "cursor", "copilot", "codex", "gemini", "opencode", "kilo"):
+                        self.assertIn(agent, res.stdout)
         self.assertEqual(os.listdir(empty), [], "help requests must not modify the working directory")
 
     def test_unknown_commands_and_unimplemented_aliases_fail_with_usage_error(self):
@@ -490,7 +493,7 @@ class RuntimeIsolationContract(FrontDoorContractTestCase):
             "pathlib.Path(%r).write_text('triggered', encoding='utf-8')\n"
             "raise SystemExit('POISON_CODE_EXECUTED')\n" % str(marker)
         )
-        for name in ("lane.py", "doctor.py", "evidence_check.py", "check_spec.py", "check_brief.py"):
+        for name in ("lane.py", "doctor.py", "evidence_check.py", "check_spec.py", "check_brief.py", "agent_profiles.py"):
             (hostile_cwd / name).write_text(poison_py, encoding="utf-8")
             (hostile_cwd / "scripts").mkdir(exist_ok=True)
             (hostile_cwd / "scripts" / name).write_text(poison_py, encoding="utf-8")
@@ -512,7 +515,7 @@ class RuntimeIsolationContract(FrontDoorContractTestCase):
         ).stdout.strip()
 
         # Poison both root and scripts/ in the candidate revision of hostile_repo.
-        for name in ("lane.py", "doctor.py", "evidence_check.py", "check_spec.py", "check_brief.py"):
+        for name in ("lane.py", "doctor.py", "evidence_check.py", "check_spec.py", "check_brief.py", "agent_profiles.py"):
             (hostile_repo / name).write_text(poison_py, encoding="utf-8")
             (hostile_repo / "scripts" / name).write_text(poison_py, encoding="utf-8")
         (hostile_repo / "scripts" / "scanner-profiles.json").write_text("{broken", encoding="utf-8")
@@ -530,6 +533,13 @@ class RuntimeIsolationContract(FrontDoorContractTestCase):
             sdlc_entry = rt_root / "scripts" / "sdlc.py"
             trusted_cfg = rt_root / "scripts" / "lane-config.yaml"
             with self.subTest(runtime=label):
+                init_help = self.run_sdlc(
+                    "init", "--help", cwd=hostile_cwd,
+                    env={"PYTHONPATH": str(hostile_cwd) + os.pathsep + str(hostile_repo / "scripts")},
+                    script=sdlc_entry,
+                )
+                self.assertEqual(init_help.returncode, 0, init_help.stderr)
+                self.assertIn("kilo", init_help.stdout)
                 lane_res = self.run_sdlc(
                     "lane",
                     "--config",
@@ -602,6 +612,22 @@ class RuntimeIsolationContract(FrontDoorContractTestCase):
                 )
                 self.assertEqual(non_isolated.returncode, 0, non_isolated.stderr)
                 self.assertFalse(marker.exists(), "poison code must never be imported or executed")
+
+    def test_init_help_requires_the_trusted_profile_registry(self):
+        runtime = self._create_installed_runtime(self.work / "missing-profile-runtime")
+        (runtime / "scripts" / "agent_profiles.py").unlink()
+        trap = self.work / "profile-fallback-trap"
+        trap.mkdir()
+        marker = self.work / "profile-registry-poisoned"
+        poison = "from pathlib import Path\nPath(%r).touch()\n" % str(marker)
+        (trap / "agent_profiles.py").write_text(poison, encoding="utf-8")
+        (trap / "scripts").mkdir()
+        (trap / "scripts" / "agent_profiles.py").write_text(poison, encoding="utf-8")
+        result = self.run_sdlc("init", "--help", cwd=trap,
+                               env={"PYTHONPATH": str(trap)}, script=runtime / "scripts" / "sdlc.py")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertIn("missing required runtime component: scripts/agent_profiles.py", result.stderr)
+        self.assertFalse(marker.exists())
 
     def test_missing_owned_runtime_components_fail_nonzero_without_fallback(self):
         hostile_cwd = self.work / "fallback-trap"

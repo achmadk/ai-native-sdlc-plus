@@ -60,6 +60,11 @@ The installer preserves `.gitattributes` conflicts and maintains `.sdlc-install.
 
 `sdlc init --root <repo> [--agents claude,cursor,copilot,codex,gemini,opencode,kilo]` preserves root `AGENTS.md` as user-owned canonical policy (creating a starter only when absent and retaining it on uninstall) and renders project-local native files via `scripts/agent_profiles.py`. Configuration/fixture generation, loader discovery, and live agent execution are distinct evidence levels:
 
+<!-- agent-reach:start -->
+### Historical generated-profile snapshot
+
+The table below is the retained 2026-11-10 configuration snapshot. It is not a current native loader or behavior matrix. `scripts/agent_reach.py matrix` will replace this bounded section only after a committed registration and reviewed native records exist.
+
 | Profile | Native project-local surfaces | Verification level (`[measured here, 2026-11-10]`) |
 |---|---|---|
 | `claude` (Claude Code) | Generated `CLAUDE.md`; `.claude/skills/<10-skills>/`; `.claude/commands/sdlc/<op>.md` (`/sdlc:<op>`) | Configuration/snapshot verified; `claude` CLI absent locally (`unverified` loader/execution) |
@@ -69,6 +74,8 @@ The installer preserves `.gitattributes` conflicts and maintains `.sdlc-install.
 | `gemini` (Gemini CLI) | Generated `GEMINI.md`; `.gemini/skills/<10-skills>/`; `.gemini/commands/sdlc/<op>.toml` (`/sdlc:<op>`, not an Antigravity substitution) | Configuration/TOML parse verified; `gemini` CLI absent locally (`unverified` loader/execution) |
 | `opencode` (OpenCode V2) | User-owned `AGENTS.md` (no `CLAUDE.md` fallback); `.opencode/skills/<10-skills>/`; `.opencode/commands/sdlc/<op>.md` (`/sdlc/<op>`) | Configuration/snapshot verified; `opencode v2.2.5` installed locally, live LLM execution not authorized (`unverified` execution) |
 | `kilo` (Kilo) | User-owned `AGENTS.md`; `.kilo/skills/<10-skills>/`; `.kilo/command/sdlc-<op>.md` (`/sdlc-<op>`, no `.kilocode/`) | Configuration/snapshot verified; `kilo` CLI absent locally (`unverified` loader/execution) |
+
+<!-- agent-reach:end -->
 
 ## Contributor-generated instructions
 

@@ -25,7 +25,21 @@ import zipfile
 
 DIST_NAME = "ai-native-sdlc-plus"
 NORM_NAME = "ai_native_sdlc_plus"
-VERSION = "0.0.0.dev0"
+VERSION = None
+VERSION_ERROR = None
+_version_module = None
+try:
+    _version_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "version.py")
+    _version_info = os.lstat(_version_path)
+    if os.path.islink(_version_path) or getattr(_version_info, "st_file_attributes", 0) & 0x400:
+        raise ValueError("linked product version resource is not trusted")
+    _version_spec = importlib.util.spec_from_file_location("sdlc_wheel_version", _version_path)
+    _version_module = importlib.util.module_from_spec(_version_spec)
+    _version_spec.loader.exec_module(_version_module)
+    with open(_version_path, "rb") as _version_handle:
+        VERSION = _version_module.read_version(_version_handle.read())
+except Exception as _version_exc:
+    VERSION_ERROR = "cannot load required version resource scripts/version.py: %s" % _version_exc
 TAG = "py3-none-any"
 RUNTIME_PKG = "_sdlc_runtime"
 FIXED_ZIP_TIME = (2026, 1, 1, 0, 0, 0)
@@ -140,6 +154,8 @@ def build_wheel(source_root, out_dir):
     install_mod = _load_install_module()
     source_root = os.path.abspath(source_root)
     out_dir = os.path.abspath(out_dir)
+    if VERSION_ERROR:
+        raise install_mod.InstallError(VERSION_ERROR)
 
     payload, _ = install_mod.read_payload(source_root)
     license_snap = install_mod.snapshot(source_root, "LICENSE")
@@ -151,6 +167,7 @@ def build_wheel(source_root, out_dir):
     for req in (
         "scripts/sdlc.py",
         "scripts/agent_profiles.py",
+        "scripts/version.py",
         "scripts/install.py",
         "scripts/install-manifest.json",
         "scripts/lane.py",
@@ -161,6 +178,12 @@ def build_wheel(source_root, out_dir):
     ):
         if req not in rels:
             raise install_mod.InstallError("required runtime file missing from manifest: %s" % req)
+
+    version_payload = next(item for item in payload if item["relative"] == "scripts/version.py")
+    source_version = _version_module.read_version(version_payload["data"])
+    if source_version != VERSION:
+        raise install_mod.InstallError("selected source product version %s differs from invoked runtime %s" % (
+            source_version, VERSION))
 
     dist_info = "%s-%s.dist-info" % (NORM_NAME, VERSION)
     wheel_filename = "%s-%s-%s.whl" % (NORM_NAME, VERSION, TAG)

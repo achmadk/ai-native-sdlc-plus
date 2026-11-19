@@ -39,7 +39,20 @@ try:
 except Exception:  # missing or broken lane.py is reported by the checks, not raised here
     lanelib = None
 
-VERSION = "0.3.0"
+VERSION = None
+VERSION_ERROR = None
+try:
+    _version_path = os.path.join(HERE, "version.py")
+    _version_info = os.lstat(_version_path)
+    if os.path.islink(_version_path) or getattr(_version_info, "st_file_attributes", 0) & 0x400:
+        raise ValueError("linked product version resource is not trusted")
+    _version_spec = importlib.util.spec_from_file_location("sdlc_doctor_version", _version_path)
+    _version_module = importlib.util.module_from_spec(_version_spec)
+    _version_spec.loader.exec_module(_version_module)
+    with open(_version_path, "rb") as _version_handle:
+        VERSION = _version_module.read_version(_version_handle.read())
+except Exception as _version_exc:
+    VERSION_ERROR = "cannot load required version resource scripts/version.py: %s" % _version_exc
 OK, FAIL, WARN, UNVERIFIED, INFO = "verified", "FAIL", "WARN", "unverified", "info"
 MAX_FILE_BYTES = 1000000
 MAX_TRACKED_FILES = 200000
@@ -116,8 +129,12 @@ def clip(text, limit=160):
 def check_environment():
     version = "%d.%d.%d" % sys.version_info[:3]
     if sys.version_info < (3, 8):
-        return [("python", FAIL, "Python %s; the gate scripts need >= 3.8" % version)]
-    return [("python", OK, "Python %s (>= 3.8)" % version)]
+        results = [("python", FAIL, "Python %s; the gate scripts need >= 3.8" % version)]
+    else:
+        results = [("python", OK, "Python %s (>= 3.8)" % version)]
+    if VERSION_ERROR:
+        results.append(("version-resource", FAIL, VERSION_ERROR))
+    return results
 
 
 def check_files(root):

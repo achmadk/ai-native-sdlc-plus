@@ -28,7 +28,7 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 STATE = ".sdlc-install.json"
 CORE_FILES = {
     ".gitattributes", "install.sh", "install.ps1", "scripts/sdlc.py", "scripts/agent_profiles.py",
-    "scripts/install.py", "scripts/install-manifest.json",
+    "scripts/install.py", "scripts/install-manifest.json", "scripts/version.py",
     "scripts/lane.py", "scripts/lane-config.yaml", "scripts/lite.py", "scripts/evidence_check.py", "scripts/scanner-profiles.json",
     "scripts/doctor.py", "scripts/doctor_online.py", "scripts/lane_backtest.py",
     "scripts/trace_lint.py", "scripts/check_spec.py", "scripts/check_brief.py", "scripts/redgreen.py",

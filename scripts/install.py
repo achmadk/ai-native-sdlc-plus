@@ -30,6 +30,7 @@ MODES = ("0644", "0755")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 RESERVED = re.compile(r"(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?\Z", re.I)
 
+# Older runtimes without the renderer still recognize these owned policy copies.
 STATIC_PROFILE_PATHS = frozenset((
     "CLAUDE.md",
     "GEMINI.md",
@@ -263,10 +264,12 @@ def load_agent_profiles(source_root):
 def recognized_managed_paths(source_root, core_payload=None):
     if core_payload is None:
         core_payload, _ = read_payload(source_root)
-    recognized = {item["relative"] for item in core_payload} | set(STATIC_PROFILE_PATHS)
+    recognized = {item["relative"] for item in core_payload}
     ap_mod = load_agent_profiles(source_root)
     if ap_mod is not None:
         recognized |= set(ap_mod.recognized_profile_paths(source_root))
+    else:
+        recognized |= set(STATIC_PROFILE_PATHS)
     recognized.discard(CANONICAL_POLICY)
     recognized.discard(STATE)
     return recognized
